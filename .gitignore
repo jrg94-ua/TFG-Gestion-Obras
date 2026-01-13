@@ -1,0 +1,289 @@
+# ASP.NET Core
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.log
+*.tmp
+.vs/
+.vscode/
+*.swp
+*~
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio
+.vs/
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+# Rider
+.idea/
+*.sln.iml
+
+# User-specific files
+*.suo
+*.user
+*.sln.docstates
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+[Bb]in/
+[Oo]bj/
+
+# MSTest test Results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+
+# NUnit
+*.VisualState.xml
+TestResult.xml
+nunit-*.xml
+
+# .NET Core
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Entity Framework
+*.mdf
+*.ldf
+*.ndf
+
+# SQL Server files
+*.mdf
+*.ldf
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Node modules (si usas npm para frontend)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Frontend build
+wwwroot/dist/
+wwwroot/lib/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+appsettings.Development.json
+appsettings.*.json
+!appsettings.json
+
+# Secrets
+secrets.json
+*.pfx
+*.p12
+
+# Windows image file caches
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Python (para scripts)
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# IA Models (Ollama/Llama)
+*.bin
+*.gguf
+models/
+
+# Azure
+.azure/
+
+# Docker
+docker-compose.override.yml
+.dockerignore
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS generated
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Documentos originales del TFG (propuesta Word)
+TFG*.docx
+TFG*.doc
+~$*.docx
+*.tmp
+TFG.txt
+PROYECTO_COMPLETADO.md
+QUE_SE_HA_CREADO.md
+
+# Backups
+*.bak
+*.backup
+
+# Archivos de Base de Datos Local
+*.mdf
+*.ldf
+*.ndf
+*.sdf
+App_Data/*.mdf
+App_Data/*.ldf
+
+# Migraciones temporales (descomentar si quieres ignorarlas)
+# **/Migrations/
+
+# Secretos y configuración local
+**/appsettings.Development.json
+**/appsettings.Local.json
+secrets.json
+*.pfx
+*.p12
+connectionstrings.config
+
+# Visual Studio Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+
+# User-specific files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+# Mono Auto Generated Files
+mono_crash.*
+
+# Windows image file caches
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Python virtual environment
+.venv/
+venv/
+env/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# AI Models (Ollama/Llama 3)
+*.bin
+*.gguf
+*.safetensors
+models/
+ollama_data/
+
+# Node modules (si hay frontend con npm)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+yarn.lock
+
+# Frontend build artifacts
+wwwroot/dist/
+wwwroot/lib/
+wwwroot/css/
+wwwroot/js/
+!wwwroot/css/site.css
+!wwwroot/js/site.js
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Azure
+.azure/
+*.PublishSettings
+
+# Docker
+docker-compose.override.yml
+.dockerignore
+**/charts/
+**/docker-compose*
+**/Dockerfile*
+**/bin
+**/obj
+
+# Mac OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# Coverage reports
+coverage/
+*.coverage
+*.coveragexml
+
+# Test results
+TestResults/
+*.trx
+*.coverage
+
+# Benchmark results
+BenchmarkDotNet.Artifacts/
+
+# Temporary files
+*.tmp
+*.temp
+*.cache
+~$*

@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="GestionObras.API/GestionObras.API.csproj" />
+  <Project Path="GestionObras.Core/GestionObras.Core.csproj" />
+  <Project Path="GestionObras.Infrastructure/GestionObras.Infrastructure.csproj" />
+  <Project Path="GestionObras.Web/GestionObras.Web.csproj" />
+</Solution>
