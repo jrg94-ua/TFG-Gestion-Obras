@@ -53,6 +53,14 @@
     <div class="quick-actions">
         <h2>Acciones Rápidas</h2>
         <div class="actions-grid">
+            <button class="action-btn" @onclick="@(() => Navigation.NavigateTo("/admin/tablero-proyectos"))">
+                <i class="bi bi-grid-3x3"></i>
+                <span>Tablero de Proyectos</span>
+            </button>
+            <button class="action-btn" @onclick="@(() => Navigation.NavigateTo("/mi-tablero"))">
+                <i class="bi bi-person-square"></i>
+                <span>Mi Tablero Personal</span>
+            </button>
             <button class="action-btn" @onclick="@(() => Navigation.NavigateTo("/admin/usuarios"))">
                 <i class="bi bi-people-fill"></i>
                 <span>Gestionar Usuarios</span>

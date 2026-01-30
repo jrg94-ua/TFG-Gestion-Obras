@@ -1,0 +1,174 @@
+@using GestionObras.Core.Entities
+
+<div class="proyecto-card" 
+     draggable="true" 
+     @ondragstart="@(() => OnDragStart.InvokeAsync(Proyecto))">
+    
+    <!-- Header con estado -->
+    <div class="proyecto-header">
+        <h5 class="proyecto-nombre">
+            <i class="bi bi-building"></i> @Proyecto.Nombre
+        </h5>
+        <span class="badge @ObtenerClaseEstado()">
+            @ObtenerTextoEstado()
+        </span>
+    </div>
+
+    <!-- Ubicación -->
+    <div class="proyecto-ubicacion mb-2">
+        <small class="text-muted">
+            <i class="bi bi-geo-alt-fill"></i> @Proyecto.Municipio, @Proyecto.Provincia
+        </small>
+    </div>
+
+    <!-- Información del proyecto -->
+    <div class="proyecto-info">
+        <div class="info-row">
+            <span class="info-label">Tipo Suelo:</span>
+            <span class="info-value">@Proyecto.TipoSuelo</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Zona Climática:</span>
+            <span class="info-value">@Proyecto.ZonaClimatica</span>
+        </div>
+    </div>
+
+    <!-- Fechas -->
+    <div class="proyecto-fechas mt-2">
+        <small>
+            <i class="bi bi-calendar-check"></i> 
+            Inicio: @Proyecto.FechaInicio.ToString("dd/MM/yyyy")
+        </small>
+        @if (Proyecto.FechaFin.HasValue)
+        {
+            <br />
+            <small>
+                <i class="bi bi-calendar-x"></i> 
+                Fin: @Proyecto.FechaFin.Value.ToString("dd/MM/yyyy")
+            </small>
+        }
+    </div>
+
+    <!-- Métricas de tareas -->
+    <div class="proyecto-metricas mt-3">
+        <div class="metrica">
+            <span class="metrica-valor">@Proyecto.Tareas.Count</span>
+            <small class="metrica-label">Total Tareas</small>
+        </div>
+        <div class="metrica">
+            <span class="metrica-valor text-warning">@Proyecto.Tareas.Count(t => t.Estado == EstadoTarea.Pendiente)</span>
+            <small class="metrica-label">Pendientes</small>
+        </div>
+        <div class="metrica">
+            <span class="metrica-valor text-primary">@Proyecto.Tareas.Count(t => t.Estado == EstadoTarea.EnCurso)</span>
+            <small class="metrica-label">En Curso</small>
+        </div>
+        <div class="metrica">
+            <span class="metrica-valor text-success">@Proyecto.Tareas.Count(t => t.Estado == EstadoTarea.Finalizado)</span>
+            <small class="metrica-label">Finalizadas</small>
+        </div>
+    </div>
+
+    <!-- Progreso visual -->
+    @if (Proyecto.Tareas.Any())
+    {
+        var porcentaje = (Proyecto.Tareas.Count(t => t.Estado == EstadoTarea.Finalizado) * 100.0) / Proyecto.Tareas.Count;
+        <div class="proyecto-progreso mt-2">
+            <div class="progress" style="height: 8px;">
+                <div class="progress-bar @ObtenerColorProgreso(porcentaje)" 
+                     role="progressbar" 
+                     style="width: @porcentaje%"
+                     aria-valuenow="@porcentaje" 
+                     aria-valuemin="0" 
+                     aria-valuemax="100">
+                </div>
+            </div>
+            <small class="text-muted">@porcentaje.ToString("F0")% completado</small>
+        </div>
+    }
+
+    <!-- Tareas bloqueadas (alerta) -->
+    @if (Proyecto.Tareas.Any(t => t.Estado == EstadoTarea.Bloqueado))
+    {
+        <div class="alert alert-danger p-2 mt-2 mb-0">
+            <small>
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                <strong>@Proyecto.Tareas.Count(t => t.Estado == EstadoTarea.Bloqueado) tarea(s) bloqueada(s)</strong>
+            </small>
+        </div>
+    }
+
+    <!-- Equipo asignado -->
+    @if (Proyecto.EmpleadosAsignados?.Any() == true)
+    {
+        <div class="proyecto-equipo mt-2">
+            <small class="text-muted">
+                <i class="bi bi-people-fill"></i>
+                @Proyecto.EmpleadosAsignados.Count empleado(s)
+            </small>
+        </div>
+    }
+
+    <!-- Acciones -->
+    <div class="proyecto-actions mt-3">
+        <button class="btn btn-sm btn-primary w-100 mb-1" 
+                @onclick="@(() => OnVerKanban.InvokeAsync(Proyecto.Id))"
+                @onclick:stopPropagation="true">
+            <i class="bi bi-kanban"></i> Ver Tablero Kanban
+        </button>
+        <button class="btn btn-sm btn-outline-secondary w-100" 
+                @onclick="@(() => OnEditar.InvokeAsync(Proyecto.Id))"
+                @onclick:stopPropagation="true">
+            <i class="bi bi-pencil"></i> Editar Proyecto
+        </button>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public Proyecto Proyecto { get; set; } = null!;
+
+    [Parameter]
+    public EventCallback<Proyecto> OnDragStart { get; set; }
+
+    [Parameter]
+    public EventCallback<int> OnVerKanban { get; set; }
+
+    [Parameter]
+    public EventCallback<int> OnEditar { get; set; }
+
+    private string ObtenerClaseEstado()
+    {
+        return Proyecto.Estado switch
+        {
+            EstadoProyecto.Planificacion => "bg-info",
+            EstadoProyecto.EnCurso => "bg-success",
+            EstadoProyecto.Bloqueado => "bg-warning text-dark",
+            EstadoProyecto.Finalizado => "bg-secondary",
+            EstadoProyecto.Cancelado => "bg-danger",
+            _ => "bg-primary"
+        };
+    }
+
+    private string ObtenerTextoEstado()
+    {
+        return Proyecto.Estado switch
+        {
+            EstadoProyecto.EnCurso => "En Curso",
+            EstadoProyecto.Planificacion => "Planificación",
+            EstadoProyecto.Finalizado => "Finalizado",
+            EstadoProyecto.Bloqueado => "Bloqueado",
+            EstadoProyecto.Cancelado => "Cancelado",
+            _ => Proyecto.Estado.ToString()
+        };
+    }
+
+    private string ObtenerColorProgreso(double porcentaje)
+    {
+        if (porcentaje >= 100) return "bg-success";
+        if (porcentaje >= 75) return "bg-info";
+        if (porcentaje >= 50) return "bg-primary";
+        if (porcentaje >= 25) return "bg-warning";
+        return "bg-danger";
+    }
+}

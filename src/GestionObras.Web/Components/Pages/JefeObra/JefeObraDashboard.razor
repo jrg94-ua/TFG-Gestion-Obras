@@ -53,13 +53,17 @@
     <div class="quick-actions">
         <h2>Acciones Rápidas</h2>
         <div class="actions-grid">
+            <button class="action-btn" @onclick="@(() => Navigation.NavigateTo("/mi-tablero"))">
+                <i class="bi bi-person-square"></i>
+                <span>Mi Tablero Personal</span>
+            </button>
             <button class="action-btn" @onclick="@(() => Navigation.NavigateTo("/proyectos"))">
                 <i class="bi bi-folder-fill"></i>
                 <span>Mis Proyectos</span>
             </button>
-            <button class="action-btn" @onclick="@(() => Navigation.NavigateTo("/kanban"))">
+            <button class="action-btn" @onclick="VerProyectosParaKanban">
                 <i class="bi bi-kanban-fill"></i>
-                <span>Tablero Kanban</span>
+                <span>Tablero Proyecto</span>
             </button>
             <button class="action-btn" @onclick="@(() => Navigation.NavigateTo("/empleados"))">
                 <i class="bi bi-people-fill"></i>
@@ -94,6 +98,9 @@
                             <td><span class="badge @GetEstadoBadge(proyecto.Estado)">@proyecto.Estado</span></td>
                             <td>@proyecto.Tareas?.Count ?? 0</td>
                             <td>
+                                <button class="btn btn-sm btn-success me-1" @onclick="@(() => Navigation.NavigateTo($"/proyectos/{proyecto.Id}/kanban"))" title="Tablero Kanban">
+                                    <i class="bi bi-kanban"></i>
+                                </button>
                                 <button class="btn btn-sm btn-primary" @onclick="@(() => Navigation.NavigateTo($"/proyectos/{proyecto.Id}"))">
                                     Ver
                                 </button>
@@ -143,5 +150,19 @@
             EstadoProyecto.Cancelado => "bg-danger",
             _ => "bg-primary"
         };
+    }
+
+    private void VerProyectosParaKanban()
+    {
+        // Si solo hay un proyecto, ir directo al tablero
+        if (misProyectos.Count == 1)
+        {
+            Navigation.NavigateTo($"/proyectos/{misProyectos[0].Id}/kanban");
+        }
+        else
+        {
+            // Si hay varios, ir a la lista de proyectos donde pueden elegir
+            Navigation.NavigateTo("/proyectos");
+        }
     }
 }

@@ -51,6 +51,9 @@ builder.Services.AddScoped<GestionObras.Infrastructure.Repositories.IProyectoRep
 builder.Services.AddScoped<GestionObras.Infrastructure.Repositories.ITareaRepository, GestionObras.Infrastructure.Repositories.TareaRepository>();
 builder.Services.AddScoped<GestionObras.Infrastructure.Repositories.IEmpleadoRepository, GestionObras.Infrastructure.Repositories.EmpleadoRepository>();
 
+// Registrar HttpClient para CatastroService
+builder.Services.AddHttpClient<GestionObras.Web.Services.ICatastroService, GestionObras.Web.Services.CatastroService>();
+
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();

@@ -1,0 +1,390 @@
+@page "/admin/usuarios"
+@attribute [Authorize(Roles = "Administrador")]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using GestionObras.Core.Entities
+@inject UserManager<UsuarioObra> UserManager
+@inject RoleManager<IdentityRole> RoleManager
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+
+<PageTitle>Gestión de Usuarios - Admin</PageTitle>
+
+<div class="usuarios-container">
+    <div class="page-header">
+        <h1>👥 Gestión de Usuarios</h1>
+        <button class="btn btn-primary" @onclick="AbrirModalNuevo">
+            <i class="bi bi-person-plus"></i> Nuevo Usuario
+        </button>
+    </div>
+
+    <!-- Filtros -->
+    <div class="filtros-section">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Filtrar por rol:</label>
+                <select class="form-select" @onchange="FiltrarPorRol">
+                    <option value="">Todos los roles</option>
+                    <option value="Administrador">Administrador</option>
+                    <option value="JefeObra">Jefe de Obra</option>
+                    <option value="OficinaTecnica">Oficina Técnica</option>
+                    <option value="Operario">Operario</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Buscar:</label>
+                <input type="text" class="form-control" placeholder="Nombre, email o DNI..." @bind="busqueda" @bind:event="oninput" />
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de Usuarios -->
+    <div class="table-responsive">
+        @if (usuariosFiltrados == null)
+        {
+            <div class="text-center p-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+            </div>
+        }
+        else if (!usuariosFiltrados.Any())
+        {
+            <div class="empty-state">
+                <i class="bi bi-people"></i>
+                <h3>No hay usuarios</h3>
+            </div>
+        }
+        else
+        {
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Usuario</th>
+                        <th>Email</th>
+                        <th>DNI</th>
+                        <th>Rol</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var usuario in usuariosFiltrados)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@usuario.UserName</strong><br/>
+                                <small class="text-muted">@usuario.NombreCompleto</small>
+                            </td>
+                            <td>@usuario.Email</td>
+                            <td>@usuario.DNI</td>
+                            <td>
+                                @foreach (var rol in usuariosConRoles[usuario.Id])
+                                {
+                                    <span class="badge @GetRolBadgeClass(rol)">@rol</span>
+                                }
+                            </td>
+                            <td>
+                                @if (usuario.EmailConfirmed)
+                                {
+                                    <span class="badge bg-success">Activo</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-warning">Pendiente</span>
+                                }
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <button class="btn btn-sm btn-outline-warning" @onclick="() => AbrirModalEditar(usuario)">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmarEliminar(usuario)">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+<!-- Modal Crear/Editar Usuario -->
+@if (mostrarModal)
+{
+    <div class="modal fade show" style="display: block; background: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        @(usuarioSeleccionado != null ? "Editar Usuario" : "Nuevo Usuario")
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+                </div>
+                <EditForm Model="@usuarioForm" OnValidSubmit="@GuardarUsuario">
+                    <DataAnnotationsValidator />
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-md-12">
+                                <label class="form-label">Nombre Completo*</label>
+                                <InputText class="form-control" @bind-Value="usuarioForm.NombreCompleto" />
+                                <ValidationMessage For="@(() => usuarioForm.NombreCompleto)" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">DNI*</label>
+                                <InputText class="form-control" @bind-Value="usuarioForm.DNI" />
+                                <ValidationMessage For="@(() => usuarioForm.DNI)" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Email*</label>
+                                <InputText type="email" class="form-control" @bind-Value="usuarioForm.Email" />
+                                <ValidationMessage For="@(() => usuarioForm.Email)" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Nombre de Usuario*</label>
+                                <InputText class="form-control" @bind-Value="usuarioForm.UserName" disabled="@(usuarioSeleccionado != null)" />
+                                <ValidationMessage For="@(() => usuarioForm.UserName)" />
+                            </div>
+
+                            @if (usuarioSeleccionado == null)
+                            {
+                                <div class="col-md-6">
+                                    <label class="form-label">Contraseña*</label>
+                                    <InputText type="password" class="form-control" @bind-Value="usuarioForm.Password" />
+                                    <ValidationMessage For="@(() => usuarioForm.Password)" />
+                                </div>
+                            }
+
+                            <div class="col-md-12">
+                                <label class="form-label">Rol*</label>
+                                <InputSelect class="form-select" @bind-Value="usuarioForm.Rol">
+                                    <option value="">Seleccionar rol...</option>
+                                    <option value="Administrador">Administrador</option>
+                                    <option value="JefeObra">Jefe de Obra</option>
+                                    <option value="OficinaTecnica">Oficina Técnica</option>
+                                    <option value="Operario">Operario</option>
+                                </InputSelect>
+                                <ValidationMessage For="@(() => usuarioForm.Rol)" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CerrarModal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" disabled="@guardando">
+                            @if (guardando)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                            }
+                            Guardar
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<UsuarioObra> usuarios = new();
+    private List<UsuarioObra> usuariosFiltrados = new();
+    private Dictionary<string, List<string>> usuariosConRoles = new();
+    private UsuarioObra? usuarioSeleccionado;
+    private UsuarioFormModel usuarioForm = new();
+    private bool mostrarModal = false;
+    private bool guardando = false;
+    private string busqueda = "";
+    private string? rolFiltro;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarUsuarios();
+    }
+
+    private async Task CargarUsuarios()
+    {
+        usuarios = UserManager.Users.ToList();
+        
+        // Cargar roles de cada usuario
+        usuariosConRoles.Clear();
+        foreach (var usuario in usuarios)
+        {
+            var roles = await UserManager.GetRolesAsync(usuario);
+            usuariosConRoles[usuario.Id] = roles.ToList();
+        }
+        
+        AplicarFiltros();
+    }
+
+    private void AplicarFiltros()
+    {
+        usuariosFiltrados = usuarios;
+
+        if (!string.IsNullOrWhiteSpace(rolFiltro))
+        {
+            usuariosFiltrados = usuariosFiltrados
+                .Where(u => usuariosConRoles.ContainsKey(u.Id) && usuariosConRoles[u.Id].Contains(rolFiltro))
+                .ToList();
+        }
+
+        if (!string.IsNullOrWhiteSpace(busqueda))
+        {
+            usuariosFiltrados = usuariosFiltrados
+                .Where(u => 
+                    (u.NombreCompleto?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                    (u.Email?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                    (u.DNI?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                    (u.UserName?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false))
+                .ToList();
+        }
+    }
+
+    private void FiltrarPorRol(ChangeEventArgs e)
+    {
+        rolFiltro = e.Value?.ToString();
+        AplicarFiltros();
+    }
+
+    private void AbrirModalNuevo()
+    {
+        usuarioSeleccionado = null;
+        usuarioForm = new UsuarioFormModel();
+        mostrarModal = true;
+    }
+
+    private void AbrirModalEditar(UsuarioObra usuario)
+    {
+        usuarioSeleccionado = usuario;
+        usuarioForm = new UsuarioFormModel
+        {
+            NombreCompleto = usuario.NombreCompleto ?? "",
+            DNI = usuario.DNI ?? "",
+            Email = usuario.Email ?? "",
+            UserName = usuario.UserName ?? "",
+            Rol = usuariosConRoles.ContainsKey(usuario.Id) && usuariosConRoles[usuario.Id].Any() 
+                ? usuariosConRoles[usuario.Id].First() 
+                : ""
+        };
+        mostrarModal = true;
+    }
+
+    private void CerrarModal()
+    {
+        mostrarModal = false;
+        usuarioSeleccionado = null;
+    }
+
+    private async Task GuardarUsuario()
+    {
+        guardando = true;
+
+        try
+        {
+            if (usuarioSeleccionado == null)
+            {
+                // Crear nuevo usuario
+                var nuevoUsuario = new UsuarioObra
+                {
+                    UserName = usuarioForm.UserName,
+                    Email = usuarioForm.Email,
+                    NombreCompleto = usuarioForm.NombreCompleto,
+                    DNI = usuarioForm.DNI,
+                    EmailConfirmed = true
+                };
+
+                var result = await UserManager.CreateAsync(nuevoUsuario, usuarioForm.Password);
+
+                if (result.Succeeded)
+                {
+                    // Asignar rol
+                    if (!string.IsNullOrEmpty(usuarioForm.Rol))
+                    {
+                        await UserManager.AddToRoleAsync(nuevoUsuario, usuarioForm.Rol);
+                    }
+                }
+                else
+                {
+                    var errores = string.Join("\n", result.Errors.Select(e => e.Description));
+                    await JS.InvokeVoidAsync("alert", $"Error al crear usuario:\n{errores}");
+                    guardando = false;
+                    return;
+                }
+            }
+            else
+            {
+                // Editar usuario existente
+                usuarioSeleccionado.NombreCompleto = usuarioForm.NombreCompleto;
+                usuarioSeleccionado.DNI = usuarioForm.DNI;
+                usuarioSeleccionado.Email = usuarioForm.Email;
+
+                await UserManager.UpdateAsync(usuarioSeleccionado);
+
+                // Actualizar rol
+                var rolesActuales = await UserManager.GetRolesAsync(usuarioSeleccionado);
+                await UserManager.RemoveFromRolesAsync(usuarioSeleccionado, rolesActuales);
+                
+                if (!string.IsNullOrEmpty(usuarioForm.Rol))
+                {
+                    await UserManager.AddToRoleAsync(usuarioSeleccionado, usuarioForm.Rol);
+                }
+            }
+
+            await CargarUsuarios();
+            CerrarModal();
+        }
+        finally
+        {
+            guardando = false;
+        }
+    }
+
+    private async Task ConfirmarEliminar(UsuarioObra usuario)
+    {
+        bool confirmado = await JS.InvokeAsync<bool>("confirm", 
+            $"¿Estás seguro de eliminar el usuario '{usuario.UserName}'?\nEsta acción no se puede deshacer.");
+
+        if (confirmado)
+        {
+            await UserManager.DeleteAsync(usuario);
+            await CargarUsuarios();
+        }
+    }
+
+    private string GetRolBadgeClass(string rol)
+    {
+        return rol switch
+        {
+            "Administrador" => "bg-danger",
+            "JefeObra" => "bg-primary",
+            "OficinaTecnica" => "bg-info",
+            "Operario" => "bg-secondary",
+            _ => "bg-secondary"
+        };
+    }
+
+    public class UsuarioFormModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "El nombre completo es obligatorio")]
+        public string NombreCompleto { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "El DNI es obligatorio")]
+        public string DNI { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "El email es obligatorio")]
+        [System.ComponentModel.DataAnnotations.EmailAddress(ErrorMessage = "Email no válido")]
+        public string Email { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "El nombre de usuario es obligatorio")]
+        public string UserName { get; set; } = string.Empty;
+
+        public string Password { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Debe seleccionar un rol")]
+        public string Rol { get; set; } = string.Empty;
+    }
+}

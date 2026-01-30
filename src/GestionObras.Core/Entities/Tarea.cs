@@ -22,8 +22,17 @@ namespace GestionObras.Core.Entities
         // Relaciones
         public int ProyectoId { get; set; }
         public Proyecto Proyecto { get; set; } = null!;
+        
+        // Jerarquía de tareas
+        public int? TareaPadreId { get; set; }
+        public Tarea? TareaPadre { get; set; }
+        public List<Tarea> SubTareas { get; set; } = new();
+        public int Nivel { get; set; } = 0; // 0 = tarea raíz, 1+ = subtarea
+        public PrioridadTarea Prioridad { get; set; } = PrioridadTarea.Media;
+        
         public List<Material> MaterialesNecesarios { get; set; } = new();
         public List<Empleado> Responsables { get; set; } = new();
+        public List<UsuarioObra> UsuariosAsignados { get; set; } = new();
         public BloqueoTarea? Bloqueo { get; set; }
         public List<Factura> Facturas { get; set; } = new();
     }
@@ -57,5 +66,13 @@ namespace GestionObras.Core.Entities
         IncidenciaNormativa,
         ClimatologiaAdversa,
         Otro
+    }
+    
+    public enum PrioridadTarea
+    {
+        Baja,
+        Media,
+        Alta,
+        Critica
     }
 }

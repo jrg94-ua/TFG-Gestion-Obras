@@ -17,6 +17,7 @@ public class GestionObrasDbContext : IdentityDbContext<UsuarioObra>
     // DbSets principales - RF-01 a RF-04
     public DbSet<Proyecto> Proyectos { get; set; }
     public DbSet<Tarea> Tareas { get; set; }
+    public DbSet<BloqueoTarea> BloqueosTareas { get; set; }
     public DbSet<Empleado> Empleados { get; set; }
     public DbSet<Material> Materiales { get; set; }
     public DbSet<Factura> Facturas { get; set; }
@@ -82,6 +83,27 @@ public class GestionObrasDbContext : IdentityDbContext<UsuarioObra>
                   .WithMany(p => p.Tareas)
                   .HasForeignKey(t => t.ProyectoId)
                   .OnDelete(DeleteBehavior.Cascade);
+                  
+            // Configurar relación many-to-many con UsuarioObra
+            entity.HasMany(t => t.UsuariosAsignados)
+                  .WithMany()
+                  .UsingEntity<Dictionary<string, object>>(
+                      "TareaUsuarioObra",
+                      j => j.HasOne<UsuarioObra>()
+                            .WithMany()
+                            .HasForeignKey("UsuariosAsignadosId")
+                            .OnDelete(DeleteBehavior.Cascade),
+                      j => j.HasOne<Tarea>()
+                            .WithMany()
+                            .HasForeignKey("TareasId")
+                            .OnDelete(DeleteBehavior.Cascade)
+                  );
+                  
+            // Configurar jerarquía de tareas (auto-referencia)
+            entity.HasOne(t => t.TareaPadre)
+                  .WithMany(t => t.SubTareas)
+                  .HasForeignKey(t => t.TareaPadreId)
+                  .OnDelete(DeleteBehavior.Restrict);
         });
 
         // Presupuesto

@@ -1,0 +1,138 @@
+@using GestionObras.Core.Entities
+
+<div class="kanban-card" 
+     draggable="true" 
+     @ondragstart="@(() => OnDragStart.InvokeAsync(Tarea))">
+    
+    <!-- Badge de Prioridad -->
+    <span class="badge @ObtenerClasePrioridad() position-absolute top-0 end-0 m-2">
+        @Tarea.Prioridad
+    </span>
+
+    <!-- Proyecto -->
+    <div class="tarea-proyecto mb-2">
+        <small class="text-muted">
+            <i class="bi bi-folder"></i> @Tarea.Proyecto?.Nombre
+        </small>
+    </div>
+
+    <!-- Nivel jerárquico -->
+    @if (Tarea.TareaPadre != null)
+    {
+        <div class="subtarea-indicator">
+            <i class="bi bi-arrow-return-right"></i> Subtarea de: @Tarea.TareaPadre.Nombre
+        </div>
+    }
+
+    <!-- Título -->
+    <h5 class="card-title">@Tarea.Nombre</h5>
+
+    <!-- Descripción -->
+    @if (!string.IsNullOrWhiteSpace(Tarea.Descripcion))
+    {
+        <p class="card-text text-muted small">@Tarea.Descripcion</p>
+    }
+
+    <!-- Fechas -->
+    <div class="card-dates">
+        <small>
+            <i class="bi bi-calendar-event"></i> 
+            @Tarea.FechaInicio.ToString("dd/MM/yyyy")
+            @if (Tarea.FechaFin.HasValue)
+            {
+                <span> - @Tarea.FechaFin.Value.ToString("dd/MM/yyyy")</span>
+            }
+        </small>
+    </div>
+
+    <!-- Presupuesto -->
+    @if (Tarea.PresupuestoEstimado > 0)
+    {
+        <div class="card-budget mt-2">
+            <small>
+                <i class="bi bi-currency-euro"></i>
+                <strong>@Tarea.PresupuestoEstimado.ToString("N2")</strong>
+                @if (Tarea.CostesReales > 0)
+                {
+                    <span class="text-muted">/ @Tarea.CostesReales.ToString("N2")</span>
+                    var porcentaje = (Tarea.CostesReales / Tarea.PresupuestoEstimado) * 100;
+                    var colorClase = porcentaje > 100 ? "text-danger" : porcentaje > 80 ? "text-warning" : "text-success";
+                    <span class="@colorClase ms-1">(@porcentaje.ToString("N0")%)</span>
+                }
+            </small>
+        </div>
+    }
+
+    <!-- Información de bloqueo -->
+    @if (Tarea.Bloqueo != null && Tarea.Estado == EstadoTarea.Bloqueado)
+    {
+        <div class="alert alert-warning p-2 mt-2 mb-0">
+            <small>
+                <strong>🚫 @Tarea.Bloqueo.Tipo</strong><br />
+                @Tarea.Bloqueo.JustificacionTecnica
+            </small>
+        </div>
+    }
+
+    <!-- Otros usuarios asignados -->
+    @if (Tarea.UsuariosAsignados?.Count() > 1)
+    {
+        <div class="card-responsables mt-2">
+            <small class="text-muted">
+                <i class="bi bi-people-fill"></i>
+                +@(Tarea.UsuariosAsignados.Count - 1) colaborador(es)
+            </small>
+        </div>
+    }
+
+    <!-- Acciones -->
+    <div class="card-actions mt-2">
+        <button class="btn btn-sm btn-outline-primary" @onclick="@(() => OnEditar.InvokeAsync(Tarea))"
+                @onclick:stopPropagation="true"
+                title="Actualizar estado">
+            <i class="bi bi-pencil"></i>
+        </button>
+        <button class="btn btn-sm btn-outline-info" @onclick="@(() => OnVerProyecto.InvokeAsync(Tarea.ProyectoId))"
+                @onclick:stopPropagation="true"
+                title="Ver proyecto">
+            <i class="bi bi-folder-fill"></i>
+        </button>
+        @if (Tarea.Estado == EstadoTarea.Bloqueado && OnDesbloquear.HasDelegate)
+        {
+            <button class="btn btn-sm btn-outline-warning" @onclick="@(() => OnDesbloquear.InvokeAsync(Tarea))"
+                    @onclick:stopPropagation="true"
+                    title="Desbloquear">
+                <i class="bi bi-unlock"></i>
+            </button>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public Tarea Tarea { get; set; } = null!;
+
+    [Parameter]
+    public EventCallback<Tarea> OnDragStart { get; set; }
+
+    [Parameter]
+    public EventCallback<Tarea> OnEditar { get; set; }
+
+    [Parameter]
+    public EventCallback<int> OnVerProyecto { get; set; }
+
+    [Parameter]
+    public EventCallback<Tarea> OnDesbloquear { get; set; }
+
+    private string ObtenerClasePrioridad()
+    {
+        return Tarea.Prioridad switch
+        {
+            PrioridadTarea.Baja => "bg-secondary",
+            PrioridadTarea.Media => "bg-primary",
+            PrioridadTarea.Alta => "bg-warning",
+            PrioridadTarea.Critica => "bg-danger",
+            _ => "bg-secondary"
+        };
+    }
+}

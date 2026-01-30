@@ -1,0 +1,639 @@
+@page "/proyectos/{ProyectoId:int}/kanban"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using GestionObras.Core.Entities
+@using GestionObras.Infrastructure.Repositories
+@using GestionObras.Infrastructure.Data
+@using GestionObras.Web.Components.Shared
+@using Microsoft.EntityFrameworkCore
+@inject GestionObrasDbContext DbContext
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+
+<PageTitle>Tablero Kanban - @proyecto?.Nombre</PageTitle>
+
+@if (proyecto == null)
+{
+    <div class="text-center p-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Cargando...</span>
+        </div>
+    </div>
+}
+else
+{
+    <div class="kanban-container">
+        <!-- Header -->
+        <div class="kanban-header">
+            <div>
+                <button class="btn btn-outline-secondary" @onclick="VolverProyectos">
+                    <i class="bi bi-arrow-left"></i> Volver a Proyectos
+                </button>
+                <h1 class="d-inline-block ms-3">📋 Tablero Kanban: @proyecto.Nombre</h1>
+            </div>
+            <button class="btn btn-primary" @onclick="AbrirModalNuevaTarea">
+                <i class="bi bi-plus-circle"></i> Nueva Tarea
+            </button>
+        </div>
+
+        <!-- Filtros -->
+        <div class="kanban-filters">
+            <input type="text" class="form-control" style="max-width: 300px;" 
+                   placeholder="Buscar tarea..." @bind="busqueda" @bind:event="oninput" />
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="mostrarSubtareas" 
+                       @bind="mostrarSubtareas" />
+                <label class="form-check-label" for="mostrarSubtareas">
+                    Mostrar subtareas expandidas
+                </label>
+            </div>
+        </div>
+
+        <!-- Tablero Kanban -->
+        <div class="kanban-board">
+            <!-- Columna Pendiente -->
+            <div class="kanban-column" 
+                 ondragover="event.preventDefault();" 
+                 @ondrop="@(() => Drop(EstadoTarea.Pendiente))">
+                <div class="kanban-column-header pendiente">
+                    <h3>📝 Pendiente</h3>
+                    <span class="badge bg-secondary">@ObtenerTareasPorEstado(EstadoTarea.Pendiente).Count()</span>
+                </div>
+                <div class="kanban-column-body">
+                    @foreach (var tarea in ObtenerTareasPorEstado(EstadoTarea.Pendiente))
+                    {
+                        <TarjetaTarea Tarea="@tarea" 
+                                     OnDragStart="@DragStart"
+                                     OnEditar="@AbrirModalEditarTarea"
+                                     OnEliminar="@ConfirmarEliminar"
+                                     OnAgregarSubtarea="@AbrirModalNuevaSubtarea"
+                                     MostrarSubtareas="@mostrarSubtareas" />
+                    }
+                </div>
+            </div>
+
+            <!-- Columna En Curso -->
+            <div class="kanban-column" 
+                 ondragover="event.preventDefault();" 
+                 @ondrop="@(() => Drop(EstadoTarea.EnCurso))">
+                <div class="kanban-column-header en-curso">
+                    <h3>⚙️ En Curso</h3>
+                    <span class="badge bg-secondary">@ObtenerTareasPorEstado(EstadoTarea.EnCurso).Count()</span>
+                </div>
+                <div class="kanban-column-body">
+                    @foreach (var tarea in ObtenerTareasPorEstado(EstadoTarea.EnCurso))
+                    {
+                        <TarjetaTarea Tarea="@tarea" 
+                                     OnDragStart="@DragStart"
+                                     OnEditar="@AbrirModalEditarTarea"
+                                     OnEliminar="@ConfirmarEliminar"
+                                     OnAgregarSubtarea="@AbrirModalNuevaSubtarea"
+                                     MostrarSubtareas="@mostrarSubtareas" />
+                    }
+                </div>
+            </div>
+
+            <!-- Columna Bloqueado -->
+            <div class="kanban-column" 
+                 ondragover="event.preventDefault();" 
+                 @ondrop="@(() => Drop(EstadoTarea.Bloqueado))">
+                <div class="kanban-column-header bloqueado">
+                    <h3>🚫 Bloqueado</h3>
+                    <span class="badge bg-secondary">@ObtenerTareasPorEstado(EstadoTarea.Bloqueado).Count()</span>
+                </div>
+                <div class="kanban-column-body">
+                    @foreach (var tarea in ObtenerTareasPorEstado(EstadoTarea.Bloqueado))
+                    {
+                        <TarjetaTarea Tarea="@tarea" 
+                                     OnDragStart="@DragStart"
+                                     OnEditar="@AbrirModalEditarTarea"
+                                     OnEliminar="@ConfirmarEliminar"
+                                     OnAgregarSubtarea="@AbrirModalNuevaSubtarea"
+                                     OnDesbloquear="@AbrirModalDesbloquear"
+                                     MostrarSubtareas="@mostrarSubtareas" />
+                    }
+                </div>
+            </div>
+
+            <!-- Columna Finalizado -->
+            <div class="kanban-column" 
+                 ondragover="event.preventDefault();" 
+                 @ondrop="@(() => Drop(EstadoTarea.Finalizado))">
+                <div class="kanban-column-header finalizado">
+                    <h3>✅ Finalizado</h3>
+                    <span class="badge bg-secondary">@ObtenerTareasPorEstado(EstadoTarea.Finalizado).Count()</span>
+                </div>
+                <div class="kanban-column-body">
+                    @foreach (var tarea in ObtenerTareasPorEstado(EstadoTarea.Finalizado))
+                    {
+                        <TarjetaTarea Tarea="@tarea" 
+                                     OnDragStart="@DragStart"
+                                     OnEditar="@AbrirModalEditarTarea"
+                                     OnEliminar="@ConfirmarEliminar"
+                                     OnAgregarSubtarea="@AbrirModalNuevaSubtarea"
+                                     MostrarSubtareas="@mostrarSubtareas" />
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Tarea -->
+    @if (mostrarModalTarea)
+    {
+        <div class="modal fade show d-block" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">@(tareaEditando?.Id == 0 ? "Nueva Tarea" : "Editar Tarea")</h5>
+                        <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <EditForm Model="@tareaEditando" OnValidSubmit="GuardarTarea">
+                            <DataAnnotationsValidator />
+                            
+                            @if (tareaPadreTemp != null)
+                            {
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle"></i> Subtarea de: <strong>@tareaPadreTemp.Nombre</strong>
+                                </div>
+                            }
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Nombre *</label>
+                                <InputText class="form-control" @bind-Value="tareaEditando.Nombre" />
+                                <ValidationMessage For="@(() => tareaEditando.Nombre)" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Descripción</label>
+                                <InputTextArea class="form-control" rows="3" @bind-Value="tareaEditando.Descripcion" />
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Estado *</label>
+                                    <InputSelect class="form-select" @bind-Value="tareaEditando.Estado">
+                                        <option value="@EstadoTarea.Pendiente">Pendiente</option>
+                                        <option value="@EstadoTarea.EnCurso">En Curso</option>
+                                        <option value="@EstadoTarea.Bloqueado">Bloqueado</option>
+                                        <option value="@EstadoTarea.Finalizado">Finalizado</option>
+                                    </InputSelect>
+                                </div>
+
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Prioridad *</label>
+                                    <InputSelect class="form-select" @bind-Value="tareaEditando.Prioridad">
+                                        <option value="@PrioridadTarea.Baja">Baja</option>
+                                        <option value="@PrioridadTarea.Media">Media</option>
+                                        <option value="@PrioridadTarea.Alta">Alta</option>
+                                        <option value="@PrioridadTarea.Critica">Crítica</option>
+                                    </InputSelect>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Fecha Inicio *</label>
+                                    <InputDate class="form-control" @bind-Value="tareaEditando.FechaInicio" />
+                                </div>
+
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Fecha Fin</label>
+                                    <InputDate class="form-control" @bind-Value="tareaEditando.FechaFin" />
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Presupuesto Estimado (€)</label>
+                                    <InputNumber class="form-control" @bind-Value="tareaEditando.PresupuestoEstimado" />
+                                </div>
+
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Costes Reales (€)</label>
+                                    <InputNumber class="form-control" @bind-Value="tareaEditando.CostesReales" />
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Responsables *</label>
+                                <select class="form-select" multiple @onchange="AsignarResponsables" size="5">
+                                    @foreach (var empleado in empleadosDisponibles)
+                                    {
+                                        var seleccionado = responsablesSeleccionados.Contains(empleado.Id);
+                                        <option value="@empleado.Id" selected="@seleccionado">
+                                            @empleado.NombreCompleto (@empleado.Cargo)
+                                        </option>
+                                    }
+                                </select>
+                                <small class="form-text text-muted">
+                                    Mantenga presionada la tecla Ctrl (Windows) o Command (Mac) para seleccionar múltiples responsables
+                                </small>
+                                @if (responsablesSeleccionados.Any())
+                                {
+                                    <div class="mt-2">
+                                        <strong>Seleccionados:</strong>
+                                        @foreach (var userId in responsablesSeleccionados)
+                                        {
+                                            var emp = empleadosDisponibles.FirstOrDefault(e => e.Id == userId);
+                                            if (emp != null)
+                                            {
+                                                <span class="badge bg-primary me-1">@emp.NombreCompleto</span>
+                                            }
+                                        }
+                                    </div>
+                                }
+                            </div>
+
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" @onclick="CerrarModal">Cancelar</button>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-save"></i> Guardar
+                                </button>
+                            </div>
+                        </EditForm>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-backdrop fade show"></div>
+    }
+
+    <!-- Modal de Bloqueo (RF-07) -->
+    @if (mostrarModalBloqueo)
+    {
+        <div class="modal fade show d-block" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-warning">
+                        <h5 class="modal-title">🚫 Justificar Bloqueo de Tarea</h5>
+                        <button type="button" class="btn-close" @onclick="CerrarModalBloqueo"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <strong>RF-07:</strong> Es obligatorio justificar el bloqueo de una tarea.
+                        </div>
+                        
+                        <p><strong>Tarea:</strong> @tareaParaBloquear?.Nombre</p>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Tipo de Bloqueo *</label>
+                            <select class="form-select" @bind="tipoBloqueoSeleccionado">
+                                <option value="@TipoBloqueo.FaltaMaterial">Falta de Material</option>
+                                <option value="@TipoBloqueo.ErrorEjecucion">Error de Ejecución</option>
+                                <option value="@TipoBloqueo.IncidenciaNormativa">Incidencia Normativa</option>
+                                <option value="@TipoBloqueo.ClimatologiaAdversa">Climatología Adversa</option>
+                                <option value="@TipoBloqueo.Otro">Otro</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Justificación Técnica *</label>
+                            <textarea class="form-control" rows="4" @bind="justificacionBloqueo"
+                                      placeholder="Describa detalladamente el motivo del bloqueo..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CerrarModalBloqueo">Cancelar</button>
+                        <button type="button" class="btn btn-warning" @onclick="GuardarBloqueo">
+                            <i class="bi bi-lock"></i> Bloquear Tarea
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-backdrop fade show"></div>
+    }
+
+    <!-- Modal de Desbloqueo -->
+    @if (mostrarModalDesbloqueo)
+    {
+        <div class="modal fade show d-block" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title">✅ Desbloquear Tarea</h5>
+                        <button type="button" class="btn-close btn-close-white" @onclick="CerrarModalDesbloqueo"></button>
+                    </div>
+                    <div class="modal-body">
+                        @if (tareaParaDesbloquear?.Bloqueo != null)
+                        {
+                            <div class="mb-3">
+                                <strong>Tarea:</strong> @tareaParaDesbloquear.Nombre
+                            </div>
+                            <div class="mb-3">
+                                <strong>Motivo del bloqueo:</strong> @tareaParaDesbloquear.Bloqueo.Tipo
+                            </div>
+                            <div class="mb-3">
+                                <strong>Justificación:</strong><br />
+                                @tareaParaDesbloquear.Bloqueo.JustificacionTecnica
+                            </div>
+                            <div class="mb-3">
+                                <strong>Fecha de bloqueo:</strong> @tareaParaDesbloquear.Bloqueo.FechaBloqueo.ToString("dd/MM/yyyy")
+                            </div>
+                        }
+                        <p class="text-success">¿Confirma que desea desbloquear esta tarea?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CerrarModalDesbloqueo">Cancelar</button>
+                        <button type="button" class="btn btn-success" @onclick="DesbloquearTarea">
+                            <i class="bi bi-unlock"></i> Desbloquear
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-backdrop fade show"></div>
+    }
+}
+
+@code {
+    [Parameter]
+    public int ProyectoId { get; set; }
+
+    private Proyecto? proyecto;
+    private List<Tarea> tareas = new();
+    private List<Tarea> tareasFiltradas = new();
+    private List<UsuarioObra> empleadosDisponibles = new();
+    private List<string> responsablesSeleccionados = new();
+    private string busqueda = "";
+    private bool mostrarSubtareas = true;
+
+    // Modal Tarea
+    private bool mostrarModalTarea = false;
+    private Tarea tareaEditando = new();
+    private Tarea? tareaPadreTemp = null;
+
+    // Drag and Drop
+    private Tarea? tareaArrastrada = null;
+
+    // Modal Bloqueo
+    private bool mostrarModalBloqueo = false;
+    private Tarea? tareaParaBloquear = null;
+    private TipoBloqueo tipoBloqueoSeleccionado = TipoBloqueo.FaltaMaterial;
+    private string justificacionBloqueo = "";
+
+    // Modal Desbloqueo
+    private bool mostrarModalDesbloqueo = false;
+    private Tarea? tareaParaDesbloquear = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        proyecto = await DbContext.Proyectos
+            .Include(p => p.Tareas)
+                .ThenInclude(t => t.SubTareas)
+            .Include(p => p.Tareas)
+                .ThenInclude(t => t.Bloqueo)
+            .Include(p => p.Tareas)
+                .ThenInclude(t => t.UsuariosAsignados)
+            .FirstOrDefaultAsync(p => p.Id == ProyectoId);
+
+        if (proyecto != null)
+        {
+            tareas = proyecto.Tareas.ToList();
+            AplicarFiltros();
+        }
+
+        // Cargar empleados disponibles (usuarios del sistema)
+        empleadosDisponibles = await DbContext.Users
+            .Where(u => u.Activo)
+            .OrderBy(u => u.NombreCompleto)
+            .ToListAsync();
+    }
+
+    private void AplicarFiltros()
+    {
+        tareasFiltradas = tareas.Where(t => t.TareaPadreId == null).ToList(); // Solo tareas raíz
+
+        if (!string.IsNullOrWhiteSpace(busqueda))
+        {
+            tareasFiltradas = tareasFiltradas
+                .Where(t => t.Nombre.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ||
+                           (t.Descripcion?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false))
+                .ToList();
+        }
+    }
+
+    private List<Tarea> ObtenerTareasPorEstado(EstadoTarea estado)
+    {
+        return tareasFiltradas.Where(t => t.Estado == estado).OrderBy(t => t.Prioridad).ToList();
+    }
+
+    // Drag and Drop
+    private void DragStart(Tarea tarea)
+    {
+        tareaArrastrada = tarea;
+    }
+
+    private async Task Drop(EstadoTarea nuevoEstado)
+    {
+        if (tareaArrastrada == null) return;
+
+        // Si se intenta mover a Bloqueado, mostrar modal de justificación (RF-07)
+        if (nuevoEstado == EstadoTarea.Bloqueado && tareaArrastrada.Estado != EstadoTarea.Bloqueado)
+        {
+            tareaParaBloquear = tareaArrastrada;
+            mostrarModalBloqueo = true;
+            tareaArrastrada = null;
+            return;
+        }
+
+        // Si se desbloquea arrastrando fuera de Bloqueado
+        if (tareaArrastrada.Estado == EstadoTarea.Bloqueado && nuevoEstado != EstadoTarea.Bloqueado)
+        {
+            if (tareaArrastrada.Bloqueo != null)
+            {
+                tareaArrastrada.Bloqueo.FechaResolucion = DateTime.Now;
+            }
+        }
+
+        tareaArrastrada.Estado = nuevoEstado;
+        DbContext.Update(tareaArrastrada);
+        await DbContext.SaveChangesAsync();
+        await CargarDatos();
+        
+        tareaArrastrada = null;
+    }
+
+    // Gestión de Tareas
+    private void AbrirModalNuevaTarea()
+    {
+        tareaEditando = new Tarea
+        {
+            ProyectoId = ProyectoId,
+            FechaInicio = DateTime.Today,
+            Estado = EstadoTarea.Pendiente,
+            Prioridad = PrioridadTarea.Media,
+            Nivel = 0
+        };
+        tareaPadreTemp = null;
+        responsablesSeleccionados = new();
+        mostrarModalTarea = true;
+    }
+
+    private void AbrirModalNuevaSubtarea(Tarea tareaPadre)
+    {
+        tareaEditando = new Tarea
+        {
+            ProyectoId = ProyectoId,
+            TareaPadreId = tareaPadre.Id,
+            FechaInicio = DateTime.Today,
+            Estado = EstadoTarea.Pendiente,
+            Prioridad = PrioridadTarea.Media,
+            Nivel = tareaPadre.Nivel + 1
+        };
+        tareaPadreTemp = tareaPadre;
+        responsablesSeleccionados = new();
+        mostrarModalTarea = true;
+    }
+
+    private void AbrirModalEditarTarea(Tarea tarea)
+    {
+        tareaEditando = tarea;
+        tareaPadreTemp = null;
+        responsablesSeleccionados = tarea.UsuariosAsignados?.Select(r => r.Id ?? "").Where(id => !string.IsNullOrEmpty(id)).ToList() ?? new();
+        mostrarModalTarea = true;
+    }
+
+    private void AsignarResponsables(ChangeEventArgs e)
+    {
+        if (e.Value is string[] valores)
+        {
+            responsablesSeleccionados = valores.ToList();
+        }
+    }
+
+    private async Task GuardarTarea()
+    {
+        try
+        {
+            // Asignar usuarios responsables
+            if (responsablesSeleccionados.Any())
+            {
+                var responsables = await DbContext.Users
+                    .Where(u => responsablesSeleccionados.Contains(u.Id))
+                    .ToListAsync();
+                tareaEditando.UsuariosAsignados = responsables;
+            }
+
+            if (tareaEditando.Id == 0)
+            {
+                DbContext.Tareas.Add(tareaEditando);
+            }
+            else
+            {
+                DbContext.Update(tareaEditando);
+            }
+
+            await DbContext.SaveChangesAsync();
+            await CargarDatos();
+            CerrarModal();
+            await JS.InvokeVoidAsync("alert", "Tarea guardada correctamente");
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Error al guardar: {ex.Message}");
+        responsablesSeleccionados = new();
+        }
+    }
+
+    private async Task ConfirmarEliminar(Tarea tarea)
+    {
+        var confirmado = await JS.InvokeAsync<bool>("confirm", $"¿Está seguro de eliminar la tarea '{tarea.Nombre}'?");
+        if (confirmado)
+        {
+            DbContext.Tareas.Remove(tarea);
+            await DbContext.SaveChangesAsync();
+            await CargarDatos();
+            await JS.InvokeVoidAsync("alert", "Tarea eliminada correctamente");
+        }
+    }
+
+    private void CerrarModal()
+    {
+        mostrarModalTarea = false;
+        tareaEditando = new();
+        tareaPadreTemp = null;
+    }
+
+    // Gestión de Bloqueos (RF-07)
+    private async Task GuardarBloqueo()
+    {
+        if (tareaParaBloquear == null || string.IsNullOrWhiteSpace(justificacionBloqueo))
+        {
+            await JS.InvokeVoidAsync("alert", "Debe proporcionar una justificación técnica");
+            return;
+        }
+
+        var bloqueo = new BloqueoTarea
+        {
+            TareaId = tareaParaBloquear.Id,
+            Tipo = tipoBloqueoSeleccionado,
+            JustificacionTecnica = justificacionBloqueo,
+            FechaBloqueo = DateTime.Now
+        };
+
+        tareaParaBloquear.Estado = EstadoTarea.Bloqueado;
+        tareaParaBloquear.Bloqueo = bloqueo;
+
+        DbContext.Update(tareaParaBloquear);
+        await DbContext.SaveChangesAsync();
+        await CargarDatos();
+
+        CerrarModalBloqueo();
+        await JS.InvokeVoidAsync("alert", "Tarea bloqueada correctamente");
+    }
+
+    private void CerrarModalBloqueo()
+    {
+        mostrarModalBloqueo = false;
+        tareaParaBloquear = null;
+        justificacionBloqueo = "";
+    }
+
+    private void AbrirModalDesbloquear(Tarea tarea)
+    {
+        tareaParaDesbloquear = tarea;
+        mostrarModalDesbloqueo = true;
+    }
+
+    private async Task DesbloquearTarea()
+    {
+        if (tareaParaDesbloquear?.Bloqueo != null)
+        {
+            tareaParaDesbloquear.Bloqueo.FechaResolucion = DateTime.Now;
+            tareaParaDesbloquear.Estado = EstadoTarea.Pendiente;
+            
+            DbContext.Update(tareaParaDesbloquear);
+            await DbContext.SaveChangesAsync();
+            await CargarDatos();
+
+            CerrarModalDesbloqueo();
+            await JS.InvokeVoidAsync("alert", "Tarea desbloqueada correctamente");
+        }
+    }
+
+    private void CerrarModalDesbloqueo()
+    {
+        mostrarModalDesbloqueo = false;
+        tareaParaDesbloquear = null;
+    }
+
+    private void VolverProyectos()
+    {
+        Navigation.NavigateTo("/proyectos");
+    }
+}

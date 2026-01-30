@@ -23,11 +23,20 @@
             </NavLink>
         </div>
 
-        <!-- Kanban - JefeObra y Operario -->
-        <AuthorizeView Roles="JefeObra,Operario,Administrador">
+        <!-- Tablero de Proyectos - Solo Admin -->
+        <AuthorizeView Roles="Administrador">
             <div class="nav-item px-3">
-                <NavLink class="nav-link" href="kanban">
-                    <span class="bi bi-kanban-nav-menu" aria-hidden="true"></span> Tablero Kanban
+                <NavLink class="nav-link" href="admin/tablero-proyectos">
+                    <span class="bi bi-grid-3x3-nav-menu" aria-hidden="true"></span> Tablero Proyectos
+                </NavLink>
+            </div>
+        </AuthorizeView>
+
+        <!-- Mi Tablero Personal - JefeObra y Operario -->
+        <AuthorizeView Roles="JefeObra,Operario">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="mi-tablero">
+                    <span class="bi bi-kanban-nav-menu" aria-hidden="true"></span> Mi Tablero
                 </NavLink>
             </div>
         </AuthorizeView>

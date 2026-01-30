@@ -95,6 +95,9 @@
                                 </td>
                                 <td>
                                     <div class="btn-group" role="group">
+                                        <button class="btn btn-sm btn-outline-success" @onclick="() => AbrirKanban(proyecto.Id)" title="Tablero Kanban">
+                                            <i class="bi bi-kanban"></i>
+                                        </button>
                                         <button class="btn btn-sm btn-outline-primary" @onclick="() => VerDetalle(proyecto.Id)">
                                             <i class="bi bi-eye"></i>
                                         </button>
@@ -362,6 +365,11 @@
     private void VerDetalle(int id)
     {
         Navigation.NavigateTo($"/proyectos/{id}");
+    }
+
+    private void AbrirKanban(int proyectoId)
+    {
+        Navigation.NavigateTo($"/proyectos/{proyectoId}/kanban");
     }
 
     private string GetEstadoBadgeClass(EstadoProyecto estado)

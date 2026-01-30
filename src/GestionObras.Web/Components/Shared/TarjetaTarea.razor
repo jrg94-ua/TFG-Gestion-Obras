@@ -1,0 +1,176 @@
+@using GestionObras.Core.Entities
+
+<div class="kanban-card" 
+     draggable="true" 
+     @ondragstart="@(() => OnDragStart.InvokeAsync(Tarea))"
+     style="margin-left: @(Tarea.Nivel * 15)px;">
+    
+    <!-- Badge de Prioridad -->
+    <span class="badge @ObtenerClasePrioridad() position-absolute top-0 end-0 m-2">
+        @Tarea.Prioridad
+    </span>
+
+    <!-- Nivel jerárquico -->
+    @if (Tarea.Nivel > 0)
+    {
+        <div class="subtarea-indicator">
+            <i class="bi bi-arrow-return-right"></i> Subtarea (Nivel @Tarea.Nivel)
+        </div>
+    }
+
+    <!-- Título -->
+    <h5 class="card-title">@Tarea.Nombre</h5>
+
+    <!-- Descripción -->
+    @if (!string.IsNullOrWhiteSpace(Tarea.Descripcion))
+    {
+        <p class="card-text text-muted small">@Tarea.Descripcion</p>
+    }
+
+    <!-- Fechas -->
+    <div class="card-dates">
+        <small>
+            <i class="bi bi-calendar-event"></i> 
+            @Tarea.FechaInicio.ToString("dd/MM/yyyy")
+            @if (Tarea.FechaFin.HasValue)
+            {
+                <span> - @Tarea.FechaFin.Value.ToString("dd/MM/yyyy")</span>
+            }
+        </small>
+    </div>
+
+    <!-- Presupuesto -->
+    @if (Tarea.PresupuestoEstimado > 0)
+    {
+        <div class="card-budget mt-2">
+            <small>
+                <i class="bi bi-currency-euro"></i>
+                <strong>@Tarea.PresupuestoEstimado.ToString("N2")</strong>
+                @if (Tarea.CostesReales > 0)
+                {
+                    <span class="text-muted">/ @Tarea.CostesReales.ToString("N2")</span>
+                }
+            </small>
+        </div>
+    }
+
+    <!-- Usuarios Asignados -->
+    @if (Tarea.UsuariosAsignados?.Any() == true)
+    {
+        <div class="card-responsables mt-2">
+            <small>
+                <i class="bi bi-person-fill"></i>
+                @string.Join(", ", Tarea.UsuariosAsignados.Select(r => r.NombreCompleto))
+            </small>
+        </div>
+    }
+
+    <!-- Responsables -->
+    @if (Tarea.Responsables?.Any() == true)
+    {
+        <div class="card-responsables mt-2">
+            <small>
+                <i class="bi bi-people"></i>
+                @string.Join(", ", Tarea.Responsables.Select(r => r.Nombre))
+            </small>
+        </div>
+    }
+
+    <!-- Información de bloqueo -->
+    @if (Tarea.Bloqueo != null)
+    {
+        <div class="alert alert-warning p-2 mt-2 mb-0">
+            <small>
+                <strong>🚫 @Tarea.Bloqueo.Tipo</strong><br />
+                @Tarea.Bloqueo.JustificacionTecnica
+            </small>
+        </div>
+    }
+
+    <!-- Indicador de subtareas -->
+    @if (Tarea.SubTareas?.Any() == true)
+    {
+        <div class="subtareas-count mt-2">
+            <span class="badge bg-info">
+                <i class="bi bi-list-nested"></i> @Tarea.SubTareas.Count subtarea(s)
+            </span>
+        </div>
+    }
+
+    <!-- Acciones -->
+    <div class="card-actions mt-2">
+        <button class="btn btn-sm btn-outline-primary" @onclick="@(() => OnEditar.InvokeAsync(Tarea))"
+                @onclick:stopPropagation="true">
+            <i class="bi bi-pencil"></i>
+        </button>
+        <button class="btn btn-sm btn-outline-success" @onclick="@(() => OnAgregarSubtarea.InvokeAsync(Tarea))"
+                @onclick:stopPropagation="true"
+                title="Agregar subtarea">
+            <i class="bi bi-plus-circle"></i>
+        </button>
+        @if (Tarea.Estado == EstadoTarea.Bloqueado && OnDesbloquear.HasDelegate)
+        {
+            <button class="btn btn-sm btn-outline-warning" @onclick="@(() => OnDesbloquear.InvokeAsync(Tarea))"
+                    @onclick:stopPropagation="true"
+                    title="Desbloquear">
+                <i class="bi bi-unlock"></i>
+            </button>
+        }
+        <button class="btn btn-sm btn-outline-danger" @onclick="@(() => OnEliminar.InvokeAsync(Tarea))"
+                @onclick:stopPropagation="true">
+            <i class="bi bi-trash"></i>
+        </button>
+    </div>
+
+    <!-- Subtareas expandidas -->
+    @if (MostrarSubtareas && Tarea.SubTareas?.Any() == true)
+    {
+        <div class="subtareas-container mt-2">
+            @foreach (var subtarea in Tarea.SubTareas.OrderBy(s => s.Prioridad))
+            {
+                <TarjetaTarea Tarea="@subtarea"
+                             OnDragStart="@OnDragStart"
+                             OnEditar="@OnEditar"
+                             OnEliminar="@OnEliminar"
+                             OnAgregarSubtarea="@OnAgregarSubtarea"
+                             OnDesbloquear="@OnDesbloquear"
+                             MostrarSubtareas="@MostrarSubtareas" />
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public Tarea Tarea { get; set; } = null!;
+
+    [Parameter]
+    public EventCallback<Tarea> OnDragStart { get; set; }
+
+    [Parameter]
+    public EventCallback<Tarea> OnEditar { get; set; }
+
+    [Parameter]
+    public EventCallback<Tarea> OnEliminar { get; set; }
+
+    [Parameter]
+    public EventCallback<Tarea> OnAgregarSubtarea { get; set; }
+
+    [Parameter]
+    public EventCallback<Tarea> OnDesbloquear { get; set; }
+
+    [Parameter]
+    public bool MostrarSubtareas { get; set; } = true;
+
+    private string ObtenerClasePrioridad()
+    {
+        return Tarea.Prioridad switch
+        {
+            PrioridadTarea.Baja => "bg-secondary",
+            PrioridadTarea.Media => "bg-primary",
+            PrioridadTarea.Alta => "bg-warning",
+            PrioridadTarea.Critica => "bg-danger",
+            _ => "bg-secondary"
+        };
+    }
+}

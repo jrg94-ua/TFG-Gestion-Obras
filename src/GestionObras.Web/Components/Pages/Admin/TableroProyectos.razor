@@ -1,0 +1,311 @@
+@page "/admin/tablero-proyectos"
+@attribute [Authorize(Roles = "Administrador")]
+@using Microsoft.AspNetCore.Authorization
+@using GestionObras.Core.Entities
+@using GestionObras.Infrastructure.Data
+@using GestionObras.Web.Components.Shared
+@using Microsoft.EntityFrameworkCore
+@inject GestionObrasDbContext DbContext
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+
+<PageTitle>Tablero de Proyectos - Gestión de Obras</PageTitle>
+
+<div class="kanban-container">
+    <!-- Header -->
+    <div class="kanban-header">
+        <div>
+            <h1>📊 Tablero General de Proyectos</h1>
+            <p class="text-muted">Vista general del estado de todos los proyectos</p>
+        </div>
+        <button class="btn btn-primary" @onclick="@(() => Navigation.NavigateTo("/proyectos"))">
+            <i class="bi bi-plus-circle"></i> Nuevo Proyecto
+        </button>
+    </div>
+
+    <!-- Estadísticas Generales -->
+    <div class="row mb-4">
+        <div class="col-md-2">
+            <div class="card border-info">
+                <div class="card-body text-center">
+                    <h3 class="text-info">@proyectos.Count(p => p.Estado == EstadoProyecto.Planificacion)</h3>
+                    <small>Planificación</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-success">
+                <div class="card-body text-center">
+                    <h3 class="text-success">@proyectos.Count(p => p.Estado == EstadoProyecto.EnCurso)</h3>
+                    <small>En Curso</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-warning">
+                <div class="card-body text-center">
+                    <h3 class="text-warning">@proyectos.Count(p => p.Estado == EstadoProyecto.Bloqueado)</h3>
+                    <small>Bloqueados</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-secondary">
+                <div class="card-body text-center">
+                    <h3 class="text-secondary">@proyectos.Count(p => p.Estado == EstadoProyecto.Finalizado)</h3>
+                    <small>Finalizados</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-danger">
+                <div class="card-body text-center">
+                    <h3 class="text-danger">@proyectos.Count(p => p.Estado == EstadoProyecto.Cancelado)</h3>
+                    <small>Cancelados</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-primary">
+                <div class="card-body text-center">
+                    <h3 class="text-primary">@proyectos.Count</h3>
+                    <small>Total</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="kanban-filters mb-4">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <input type="text" class="form-control" placeholder="Buscar proyecto..." 
+                       @bind="busqueda" @bind:event="oninput" />
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" @bind="filtroZona">
+                    <option value="">Todas las zonas</option>
+                    @foreach (var zona in zonasDisponibles)
+                    {
+                        <option value="@zona">@zona</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" @bind="ordenamiento">
+                    <option value="fecha">Por fecha inicio</option>
+                    <option value="nombre">Por nombre</option>
+                    <option value="tareas">Por tareas pendientes</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tablero Kanban de Proyectos -->
+    <div class="kanban-board-proyectos">
+        <!-- Columna Planificación -->
+        <div class="kanban-column" 
+             ondragover="event.preventDefault();" 
+             @ondrop="@(() => Drop(EstadoProyecto.Planificacion))">
+            <div class="kanban-column-header" style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);">
+                <h3>📋 Planificación</h3>
+                <span class="badge bg-light text-dark">@ObtenerProyectosPorEstado(EstadoProyecto.Planificacion).Count()</span>
+            </div>
+            <div class="kanban-column-body">
+                @foreach (var proyecto in ObtenerProyectosPorEstado(EstadoProyecto.Planificacion))
+                {
+                    <TarjetaProyecto Proyecto="@proyecto" 
+                                   OnDragStart="@DragStart"
+                                   OnVerKanban="@VerKanban"
+                                   OnEditar="@EditarProyecto" />
+                }
+            </div>
+        </div>
+
+        <!-- Columna En Curso -->
+        <div class="kanban-column" 
+             ondragover="event.preventDefault();" 
+             @ondrop="@(() => Drop(EstadoProyecto.EnCurso))">
+            <div class="kanban-column-header" style="background: linear-gradient(135deg, #28a745 0%, #218838 100%);">
+                <h3>🚀 En Curso</h3>
+                <span class="badge bg-light text-dark">@ObtenerProyectosPorEstado(EstadoProyecto.EnCurso).Count()</span>
+            </div>
+            <div class="kanban-column-body">
+                @foreach (var proyecto in ObtenerProyectosPorEstado(EstadoProyecto.EnCurso))
+                {
+                    <TarjetaProyecto Proyecto="@proyecto" 
+                                   OnDragStart="@DragStart"
+                                   OnVerKanban="@VerKanban"
+                                   OnEditar="@EditarProyecto" />
+                }
+            </div>
+        </div>
+
+        <!-- Columna Bloqueado -->
+        <div class="kanban-column" 
+             ondragover="event.preventDefault();" 
+             @ondrop="@(() => Drop(EstadoProyecto.Bloqueado))">
+            <div class="kanban-column-header" style="background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);">
+                <h3>🚫 Bloqueado</h3>
+                <span class="badge bg-light text-dark">@ObtenerProyectosPorEstado(EstadoProyecto.Bloqueado).Count()</span>
+            </div>
+            <div class="kanban-column-body">
+                @foreach (var proyecto in ObtenerProyectosPorEstado(EstadoProyecto.Bloqueado))
+                {
+                    <TarjetaProyecto Proyecto="@proyecto" 
+                                   OnDragStart="@DragStart"
+                                   OnVerKanban="@VerKanban"
+                                   OnEditar="@EditarProyecto" />
+                }
+            </div>
+        </div>
+
+        <!-- Columna Finalizado -->
+        <div class="kanban-column" 
+             ondragover="event.preventDefault();" 
+             @ondrop="@(() => Drop(EstadoProyecto.Finalizado))">
+            <div class="kanban-column-header" style="background: linear-gradient(135deg, #6c757d 0%, #545b62 100%);">
+                <h3>✅ Finalizado</h3>
+                <span class="badge bg-light text-dark">@ObtenerProyectosPorEstado(EstadoProyecto.Finalizado).Count()</span>
+            </div>
+            <div class="kanban-column-body">
+                @foreach (var proyecto in ObtenerProyectosPorEstado(EstadoProyecto.Finalizado))
+                {
+                    <TarjetaProyecto Proyecto="@proyecto" 
+                                   OnDragStart="@DragStart"
+                                   OnVerKanban="@VerKanban"
+                                   OnEditar="@EditarProyecto" />
+                }
+            </div>
+        </div>
+
+        <!-- Columna Cancelado -->
+        <div class="kanban-column" 
+             ondragover="event.preventDefault();" 
+             @ondrop="@(() => Drop(EstadoProyecto.Cancelado))">
+            <div class="kanban-column-header" style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);">
+                <h3>❌ Cancelado</h3>
+                <span class="badge bg-light text-dark">@ObtenerProyectosPorEstado(EstadoProyecto.Cancelado).Count()</span>
+            </div>
+            <div class="kanban-column-body">
+                @foreach (var proyecto in ObtenerProyectosPorEstado(EstadoProyecto.Cancelado))
+                {
+                    <TarjetaProyecto Proyecto="@proyecto" 
+                                   OnDragStart="@DragStart"
+                                   OnVerKanban="@VerKanban"
+                                   OnEditar="@EditarProyecto" />
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Proyecto> proyectos = new();
+    private List<Proyecto> proyectosFiltrados = new();
+    private List<string> zonasDisponibles = new();
+    
+    private string busqueda = "";
+    private string filtroZona = "";
+    private string ordenamiento = "fecha";
+
+    // Drag and Drop
+    private Proyecto? proyectoArrastrado = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        proyectos = await DbContext.Proyectos
+            .Include(p => p.Tareas)
+            .Include(p => p.EmpleadosAsignados)
+            .OrderByDescending(p => p.FechaInicio)
+            .ToListAsync();
+
+        zonasDisponibles = proyectos
+            .Select(p => p.Provincia)
+            .Distinct()
+            .OrderBy(z => z)
+            .ToList();
+
+        AplicarFiltros();
+    }
+
+    private void AplicarFiltros()
+    {
+        proyectosFiltrados = proyectos.ToList();
+
+        // Filtro por búsqueda
+        if (!string.IsNullOrWhiteSpace(busqueda))
+        {
+            proyectosFiltrados = proyectosFiltrados
+                .Where(p => p.Nombre.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ||
+                           p.Municipio.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ||
+                           p.Provincia.Contains(busqueda, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+
+        // Filtro por zona
+        if (!string.IsNullOrWhiteSpace(filtroZona))
+        {
+            proyectosFiltrados = proyectosFiltrados
+                .Where(p => p.Provincia == filtroZona)
+                .ToList();
+        }
+
+        // Ordenamiento
+        proyectosFiltrados = ordenamiento switch
+        {
+            "nombre" => proyectosFiltrados.OrderBy(p => p.Nombre).ToList(),
+            "tareas" => proyectosFiltrados.OrderByDescending(p => p.Tareas.Count(t => t.Estado != EstadoTarea.Finalizado)).ToList(),
+            _ => proyectosFiltrados.OrderByDescending(p => p.FechaInicio).ToList()
+        };
+    }
+
+    private List<Proyecto> ObtenerProyectosPorEstado(EstadoProyecto estado)
+    {
+        return proyectosFiltrados.Where(p => p.Estado == estado).ToList();
+    }
+
+    // Drag and Drop
+    private void DragStart(Proyecto proyecto)
+    {
+        proyectoArrastrado = proyecto;
+    }
+
+    private async Task Drop(EstadoProyecto nuevoEstado)
+    {
+        if (proyectoArrastrado == null) return;
+
+        var estadoAnterior = proyectoArrastrado.Estado;
+        proyectoArrastrado.Estado = nuevoEstado;
+
+        // Si se marca como finalizado, establecer fecha fin
+        if (nuevoEstado == EstadoProyecto.Finalizado && proyectoArrastrado.FechaFin == null)
+        {
+            proyectoArrastrado.FechaFin = DateTime.Today;
+        }
+
+        DbContext.Update(proyectoArrastrado);
+        await DbContext.SaveChangesAsync();
+        await CargarDatos();
+
+        await JS.InvokeVoidAsync("alert", $"Proyecto '{proyectoArrastrado.Nombre}' cambiado de {estadoAnterior} a {nuevoEstado}");
+        
+        proyectoArrastrado = null;
+    }
+
+    private void VerKanban(int proyectoId)
+    {
+        Navigation.NavigateTo($"/proyectos/{proyectoId}/kanban");
+    }
+
+    private void EditarProyecto(int proyectoId)
+    {
+        Navigation.NavigateTo($"/proyectos");
+    }
+}

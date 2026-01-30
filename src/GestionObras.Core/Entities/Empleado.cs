@@ -17,6 +17,10 @@ namespace GestionObras.Core.Entities
         public string Telefono { get; set; } = string.Empty;
         public CategoriaLaboral Categoria { get; set; }
         
+        // Relación con usuario del sistema
+        public string? UsuarioId { get; set; }
+        public UsuarioObra? Usuario { get; set; }
+        
         // Relaciones
         public List<CursoPRL> CursosPRL { get; set; } = new();
         public List<Fichaje> Fichajes { get; set; } = new();
