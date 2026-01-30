@@ -18,6 +18,12 @@ namespace GestionObras.Infrastructure.Repositories
             return await _context.Tareas
                 .Include(t => t.Proyecto)
                 .Include(t => t.Bloqueo)
+                .Include(t => t.Documentos)
+                .Include(t => t.CompletadaPor)
+                .Include(t => t.SubTareas)
+                .Include(t => t.Firmas)
+                    .ThenInclude(f => f.Usuario)
+                .Include(t => t.UsuariosAsignados)
                 .OrderBy(t => t.FechaInicio)
                 .ToListAsync();
         }
@@ -29,6 +35,14 @@ namespace GestionObras.Infrastructure.Repositories
                 .Include(t => t.MaterialesNecesarios)
                 .Include(t => t.Responsables)
                 .Include(t => t.Bloqueo)
+                .Include(t => t.Documentos)
+                    .ThenInclude(d => d.UsuarioSubida)
+                .Include(t => t.CompletadaPor)
+                .Include(t => t.SubTareas)
+                .Include(t => t.TareaPadre)
+                .Include(t => t.Firmas)
+                    .ThenInclude(f => f.Usuario)
+                .Include(t => t.UsuariosAsignados)
                 .FirstOrDefaultAsync(t => t.Id == id);
         }
 
@@ -60,6 +74,12 @@ namespace GestionObras.Infrastructure.Repositories
             return await _context.Tareas
                 .Include(t => t.Bloqueo)
                 .Include(t => t.Responsables)
+                .Include(t => t.Documentos)
+                .Include(t => t.CompletadaPor)
+                .Include(t => t.SubTareas)
+                .Include(t => t.Firmas)
+                    .ThenInclude(f => f.Usuario)
+                .Include(t => t.UsuariosAsignados)
                 .Where(t => t.ProyectoId == proyectoId)
                 .OrderBy(t => t.FechaInicio)
                 .ToListAsync();

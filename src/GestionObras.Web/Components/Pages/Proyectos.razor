@@ -3,7 +3,10 @@
 @using Microsoft.AspNetCore.Authorization
 @using GestionObras.Core.Entities
 @using GestionObras.Infrastructure.Repositories
+@using GestionObras.Infrastructure.Data
+@using Microsoft.EntityFrameworkCore
 @inject IProyectoRepository ProyectoRepository
+@inject GestionObrasDbContext DbContext
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 @rendermode InteractiveServer
@@ -67,6 +70,7 @@
                     <thead>
                         <tr>
                             <th>Nombre</th>
+                            <th>Responsable</th>
                             <th>Ubicación</th>
                             <th>Estado</th>
                             <th>Fecha Inicio</th>
@@ -80,6 +84,18 @@
                             <tr>
                                 <td>
                                     <strong>@proyecto.Nombre</strong>
+                                </td>
+                                <td>
+                                    @if (proyecto.Responsable != null)
+                                    {
+                                        <span class="badge bg-primary">
+                                            <i class="bi bi-person-badge"></i> @proyecto.Responsable.NombreCompleto
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted"><i class="bi bi-dash"></i> Sin asignar</span>
+                                    }
                                 </td>
                                 <td>
                                     <i class="bi bi-geo-alt"></i> @proyecto.Municipio, @proyecto.Provincia
@@ -192,7 +208,20 @@
                                 <InputDate class="form-control" @bind-Value="proyectoForm.FechaFin" />
                             </div>
 
-                            <div class="col-md-12">
+                            <div class="col-md-6">
+                                <label class="form-label">Responsable del Proyecto*</label>
+                                <InputSelect class="form-select" @bind-Value="proyectoForm.ResponsableId">
+                                    <option value="">Seleccionar responsable...</option>
+                                    @foreach (var usuario in usuariosResponsables)
+                                    {
+                                        <option value="@usuario.Id">@usuario.NombreCompleto - @usuario.Cargo</option>
+                                    }
+                                </InputSelect>
+                                <small class="form-text text-muted">Solo usuarios con rol Oficina Técnica o Jefe de Obra</small>
+                                <ValidationMessage For="@(() => proyectoForm.ResponsableId)" />
+                            </div>
+
+                            <div class="col-md-6">
                                 <label class="form-label">Estado</label>
                                 <InputSelect class="form-select" @bind-Value="proyectoForm.Estado">
                                     <option value="@EstadoProyecto.Planificacion">Planificación</option>
@@ -223,6 +252,7 @@
 @code {
     private List<Proyecto> proyectos = new();
     private List<Proyecto> proyectosFiltrados = new();
+    private List<UsuarioObra> usuariosResponsables = new();
     private Proyecto? proyectoSeleccionado;
     private ProyectoFormModel proyectoForm = new();
     private bool mostrarModal = false;
@@ -233,12 +263,26 @@
     protected override async Task OnInitializedAsync()
     {
         await CargarProyectos();
+        await CargarUsuariosResponsables();
     }
 
     private async Task CargarProyectos()
     {
         proyectos = await ProyectoRepository.GetAllAsync();
         AplicarFiltros();
+    }
+
+    private async Task CargarUsuariosResponsables()
+    {
+        // Solo usuarios con rol OficinaTecnica o JefeObra
+        var roles = new[] { "OficinaTecnica", "JefeObra" };
+        
+        usuariosResponsables = await DbContext.Users
+            .Where(u => DbContext.UserRoles
+                .Any(ur => ur.UserId == u.Id && 
+                     DbContext.Roles.Any(r => r.Id == ur.RoleId && roles.Contains(r.Name))))
+            .OrderBy(u => u.NombreCompleto)
+            .ToListAsync();
     }
 
     private void AplicarFiltros()
@@ -276,7 +320,8 @@
             FechaInicio = DateTime.Now,
             Estado = EstadoProyecto.Planificacion,
             TipoSuelo = TipoSuelo.Urbano,
-            ZonaClimatica = ZonaClimatica.C3
+            ZonaClimatica = ZonaClimatica.C3,
+            ResponsableId = null
         };
         mostrarModal = true;
     }
@@ -293,7 +338,8 @@
             ZonaClimatica = proyecto.ZonaClimatica,
             FechaInicio = proyecto.FechaInicio,
             FechaFin = proyecto.FechaFin,
-            Estado = proyecto.Estado
+            Estado = proyecto.Estado,
+            ResponsableId = proyecto.ResponsableId
         };
         mostrarModal = true;
     }
@@ -322,7 +368,8 @@
                     ZonaClimatica = proyectoForm.ZonaClimatica,
                     FechaInicio = proyectoForm.FechaInicio,
                     FechaFin = proyectoForm.FechaFin,
-                    Estado = proyectoForm.Estado
+                    Estado = proyectoForm.Estado,
+                    ResponsableId = proyectoForm.ResponsableId
                 };
 
                 await ProyectoRepository.AddAsync(nuevoProyecto);
@@ -338,6 +385,7 @@
                 proyectoSeleccionado.FechaInicio = proyectoForm.FechaInicio;
                 proyectoSeleccionado.FechaFin = proyectoForm.FechaFin;
                 proyectoSeleccionado.Estado = proyectoForm.Estado;
+                proyectoSeleccionado.ResponsableId = proyectoForm.ResponsableId;
 
                 await ProyectoRepository.UpdateAsync(proyectoSeleccionado);
             }
@@ -418,5 +466,8 @@
 
         public DateTime? FechaFin { get; set; }
         public EstadoProyecto Estado { get; set; }
+        
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Debe seleccionar un responsable")]
+        public string? ResponsableId { get; set; }
     }
 }

@@ -51,8 +51,8 @@ builder.Services.AddScoped<GestionObras.Infrastructure.Repositories.IProyectoRep
 builder.Services.AddScoped<GestionObras.Infrastructure.Repositories.ITareaRepository, GestionObras.Infrastructure.Repositories.TareaRepository>();
 builder.Services.AddScoped<GestionObras.Infrastructure.Repositories.IEmpleadoRepository, GestionObras.Infrastructure.Repositories.EmpleadoRepository>();
 
-// Registrar HttpClient para CatastroService
-builder.Services.AddHttpClient<GestionObras.Web.Services.ICatastroService, GestionObras.Web.Services.CatastroService>();
+// Registrar servicios personalizados
+builder.Services.AddScoped<GestionObras.Web.Services.DocumentoService>();
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -74,10 +74,10 @@ using (var scope = app.Services.CreateScope())
     var services = scope.ServiceProvider;
     try
     {
-        // Aplicar migraciones automáticamente
+        // Crear la base de datos si no existe
         var dbContext = services.GetRequiredService<GestionObrasDbContext>();
         
-        // Asegurar que la base de datos se cree si no existe
+        // Crear la base de datos con el esquema actual
         await dbContext.Database.EnsureCreatedAsync();
         
         var userManager = services.GetRequiredService<UserManager<UsuarioObra>>();

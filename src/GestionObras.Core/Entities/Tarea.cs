@@ -35,6 +35,59 @@ namespace GestionObras.Core.Entities
         public List<UsuarioObra> UsuariosAsignados { get; set; } = new();
         public BloqueoTarea? Bloqueo { get; set; }
         public List<Factura> Facturas { get; set; } = new();
+        
+        // Documentos adjuntos
+        public List<DocumentoTarea> Documentos { get; set; } = new();
+        
+        // Sistema de firmas para tareas conjuntas
+        /// <summary>
+        /// Indica si la tarea requiere que todos los usuarios asignados firmen para completarla
+        /// </summary>
+        public bool RequiereFirmaConjunta { get; set; } = false;
+        
+        /// <summary>
+        /// Firmas de los usuarios en la tarea
+        /// </summary>
+        public List<FirmaTarea> Firmas { get; set; } = new();
+        
+        // Control de finalización y firma
+        /// <summary>
+        /// Usuario que completó la tarea
+        /// </summary>
+        public string? CompletadaPorId { get; set; }
+        public UsuarioObra? CompletadaPor { get; set; }
+        
+        /// <summary>
+        /// Fecha en que se marcó como completada
+        /// </summary>
+        public DateTime? FechaFinalizacion { get; set; }
+        
+        /// <summary>
+        /// Observaciones o comentarios al completar la tarea
+        /// </summary>
+        public string? ObservacionesFinalizacion { get; set; }
+        
+        /// <summary>
+        /// Verifica si todos los usuarios asignados han firmado la tarea
+        /// </summary>
+        public bool TodosHanFirmado()
+        {
+            if (!RequiereFirmaConjunta || UsuariosAsignados == null || !UsuariosAsignados.Any())
+                return true;
+                
+            var usuariosAsignadosIds = UsuariosAsignados.Select(u => u.Id).ToHashSet();
+            var usuariosFirmadosIds = Firmas.Where(f => f.Aprobada).Select(f => f.UsuarioId).ToHashSet();
+            
+            return usuariosAsignadosIds.All(id => usuariosFirmadosIds.Contains(id));
+        }
+        
+        /// <summary>
+        /// Verifica si un usuario específico ya firmó la tarea
+        /// </summary>
+        public bool UsuarioHaFirmado(string usuarioId)
+        {
+            return Firmas.Any(f => f.UsuarioId == usuarioId && f.Aprobada);
+        }
     }
     
     public enum EstadoTarea

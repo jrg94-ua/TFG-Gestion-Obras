@@ -20,6 +20,10 @@ namespace GestionObras.Core.Entities
         public TipoSuelo TipoSuelo { get; set; }
         public ZonaClimatica ZonaClimatica { get; set; }
         
+        // Responsable del proyecto (solo OficinaTecnica o JefeObra)
+        public string? ResponsableId { get; set; }
+        public UsuarioObra? Responsable { get; set; }
+        
         // Relaciones
         public List<Tarea> Tareas { get; set; } = new();
         public List<Empleado> EmpleadosAsignados { get; set; } = new();

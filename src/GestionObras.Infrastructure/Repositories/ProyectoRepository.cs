@@ -17,6 +17,7 @@ namespace GestionObras.Infrastructure.Repositories
         {
             return await _context.Proyectos
                 .Include(p => p.Tareas)
+                .Include(p => p.Responsable)
                 .OrderByDescending(p => p.FechaInicio)
                 .ToListAsync();
         }
@@ -28,6 +29,7 @@ namespace GestionObras.Infrastructure.Repositories
                 .Include(p => p.EmpleadosAsignados)
                 .Include(p => p.CarpetaLegal)
                 .Include(p => p.Presupuesto)
+                .Include(p => p.Responsable)
                 .FirstOrDefaultAsync(p => p.Id == id);
         }
 
@@ -58,6 +60,7 @@ namespace GestionObras.Infrastructure.Repositories
         {
             return await _context.Proyectos
                 .Include(p => p.Tareas)
+                .Include(p => p.Responsable)
                 .Where(p => p.Estado == estado)
                 .OrderByDescending(p => p.FechaInicio)
                 .ToListAsync();
@@ -67,6 +70,7 @@ namespace GestionObras.Infrastructure.Repositories
         {
             return await _context.Proyectos
                 .Include(p => p.Tareas)
+                .Include(p => p.Responsable)
                 .Where(p => p.Provincia == provincia)
                 .OrderByDescending(p => p.FechaInicio)
                 .ToListAsync();

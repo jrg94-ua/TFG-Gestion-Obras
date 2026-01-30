@@ -18,6 +18,8 @@ public class GestionObrasDbContext : IdentityDbContext<UsuarioObra>
     public DbSet<Proyecto> Proyectos { get; set; }
     public DbSet<Tarea> Tareas { get; set; }
     public DbSet<BloqueoTarea> BloqueosTareas { get; set; }
+    public DbSet<DocumentoTarea> DocumentosTareas { get; set; }
+    public DbSet<FirmaTarea> FirmasTareas { get; set; }
     public DbSet<Empleado> Empleados { get; set; }
     public DbSet<Material> Materiales { get; set; }
     public DbSet<Factura> Facturas { get; set; }
@@ -58,6 +60,12 @@ public class GestionObrasDbContext : IdentityDbContext<UsuarioObra>
             entity.Property(p => p.Nombre).HasMaxLength(200).IsRequired();
             entity.Property(p => p.Provincia).HasMaxLength(100).IsRequired();
             entity.Property(p => p.Municipio).HasMaxLength(100).IsRequired();
+            
+            // Relación con Responsable
+            entity.HasOne(p => p.Responsable)
+                  .WithMany()
+                  .HasForeignKey(p => p.ResponsableId)
+                  .OnDelete(DeleteBehavior.SetNull);
             
             entity.HasOne(p => p.CarpetaLegal)
                   .WithOne(c => c.Proyecto)
@@ -104,6 +112,54 @@ public class GestionObrasDbContext : IdentityDbContext<UsuarioObra>
                   .WithMany(t => t.SubTareas)
                   .HasForeignKey(t => t.TareaPadreId)
                   .OnDelete(DeleteBehavior.Restrict);
+                  
+            // Relación con usuario que completó la tarea
+            entity.HasOne(t => t.CompletadaPor)
+                  .WithMany()
+                  .HasForeignKey(t => t.CompletadaPorId)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
+        
+        // DocumentoTarea
+        builder.Entity<DocumentoTarea>(entity =>
+        {
+            entity.HasKey(d => d.Id);
+            entity.Property(d => d.NombreArchivo).HasMaxLength(255).IsRequired();
+            entity.Property(d => d.RutaArchivo).HasMaxLength(500).IsRequired();
+            entity.Property(d => d.TipoMime).HasMaxLength(100);
+            entity.Property(d => d.Descripcion).HasMaxLength(1000);
+            
+            entity.HasOne(d => d.Tarea)
+                  .WithMany(t => t.Documentos)
+                  .HasForeignKey(d => d.TareaId)
+                  .OnDelete(DeleteBehavior.Cascade);
+                  
+            entity.HasOne(d => d.UsuarioSubida)
+                  .WithMany()
+                  .HasForeignKey(d => d.UsuarioSubidaId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+        
+        // FirmaTarea
+        builder.Entity<FirmaTarea>(entity =>
+        {
+            entity.HasKey(f => f.Id);
+            entity.Property(f => f.Observaciones).HasMaxLength(1000);
+            entity.Property(f => f.MotivoRechazo).HasMaxLength(500);
+            
+            entity.HasOne(f => f.Tarea)
+                  .WithMany(t => t.Firmas)
+                  .HasForeignKey(f => f.TareaId)
+                  .OnDelete(DeleteBehavior.Cascade);
+                  
+            entity.HasOne(f => f.Usuario)
+                  .WithMany()
+                  .HasForeignKey(f => f.UsuarioId)
+                  .OnDelete(DeleteBehavior.Restrict);
+                  
+            // Un usuario solo puede firmar una vez cada tarea
+            entity.HasIndex(f => new { f.TareaId, f.UsuarioId })
+                  .IsUnique();
         });
 
         // Presupuesto

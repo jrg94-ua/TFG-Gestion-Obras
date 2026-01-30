@@ -96,6 +96,46 @@
             </span>
         </div>
     }
+    
+    <!-- Indicador de documentos -->
+    @if (Tarea.Documentos?.Any() == true)
+    {
+        <div class="documentos-count mt-2">
+            <span class="badge bg-secondary">
+                <i class="bi bi-paperclip"></i> @Tarea.Documentos.Count documento(s)
+            </span>
+        </div>
+    }
+    
+    <!-- Firma de finalización -->
+    @if (Tarea.Estado == EstadoTarea.Finalizado && Tarea.CompletadaPor != null)
+    {
+        <div class="firma-finalizacion mt-2 p-2 bg-light rounded">
+            <small class="text-success">
+                <i class="bi bi-check-circle-fill"></i>
+                <strong>Completada por:</strong> @Tarea.CompletadaPor.NombreCompleto<br/>
+                <i class="bi bi-calendar-check"></i> @Tarea.FechaFinalizacion?.ToString("dd/MM/yyyy HH:mm")
+            </small>
+        </div>
+    }
+    
+    <!-- Estado de firmas para tareas conjuntas -->
+    @if (Tarea.RequiereFirmaConjunta && Tarea.UsuariosAsignados?.Any() == true)
+    {
+        <div class="firmas-estado mt-2 p-2 border rounded">
+            <small>
+                <strong><i class="bi bi-pen"></i> Firmas (@Tarea.Firmas.Count(f => f.Aprobada)/@Tarea.UsuariosAsignados.Count):</strong><br/>
+                @foreach (var usuario in Tarea.UsuariosAsignados)
+                {
+                    var haFirmado = Tarea.UsuarioHaFirmado(usuario.Id ?? "");
+                    <span class="badge @(haFirmado ? "bg-success" : "bg-warning") me-1">
+                        <i class="bi @(haFirmado ? "bi-check-circle-fill" : "bi-clock")"></i>
+                        @usuario.NombreCompleto
+                    </span>
+                }
+            </small>
+        </div>
+    }
 
     <!-- Acciones -->
     <div class="card-actions mt-2">
@@ -103,11 +143,32 @@
                 @onclick:stopPropagation="true">
             <i class="bi bi-pencil"></i>
         </button>
+        <button class="btn btn-sm btn-outline-info" @onclick="@(() => OnVerDocumentos.InvokeAsync(Tarea))"
+                @onclick:stopPropagation="true"
+                title="Ver documentos">
+            <i class="bi bi-paperclip"></i>
+        </button>
+        @if (Tarea.RequiereFirmaConjunta && Tarea.Estado == EstadoTarea.EnCurso && OnFirmarTarea.HasDelegate)
+        {
+            <button class="btn btn-sm btn-outline-primary" @onclick="@(() => OnFirmarTarea.InvokeAsync(Tarea))"
+                    @onclick:stopPropagation="true"
+                    title="Firmar tarea">
+                <i class="bi bi-pen"></i>
+            </button>
+        }
         <button class="btn btn-sm btn-outline-success" @onclick="@(() => OnAgregarSubtarea.InvokeAsync(Tarea))"
                 @onclick:stopPropagation="true"
                 title="Agregar subtarea">
             <i class="bi bi-plus-circle"></i>
         </button>
+        @if (Tarea.Estado == EstadoTarea.EnCurso && OnCompletarTarea.HasDelegate)
+        {
+            <button class="btn btn-sm btn-outline-success" @onclick="@(() => OnCompletarTarea.InvokeAsync(Tarea))"
+                    @onclick:stopPropagation="true"
+                    title="Completar tarea">
+                <i class="bi bi-check-circle"></i>
+            </button>
+        }
         @if (Tarea.Estado == EstadoTarea.Bloqueado && OnDesbloquear.HasDelegate)
         {
             <button class="btn btn-sm btn-outline-warning" @onclick="@(() => OnDesbloquear.InvokeAsync(Tarea))"
@@ -134,6 +195,9 @@
                              OnEliminar="@OnEliminar"
                              OnAgregarSubtarea="@OnAgregarSubtarea"
                              OnDesbloquear="@OnDesbloquear"
+                             OnVerDocumentos="@OnVerDocumentos"
+                             OnCompletarTarea="@OnCompletarTarea"
+                             OnFirmarTarea="@OnFirmarTarea"
                              MostrarSubtareas="@MostrarSubtareas" />
             }
         </div>
@@ -158,6 +222,15 @@
 
     [Parameter]
     public EventCallback<Tarea> OnDesbloquear { get; set; }
+    
+    [Parameter]
+    public EventCallback<Tarea> OnVerDocumentos { get; set; }
+    
+    [Parameter]
+    public EventCallback<Tarea> OnCompletarTarea { get; set; }
+    
+    [Parameter]
+    public EventCallback<Tarea> OnFirmarTarea { get; set; }
 
     [Parameter]
     public bool MostrarSubtareas { get; set; } = true;
