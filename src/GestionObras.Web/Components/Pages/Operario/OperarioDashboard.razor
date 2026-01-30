@@ -1,0 +1,150 @@
+@page "/operario/dashboard"
+@attribute [Authorize(Roles = "Operario,JefeObra,Administrador")]
+@using Microsoft.AspNetCore.Authorization
+@using GestionObras.Infrastructure.Data
+@using GestionObras.Core.Entities
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Authorization
+@inject GestionObrasDbContext DbContext
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@rendermode InteractiveServer
+
+<PageTitle>Panel de Operario - Gestión de Obras</PageTitle>
+
+<div class="dashboard-container">
+    <div class="dashboard-header">
+        <h1>🔧 Panel de Operario</h1>
+        <p>Mis tareas asignadas</p>
+    </div>
+
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <div class="metric-icon">✅</div>
+            <div class="metric-content">
+                <h3>@tareasPendientes</h3>
+                <p>Tareas Pendientes</p>
+            </div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-icon">⏳</div>
+            <div class="metric-content">
+                <h3>@tareasEnCurso</h3>
+                <p>En Progreso</p>
+            </div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-icon">✔️</div>
+            <div class="metric-content">
+                <h3>@tareasCompletadas</h3>
+                <p>Completadas</p>
+            </div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-icon">📦</div>
+            <div class="metric-content">
+                <h3>@materialesDisponibles</h3>
+                <p>Materiales</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="quick-actions">
+        <h2>Acciones Rápidas</h2>
+        <div class="actions-grid">
+            <button class="action-btn" @onclick="@(() => Navigation.NavigateTo("/mis-tareas"))">
+                <i class="bi bi-list-task"></i>
+                <span>Mis Tareas</span>
+            </button>
+            <button class="action-btn" @onclick="@(() => Navigation.NavigateTo("/kanban"))">
+                <i class="bi bi-kanban-fill"></i>
+                <span>Tablero Kanban</span>
+            </button>
+            <button class="action-btn" @onclick="@(() => Navigation.NavigateTo("/materiales"))">
+                <i class="bi bi-box-seam"></i>
+                <span>Materiales</span>
+            </button>
+            <button class="action-btn" @onclick="@(() => Navigation.NavigateTo("/proyectos"))">
+                <i class="bi bi-building"></i>
+                <span>Proyectos</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="recent-activity">
+        <h2>Mis Tareas Activas</h2>
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Tarea</th>
+                        <th>Proyecto</th>
+                        <th>Estado</th>
+                        <th>Fecha Inicio</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var tarea in misTareas)
+                    {
+                        <tr>
+                            <td>@tarea.Nombre</td>
+                            <td>@tarea.Proyecto?.Nombre</td>
+                            <td><span class="badge @GetEstadoBadge(tarea.Estado)">@tarea.Estado</span></td>
+                            <td>@tarea.FechaInicio.ToString("dd/MM/yyyy")</td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" @onclick="@(() => Navigation.NavigateTo($"/tareas/{tarea.Id}"))">
+                                    Ver
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    private int tareasPendientes;
+    private int tareasEnCurso;
+    private int tareasCompletadas;
+    private int materialesDisponibles;
+    private List<GestionObras.Core.Entities.Tarea> misTareas = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        // Por ahora mostramos todas las tareas, en el futuro filtrar por empleado asignado
+        tareasPendientes = await DbContext.Tareas.CountAsync(t => t.Estado == EstadoTarea.Pendiente);
+        tareasEnCurso = await DbContext.Tareas.CountAsync(t => t.Estado == EstadoTarea.EnCurso);
+        tareasCompletadas = await DbContext.Tareas.CountAsync(t => t.Estado == EstadoTarea.Finalizado);
+        materialesDisponibles = await DbContext.Materiales.CountAsync();
+        
+        misTareas = await DbContext.Tareas
+            .Include(t => t.Proyecto)
+            .Where(t => t.Estado == EstadoTarea.Pendiente || t.Estado == EstadoTarea.EnCurso)
+            .OrderBy(t => t.FechaInicio)
+            .Take(10)
+            .ToListAsync();
+    }
+
+    private string GetEstadoBadge(EstadoTarea estado)
+    {
+        return estado switch
+        {
+            EstadoTarea.EnCurso => "bg-success",
+            EstadoTarea.Pendiente => "bg-warning",
+            EstadoTarea.Finalizado => "bg-secondary",
+            EstadoTarea.Bloqueado => "bg-danger",
+            _ => "bg-primary"
+        };
+    }
+}

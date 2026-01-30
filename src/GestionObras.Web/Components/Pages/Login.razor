@@ -1,0 +1,141 @@
+@page "/login"
+@using Microsoft.AspNetCore.Identity
+@using GestionObras.Core.Entities
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.Forms
+@inject SignInManager<UsuarioObra> SignInManager
+@inject NavigationManager Navigation
+@inject IHttpContextAccessor HttpContextAccessor
+
+<PageTitle>Iniciar Sesión - Gestión de Obras</PageTitle>
+
+<div class="login-container">
+    <div class="login-card">
+        <div class="login-header">
+            <h2>🏗️ Gestión de Obras</h2>
+            <p>Inicia sesión para continuar</p>
+        </div>
+
+        <EditForm Model="@loginModel" OnValidSubmit="@HandleLogin" FormName="loginForm">
+            <DataAnnotationsValidator />
+            
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger" role="alert">
+                    @errorMessage
+                </div>
+            }
+
+            <div class="form-group">
+                <label for="email">Correo Electrónico</label>
+                <InputText id="email" class="form-control" @bind-Value="loginModel.Email" placeholder="usuario@ejemplo.com" />
+                <ValidationMessage For="@(() => loginModel.Email)" />
+            </div>
+
+            <div class="form-group">
+                <label for="password">Contraseña</label>
+                <InputText id="password" type="password" class="form-control" @bind-Value="loginModel.Password" placeholder="••••••••" />
+                <ValidationMessage For="@(() => loginModel.Password)" />
+            </div>
+
+            <div class="form-group form-check">
+                <InputCheckbox id="rememberMe" class="form-check-input" @bind-Value="loginModel.RememberMe" />
+                <label class="form-check-label" for="rememberMe">
+                    Recordarme
+                </label>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block" disabled="@isLoading">
+                @if (isLoading)
+                {
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    <span> Iniciando sesión...</span>
+                }
+                else
+                {
+                    <span>Iniciar Sesión</span>
+                }
+            </button>
+        </EditForm>
+
+        <div class="login-footer">
+            <p>¿Olvidaste tu contraseña? <a href="/recuperar-password">Recuperar</a></p>
+        </div>
+    </div>
+
+    <div class="login-info">
+        <h3>Usuarios de Prueba</h3>
+        <ul>
+            <li><strong>Administrador:</strong> admin@gestionobras.com / Admin123!</li>
+            <li><strong>Jefe de Obra:</strong> jefe@gestionobras.com / Jefe123!</li>
+        </ul>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromForm]
+    private LoginModel loginModel { get; set; } = default!;
+    
+    private string? errorMessage;
+    private bool isLoading = false;
+
+    protected override void OnInitialized()
+    {
+        loginModel ??= new();
+    }
+
+    private async Task HandleLogin()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            var result = await SignInManager.PasswordSignInAsync(
+                loginModel.Email,
+                loginModel.Password,
+                loginModel.RememberMe,
+                lockoutOnFailure: false
+            );
+
+            if (result.Succeeded)
+            {
+                Navigation.NavigateTo("/", forceLoad: true);
+                return;
+            }
+            else if (result.IsLockedOut)
+            {
+                errorMessage = "Tu cuenta está bloqueada. Contacta al administrador.";
+            }
+            else if (result.IsNotAllowed)
+            {
+                errorMessage = "Debes confirmar tu correo electrónico antes de iniciar sesión.";
+            }
+            else
+            {
+                errorMessage = "Correo o contraseña incorrectos.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error al iniciar sesión: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    public class LoginModel
+    {
+        [Required(ErrorMessage = "El correo electrónico es obligatorio")]
+        [EmailAddress(ErrorMessage = "El formato del correo no es válido")]
+        public string Email { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "La contraseña es obligatoria")]
+        [DataType(DataType.Password)]
+        public string Password { get; set; } = string.Empty;
+
+        public bool RememberMe { get; set; }
+    }
+}

@@ -1,0 +1,146 @@
+@page "/admin/dashboard"
+@attribute [Authorize(Roles = "Administrador")]
+@using Microsoft.AspNetCore.Authorization
+@using GestionObras.Infrastructure.Data
+@using GestionObras.Core.Entities
+@using Microsoft.EntityFrameworkCore
+@inject GestionObrasDbContext DbContext
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Panel de Administrador - Gestión de Obras</PageTitle>
+
+<div class="dashboard-container">
+    <div class="dashboard-header">
+        <h1>🏗️ Panel de Administrador</h1>
+        <p>Gestión completa del sistema</p>
+    </div>
+
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <div class="metric-icon">📊</div>
+            <div class="metric-content">
+                <h3>@totalProyectos</h3>
+                <p>Proyectos Totales</p>
+            </div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-icon">👥</div>
+            <div class="metric-content">
+                <h3>@totalUsuarios</h3>
+                <p>Usuarios Activos</p>
+            </div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-icon">👷</div>
+            <div class="metric-content">
+                <h3>@totalEmpleados</h3>
+                <p>Empleados</p>
+            </div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-icon">💰</div>
+            <div class="metric-content">
+                <h3>@totalFacturas</h3>
+                <p>Facturas Registradas</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="quick-actions">
+        <h2>Acciones Rápidas</h2>
+        <div class="actions-grid">
+            <button class="action-btn" @onclick="@(() => Navigation.NavigateTo("/admin/usuarios"))">
+                <i class="bi bi-people-fill"></i>
+                <span>Gestionar Usuarios</span>
+            </button>
+            <button class="action-btn" @onclick="@(() => Navigation.NavigateTo("/proyectos"))">
+                <i class="bi bi-folder-fill"></i>
+                <span>Gestionar Proyectos</span>
+            </button>
+            <button class="action-btn" @onclick="@(() => Navigation.NavigateTo("/empleados"))">
+                <i class="bi bi-person-badge-fill"></i>
+                <span>Gestionar Empleados</span>
+            </button>
+            <button class="action-btn" @onclick="@(() => Navigation.NavigateTo("/facturas"))">
+                <i class="bi bi-receipt"></i>
+                <span>Ver Facturas</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="recent-activity">
+        <h2>Proyectos Recientes</h2>
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Municipio</th>
+                        <th>Estado</th>
+                        <th>Fecha Inicio</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var proyecto in proyectosRecientes)
+                    {
+                        <tr>
+                            <td>@proyecto.Nombre</td>
+                            <td>@proyecto.Municipio</td>
+                            <td><span class="badge @GetEstadoBadge(proyecto.Estado)">@proyecto.Estado</span></td>
+                            <td>@proyecto.FechaInicio.ToString("dd/MM/yyyy")</td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" @onclick="@(() => Navigation.NavigateTo($"/proyectos/{proyecto.Id}"))">
+                                    Ver
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    private int totalProyectos;
+    private int totalUsuarios;
+    private int totalEmpleados;
+    private int totalFacturas;
+    private List<GestionObras.Core.Entities.Proyecto> proyectosRecientes = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        totalProyectos = await DbContext.Proyectos.CountAsync();
+        totalUsuarios = await DbContext.Users.CountAsync();
+        totalEmpleados = await DbContext.Empleados.CountAsync();
+        totalFacturas = await DbContext.Facturas.CountAsync();
+        
+        proyectosRecientes = await DbContext.Proyectos
+            .OrderByDescending(p => p.FechaInicio)
+            .Take(5)
+            .ToListAsync();
+    }
+
+    private string GetEstadoBadge(EstadoProyecto estado)
+    {
+        return estado switch
+        {
+            EstadoProyecto.EnCurso => "bg-success",
+            EstadoProyecto.Planificacion => "bg-info",
+            EstadoProyecto.Finalizado => "bg-secondary",
+            EstadoProyecto.Bloqueado => "bg-warning",
+            EstadoProyecto.Cancelado => "bg-danger",
+            _ => "bg-primary"
+        };
+    }
+}

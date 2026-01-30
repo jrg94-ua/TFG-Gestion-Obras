@@ -1,0 +1,144 @@
+@page "/oficina-tecnica/dashboard"
+@attribute [Authorize(Roles = "OficinaTecnica,Administrador")]
+@using Microsoft.AspNetCore.Authorization
+@using GestionObras.Infrastructure.Data
+@using GestionObras.Core.Entities
+@using Microsoft.EntityFrameworkCore
+@inject GestionObrasDbContext DbContext
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Panel de Oficina Técnica - Gestión de Obras</PageTitle>
+
+<div class="dashboard-container">
+    <div class="dashboard-header">
+        <h1>📐 Panel de Oficina Técnica</h1>
+        <p>Gestión de documentación y presupuestos</p>
+    </div>
+
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <div class="metric-icon">📁</div>
+            <div class="metric-content">
+                <h3>@totalCarpetas</h3>
+                <p>Carpetas Legales</p>
+            </div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-icon">💵</div>
+            <div class="metric-content">
+                <h3>@totalPresupuestos</h3>
+                <p>Presupuestos</p>
+            </div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-icon">📊</div>
+            <div class="metric-content">
+                <h3>@proyectosPlanificacion</h3>
+                <p>En Planificación</p>
+            </div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-icon">📋</div>
+            <div class="metric-content">
+                <h3>@totalFacturas</h3>
+                <p>Facturas</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="quick-actions">
+        <h2>Acciones Rápidas</h2>
+        <div class="actions-grid">
+            <button class="action-btn" @onclick="@(() => Navigation.NavigateTo("/presupuestos"))">
+                <i class="bi bi-calculator-fill"></i>
+                <span>Presupuestos</span>
+            </button>
+            <button class="action-btn" @onclick="@(() => Navigation.NavigateTo("/carpetas-legales"))">
+                <i class="bi bi-folder2-open"></i>
+                <span>Documentación Legal</span>
+            </button>
+            <button class="action-btn" @onclick="@(() => Navigation.NavigateTo("/proyectos"))">
+                <i class="bi bi-building"></i>
+                <span>Proyectos</span>
+            </button>
+            <button class="action-btn" @onclick="@(() => Navigation.NavigateTo("/facturas"))">
+                <i class="bi bi-receipt"></i>
+                <span>Facturas</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="recent-activity">
+        <h2>Proyectos en Planificación</h2>
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Municipio</th>
+                        <th>Fecha Inicio</th>
+                        <th>Presupuesto</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var proyecto in proyectosPlanificacionLista)
+                    {
+                        <tr>
+                            <td>@proyecto.Nombre</td>
+                            <td>@proyecto.Municipio</td>
+                            <td>@proyecto.FechaInicio.ToString("dd/MM/yyyy")</td>
+                            <td>
+                                @if (proyecto.Presupuesto != null)
+                                {
+                                    <span>Sí</span>
+                                }
+                                else
+                                {
+                                    <span class="text-warning">Pendiente</span>
+                                }
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" @onclick="@(() => Navigation.NavigateTo($"/proyectos/{proyecto.Id}"))">
+                                    Ver
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    private int totalCarpetas;
+    private int totalPresupuestos;
+    private int proyectosPlanificacion;
+    private int totalFacturas;
+    private List<GestionObras.Core.Entities.Proyecto> proyectosPlanificacionLista = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        totalCarpetas = await DbContext.CarpetasLegales.CountAsync();
+        totalPresupuestos = await DbContext.Presupuestos.CountAsync();
+        proyectosPlanificacion = await DbContext.Proyectos.CountAsync(p => p.Estado == EstadoProyecto.Planificacion);
+        totalFacturas = await DbContext.Facturas.CountAsync();
+        
+        proyectosPlanificacionLista = await DbContext.Proyectos
+            .Include(p => p.Presupuesto)
+            .Where(p => p.Estado == EstadoProyecto.Planificacion)
+            .OrderBy(p => p.FechaInicio)
+            .Take(10)
+            .ToListAsync();
+    }
+}

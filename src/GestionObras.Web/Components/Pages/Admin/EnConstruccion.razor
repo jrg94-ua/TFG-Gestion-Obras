@@ -1,0 +1,30 @@
+@page "/admin/tareas"
+@page "/admin/materiales"
+@page "/admin/presupuestos"
+@page "/admin/facturas"
+@page "/admin/carpetas-legales"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = "AdminPolicy")]
+@using Microsoft.AspNetCore.Authorization
+@inject NavigationManager Navigation
+
+<PageTitle>Próximamente - Gestión de Obras</PageTitle>
+
+<div class="container-fluid py-5">
+    <div class="text-center">
+        <i class="fas fa-tools fa-5x text-muted mb-4"></i>
+        <h2>Sección en Construcción</h2>
+        <p class="lead text-muted">Esta funcionalidad estará disponible próximamente</p>
+        <p class="text-muted mb-4">Estamos trabajando para ofrecerte la mejor experiencia de gestión</p>
+        
+        <button class="btn btn-primary" @onclick='() => Navigation.NavigateTo("/admin")'>
+            <i class="fas fa-arrow-left"></i> Volver al Panel de Administración
+        </button>
+    </div>
+</div>
+
+<style>
+    .fa-5x {
+        font-size: 5rem;
+    }
+</style>

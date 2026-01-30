@@ -1,6 +1,8 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+﻿@using Microsoft.AspNetCore.Components.Authorization
+
+<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
-        <a class="navbar-brand" href="">GestionObras.Web</a>
+        <a class="navbar-brand" href="">🏗️ Gestión Obras</a>
     </div>
 </div>
 
@@ -10,21 +12,68 @@
     <nav class="nav flex-column">
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
+                <span class="bi bi-speedometer2-nav-menu" aria-hidden="true"></span> Dashboard
             </NavLink>
         </div>
 
+        <!-- Proyectos - Todos los roles -->
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
+            <NavLink class="nav-link" href="proyectos">
+                <span class="bi bi-building-nav-menu" aria-hidden="true"></span> Proyectos
             </NavLink>
         </div>
 
+        <!-- Kanban - JefeObra y Operario -->
+        <AuthorizeView Roles="JefeObra,Operario,Administrador">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="kanban">
+                    <span class="bi bi-kanban-nav-menu" aria-hidden="true"></span> Tablero Kanban
+                </NavLink>
+            </div>
+        </AuthorizeView>
+
+        <!-- Empleados - Admin y JefeObra -->
+        <AuthorizeView Roles="Administrador,JefeObra">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="empleados">
+                    <span class="bi bi-people-nav-menu" aria-hidden="true"></span> Empleados
+                </NavLink>
+            </div>
+        </AuthorizeView>
+
+        <!-- Materiales - Todos -->
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
+            <NavLink class="nav-link" href="materiales">
+                <span class="bi bi-box-seam-nav-menu" aria-hidden="true"></span> Materiales
             </NavLink>
         </div>
+
+        <!-- Facturas - Admin y OficinaTecnica -->
+        <AuthorizeView Roles="Administrador,OficinaTecnica">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="facturas">
+                    <span class="bi bi-receipt-nav-menu" aria-hidden="true"></span> Facturas
+                </NavLink>
+            </div>
+        </AuthorizeView>
+
+        <!-- Presupuestos - Admin y OficinaTecnica -->
+        <AuthorizeView Roles="Administrador,OficinaTecnica">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="presupuestos">
+                    <span class="bi bi-calculator-nav-menu" aria-hidden="true"></span> Presupuestos
+                </NavLink>
+            </div>
+        </AuthorizeView>
+
+        <!-- Usuarios - Solo Admin -->
+        <AuthorizeView Roles="Administrador">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="admin/usuarios">
+                    <span class="bi bi-person-gear-nav-menu" aria-hidden="true"></span> Usuarios
+                </NavLink>
+            </div>
+        </AuthorizeView>
     </nav>
 </div>
 

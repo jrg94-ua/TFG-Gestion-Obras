@@ -1,0 +1,147 @@
+@page "/jefe-obra/dashboard"
+@attribute [Authorize(Roles = "JefeObra,Administrador")]
+@using Microsoft.AspNetCore.Authorization
+@using GestionObras.Infrastructure.Data
+@using GestionObras.Core.Entities
+@using Microsoft.EntityFrameworkCore
+@inject GestionObrasDbContext DbContext
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Panel de Jefe de Obra - Gestión de Obras</PageTitle>
+
+<div class="dashboard-container">
+    <div class="dashboard-header">
+        <h1>👷 Panel de Jefe de Obra</h1>
+        <p>Gestión de proyectos y tareas</p>
+    </div>
+
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <div class="metric-icon">🏗️</div>
+            <div class="metric-content">
+                <h3>@proyectosActivos</h3>
+                <p>Proyectos Activos</p>
+            </div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-icon">📋</div>
+            <div class="metric-content">
+                <h3>@tareasPendientes</h3>
+                <p>Tareas Pendientes</p>
+            </div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-icon">⚠️</div>
+            <div class="metric-content">
+                <h3>@tareasBloqueadas</h3>
+                <p>Tareas Bloqueadas</p>
+            </div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-icon">📦</div>
+            <div class="metric-content">
+                <h3>@totalMateriales</h3>
+                <p>Materiales en Stock</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="quick-actions">
+        <h2>Acciones Rápidas</h2>
+        <div class="actions-grid">
+            <button class="action-btn" @onclick="@(() => Navigation.NavigateTo("/proyectos"))">
+                <i class="bi bi-folder-fill"></i>
+                <span>Mis Proyectos</span>
+            </button>
+            <button class="action-btn" @onclick="@(() => Navigation.NavigateTo("/kanban"))">
+                <i class="bi bi-kanban-fill"></i>
+                <span>Tablero Kanban</span>
+            </button>
+            <button class="action-btn" @onclick="@(() => Navigation.NavigateTo("/empleados"))">
+                <i class="bi bi-people-fill"></i>
+                <span>Equipo</span>
+            </button>
+            <button class="action-btn" @onclick="@(() => Navigation.NavigateTo("/materiales"))">
+                <i class="bi bi-box-seam"></i>
+                <span>Materiales</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="recent-activity">
+        <h2>Mis Proyectos</h2>
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Municipio</th>
+                        <th>Estado</th>
+                        <th>Tareas</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var proyecto in misProyectos)
+                    {
+                        <tr>
+                            <td>@proyecto.Nombre</td>
+                            <td>@proyecto.Municipio</td>
+                            <td><span class="badge @GetEstadoBadge(proyecto.Estado)">@proyecto.Estado</span></td>
+                            <td>@proyecto.Tareas?.Count ?? 0</td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" @onclick="@(() => Navigation.NavigateTo($"/proyectos/{proyecto.Id}"))">
+                                    Ver
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    private int proyectosActivos;
+    private int tareasPendientes;
+    private int tareasBloqueadas;
+    private int totalMateriales;
+    private List<GestionObras.Core.Entities.Proyecto> misProyectos = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        proyectosActivos = await DbContext.Proyectos.CountAsync(p => p.Estado == EstadoProyecto.EnCurso);
+        tareasPendientes = await DbContext.Tareas.CountAsync(t => t.Estado == EstadoTarea.Pendiente);
+        tareasBloqueadas = await DbContext.Tareas.CountAsync(t => t.Estado == EstadoTarea.Bloqueado);
+        totalMateriales = await DbContext.Materiales.CountAsync();
+        
+        misProyectos = await DbContext.Proyectos
+            .Include(p => p.Tareas)
+            .OrderByDescending(p => p.FechaInicio)
+            .Take(10)
+            .ToListAsync();
+    }
+
+    private string GetEstadoBadge(EstadoProyecto estado)
+    {
+        return estado switch
+        {
+            EstadoProyecto.EnCurso => "bg-success",
+            EstadoProyecto.Planificacion => "bg-info",
+            EstadoProyecto.Finalizado => "bg-secondary",
+            EstadoProyecto.Bloqueado => "bg-warning",
+            EstadoProyecto.Cancelado => "bg-danger",
+            _ => "bg-primary"
+        };
+    }
+}

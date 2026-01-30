@@ -58,3 +58,107 @@ h1:focus {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
 }
+
+/* Login & Register Styles */
+.login-container, .register-container {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 20px;
+}
+
+.login-card, .register-card {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    padding: 40px;
+    max-width: 450px;
+    width: 100%;
+}
+
+.register-card {
+    max-width: 700px;
+}
+
+.login-header, .register-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.login-header h2, .register-header h2 {
+    color: #333;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.login-header p, .register-header p {
+    color: #666;
+    font-size: 14px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: #555;
+    font-weight: 500;
+}
+
+.btn-block {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    font-weight: 500;
+    border-radius: 5px;
+    margin-top: 20px;
+}
+
+.login-footer {
+    text-align: center;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+}
+
+.login-footer p {
+    color: #666;
+    font-size: 14px;
+}
+
+.login-info {
+    background: rgba(255,255,255,0.95);
+    border-radius: 10px;
+    padding: 20px;
+    margin-top: 20px;
+    max-width: 450px;
+}
+
+.login-info h3 {
+    font-size: 16px;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.login-info ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.login-info li {
+    padding: 8px 0;
+    color: #555;
+    font-size: 13px;
+}
+
+@media (max-width: 768px) {
+    .login-card, .register-card {
+        padding: 30px 20px;
+    }
+}

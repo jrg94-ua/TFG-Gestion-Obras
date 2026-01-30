@@ -1,0 +1,414 @@
+@page "/proyectos"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using GestionObras.Core.Entities
+@using GestionObras.Infrastructure.Repositories
+@inject IProyectoRepository ProyectoRepository
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+
+<PageTitle>Proyectos - Gestión de Obras</PageTitle>
+
+<div class="proyectos-container">
+    <div class="page-header">
+        <h1>🏗️ Gestión de Proyectos</h1>
+        <button class="btn btn-primary" @onclick="AbrirModalNuevo">
+            <i class="bi bi-plus-circle"></i> Nuevo Proyecto
+        </button>
+    </div>
+
+    <!-- Filtros -->
+    <div class="filtros-section">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Filtrar por estado:</label>
+                <select class="form-select" @onchange="FiltrarPorEstado">
+                    <option value="">Todos los estados</option>
+                    <option value="@EstadoProyecto.Planificacion">Planificación</option>
+                    <option value="@EstadoProyecto.EnCurso">En Curso</option>
+                    <option value="@EstadoProyecto.Bloqueado">Bloqueado</option>
+                    <option value="@EstadoProyecto.Finalizado">Finalizado</option>
+                    <option value="@EstadoProyecto.Cancelado">Cancelado</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Buscar:</label>
+                <input type="text" class="form-control" placeholder="Nombre del proyecto..." @bind="busqueda" @bind:event="oninput" />
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de Proyectos -->
+    <div class="proyectos-table-container">
+        @if (proyectosFiltrados == null)
+        {
+            <div class="text-center p-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+            </div>
+        }
+        else if (!proyectosFiltrados.Any())
+        {
+            <div class="empty-state">
+                <i class="bi bi-folder2-open"></i>
+                <h3>No hay proyectos</h3>
+                <p>Comienza creando tu primer proyecto</p>
+                <button class="btn btn-primary mt-3" @onclick="AbrirModalNuevo">
+                    <i class="bi bi-plus-circle"></i> Crear Proyecto
+                </button>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Ubicación</th>
+                            <th>Estado</th>
+                            <th>Fecha Inicio</th>
+                            <th>Tareas</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var proyecto in proyectosFiltrados)
+                        {
+                            <tr>
+                                <td>
+                                    <strong>@proyecto.Nombre</strong>
+                                </td>
+                                <td>
+                                    <i class="bi bi-geo-alt"></i> @proyecto.Municipio, @proyecto.Provincia
+                                </td>
+                                <td>
+                                    <span class="badge @GetEstadoBadgeClass(proyecto.Estado)">
+                                        @GetEstadoTexto(proyecto.Estado)
+                                    </span>
+                                </td>
+                                <td>@proyecto.FechaInicio.ToString("dd/MM/yyyy")</td>
+                                <td>
+                                    <span class="badge bg-info">@proyecto.Tareas.Count tareas</span>
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <button class="btn btn-sm btn-outline-primary" @onclick="() => VerDetalle(proyecto.Id)">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-warning" @onclick="() => AbrirModalEditar(proyecto)">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmarEliminar(proyecto)">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Modal Crear/Editar Proyecto -->
+@if (mostrarModal)
+{
+    <div class="modal fade show" style="display: block; background: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        @(proyectoSeleccionado?.Id > 0 ? "Editar Proyecto" : "Nuevo Proyecto")
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+                </div>
+                <EditForm Model="@proyectoForm" OnValidSubmit="@GuardarProyecto">
+                    <DataAnnotationsValidator />
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-md-12">
+                                <label class="form-label">Nombre del Proyecto*</label>
+                                <InputText class="form-control" @bind-Value="proyectoForm.Nombre" placeholder="Ej: Construcción Edificio Residencial" />
+                                <ValidationMessage For="@(() => proyectoForm.Nombre)" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Provincia*</label>
+                                <InputSelect class="form-select" @bind-Value="proyectoForm.Provincia">
+                                    <option value="">Seleccionar...</option>
+                                    <option value="Madrid">Madrid</option>
+                                    <option value="Barcelona">Barcelona</option>
+                                    <option value="Valencia">Valencia</option>
+                                    <option value="Sevilla">Sevilla</option>
+                                    <option value="Málaga">Málaga</option>
+                                    <option value="Murcia">Murcia</option>
+                                    <option value="Alicante">Alicante</option>
+                                    <option value="Zaragoza">Zaragoza</option>
+                                </InputSelect>
+                                <ValidationMessage For="@(() => proyectoForm.Provincia)" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Municipio*</label>
+                                <InputText class="form-control" @bind-Value="proyectoForm.Municipio" placeholder="Nombre del municipio" />
+                                <ValidationMessage For="@(() => proyectoForm.Municipio)" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Tipo de Suelo*</label>
+                                <InputSelect class="form-select" @bind-Value="proyectoForm.TipoSuelo">
+                                    <option value="@TipoSuelo.Urbano">Urbano</option>
+                                    <option value="@TipoSuelo.Rustico">Rústico</option>
+                                </InputSelect>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Zona Climática*</label>
+                                <InputSelect class="form-select" @bind-Value="proyectoForm.ZonaClimatica">
+                                    <option value="@ZonaClimatica.A3">A3 - Cádiz, Málaga</option>
+                                    <option value="@ZonaClimatica.B3">B3 - Valencia, Murcia</option>
+                                    <option value="@ZonaClimatica.C3">C3 - Madrid</option>
+                                    <option value="@ZonaClimatica.D3">D3 - Zaragoza</option>
+                                    <option value="@ZonaClimatica.E1">E1 - Burgos, León</option>
+                                </InputSelect>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Fecha de Inicio*</label>
+                                <InputDate class="form-control" @bind-Value="proyectoForm.FechaInicio" />
+                                <ValidationMessage For="@(() => proyectoForm.FechaInicio)" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Fecha Fin Estimada</label>
+                                <InputDate class="form-control" @bind-Value="proyectoForm.FechaFin" />
+                            </div>
+
+                            <div class="col-md-12">
+                                <label class="form-label">Estado</label>
+                                <InputSelect class="form-select" @bind-Value="proyectoForm.Estado">
+                                    <option value="@EstadoProyecto.Planificacion">Planificación</option>
+                                    <option value="@EstadoProyecto.EnCurso">En Curso</option>
+                                    <option value="@EstadoProyecto.Bloqueado">Bloqueado</option>
+                                    <option value="@EstadoProyecto.Finalizado">Finalizado</option>
+                                    <option value="@EstadoProyecto.Cancelado">Cancelado</option>
+                                </InputSelect>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CerrarModal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" disabled="@guardando">
+                            @if (guardando)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                            }
+                            Guardar
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Proyecto> proyectos = new();
+    private List<Proyecto> proyectosFiltrados = new();
+    private Proyecto? proyectoSeleccionado;
+    private ProyectoFormModel proyectoForm = new();
+    private bool mostrarModal = false;
+    private bool guardando = false;
+    private string busqueda = "";
+    private string? estadoFiltro;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarProyectos();
+    }
+
+    private async Task CargarProyectos()
+    {
+        proyectos = await ProyectoRepository.GetAllAsync();
+        AplicarFiltros();
+    }
+
+    private void AplicarFiltros()
+    {
+        proyectosFiltrados = proyectos;
+
+        if (!string.IsNullOrWhiteSpace(estadoFiltro))
+        {
+            if (Enum.TryParse<EstadoProyecto>(estadoFiltro, out var estado))
+            {
+                proyectosFiltrados = proyectosFiltrados.Where(p => p.Estado == estado).ToList();
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(busqueda))
+        {
+            proyectosFiltrados = proyectosFiltrados
+                .Where(p => p.Nombre.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ||
+                           p.Municipio.Contains(busqueda, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+    }
+
+    private void FiltrarPorEstado(ChangeEventArgs e)
+    {
+        estadoFiltro = e.Value?.ToString();
+        AplicarFiltros();
+    }
+
+    private void AbrirModalNuevo()
+    {
+        proyectoSeleccionado = null;
+        proyectoForm = new ProyectoFormModel
+        {
+            FechaInicio = DateTime.Now,
+            Estado = EstadoProyecto.Planificacion,
+            TipoSuelo = TipoSuelo.Urbano,
+            ZonaClimatica = ZonaClimatica.C3
+        };
+        mostrarModal = true;
+    }
+
+    private void AbrirModalEditar(Proyecto proyecto)
+    {
+        proyectoSeleccionado = proyecto;
+        proyectoForm = new ProyectoFormModel
+        {
+            Nombre = proyecto.Nombre,
+            Provincia = proyecto.Provincia,
+            Municipio = proyecto.Municipio,
+            TipoSuelo = proyecto.TipoSuelo,
+            ZonaClimatica = proyecto.ZonaClimatica,
+            FechaInicio = proyecto.FechaInicio,
+            FechaFin = proyecto.FechaFin,
+            Estado = proyecto.Estado
+        };
+        mostrarModal = true;
+    }
+
+    private void CerrarModal()
+    {
+        mostrarModal = false;
+        proyectoSeleccionado = null;
+    }
+
+    private async Task GuardarProyecto()
+    {
+        guardando = true;
+
+        try
+        {
+            if (proyectoSeleccionado == null)
+            {
+                // Crear nuevo
+                var nuevoProyecto = new Proyecto
+                {
+                    Nombre = proyectoForm.Nombre,
+                    Provincia = proyectoForm.Provincia,
+                    Municipio = proyectoForm.Municipio,
+                    TipoSuelo = proyectoForm.TipoSuelo,
+                    ZonaClimatica = proyectoForm.ZonaClimatica,
+                    FechaInicio = proyectoForm.FechaInicio,
+                    FechaFin = proyectoForm.FechaFin,
+                    Estado = proyectoForm.Estado
+                };
+
+                await ProyectoRepository.AddAsync(nuevoProyecto);
+            }
+            else
+            {
+                // Editar existente
+                proyectoSeleccionado.Nombre = proyectoForm.Nombre;
+                proyectoSeleccionado.Provincia = proyectoForm.Provincia;
+                proyectoSeleccionado.Municipio = proyectoForm.Municipio;
+                proyectoSeleccionado.TipoSuelo = proyectoForm.TipoSuelo;
+                proyectoSeleccionado.ZonaClimatica = proyectoForm.ZonaClimatica;
+                proyectoSeleccionado.FechaInicio = proyectoForm.FechaInicio;
+                proyectoSeleccionado.FechaFin = proyectoForm.FechaFin;
+                proyectoSeleccionado.Estado = proyectoForm.Estado;
+
+                await ProyectoRepository.UpdateAsync(proyectoSeleccionado);
+            }
+
+            await CargarProyectos();
+            CerrarModal();
+        }
+        finally
+        {
+            guardando = false;
+        }
+    }
+
+    private async Task ConfirmarEliminar(Proyecto proyecto)
+    {
+        bool confirmado = await JS.InvokeAsync<bool>("confirm", $"¿Estás seguro de eliminar el proyecto '{proyecto.Nombre}'?");
+
+        if (confirmado)
+        {
+            await ProyectoRepository.DeleteAsync(proyecto.Id);
+            await CargarProyectos();
+        }
+    }
+
+    private void VerDetalle(int id)
+    {
+        Navigation.NavigateTo($"/proyectos/{id}");
+    }
+
+    private string GetEstadoBadgeClass(EstadoProyecto estado)
+    {
+        return estado switch
+        {
+            EstadoProyecto.EnCurso => "bg-success",
+            EstadoProyecto.Planificacion => "bg-info",
+            EstadoProyecto.Finalizado => "bg-secondary",
+            EstadoProyecto.Bloqueado => "bg-warning",
+            EstadoProyecto.Cancelado => "bg-danger",
+            _ => "bg-primary"
+        };
+    }
+
+    private string GetEstadoTexto(EstadoProyecto estado)
+    {
+        return estado switch
+        {
+            EstadoProyecto.EnCurso => "En Curso",
+            EstadoProyecto.Planificacion => "Planificación",
+            EstadoProyecto.Finalizado => "Finalizado",
+            EstadoProyecto.Bloqueado => "Bloqueado",
+            EstadoProyecto.Cancelado => "Cancelado",
+            _ => estado.ToString()
+        };
+    }
+
+    public class ProyectoFormModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "El nombre es obligatorio")]
+        [System.ComponentModel.DataAnnotations.StringLength(100, MinimumLength = 3, ErrorMessage = "El nombre debe tener entre 3 y 100 caracteres")]
+        public string Nombre { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "La provincia es obligatoria")]
+        public string Provincia { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "El municipio es obligatorio")]
+        public string Municipio { get; set; } = string.Empty;
+
+        public TipoSuelo TipoSuelo { get; set; }
+        public ZonaClimatica ZonaClimatica { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "La fecha de inicio es obligatoria")]
+        public DateTime FechaInicio { get; set; }
+
+        public DateTime? FechaFin { get; set; }
+        public EstadoProyecto Estado { get; set; }
+    }
+}

@@ -1,0 +1,287 @@
+@page "/dashboard"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using GestionObras.Infrastructure.Data
+@using GestionObras.Core.Entities
+@attribute [Authorize]
+@inject GestionObrasDbContext DbContext
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Dashboard - Gestión de Obras</PageTitle>
+
+<div class="dashboard-container">
+    <div class="dashboard-header">
+        <h1>📊 Panel de Control</h1>
+        <p class="text-muted">Resumen general del estado de proyectos y operaciones</p>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p class="mt-2">Cargando información del dashboard...</p>
+        </div>
+    }
+    else
+    {
+        <!-- Tarjetas de resumen -->
+        <div class="row g-4 mb-4">
+            <div class="col-md-4">
+                <div class="dashboard-card card-primary">
+                    <div class="card-icon">
+                        <i class="bi bi-building"></i>
+                    </div>
+                    <div class="card-content">
+                        <h3>@totalProyectos</h3>
+                        <p>Proyectos Activos</p>
+                    </div>
+                    <div class="card-footer">
+                        <span class="text-success">@proyectosEnCurso en curso</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="dashboard-card card-warning">
+                    <div class="card-icon">
+                        <i class="bi bi-list-task"></i>
+                    </div>
+                    <div class="card-content">
+                        <h3>@totalTareas</h3>
+                        <p>Tareas Pendientes</p>
+                    </div>
+                    <div class="card-footer">
+                        <span class="text-warning">@tareasBloqueadas bloqueadas</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="dashboard-card card-info">
+                    <div class="card-icon">
+                        <i class="bi bi-people"></i>
+                    </div>
+                    <div class="card-content">
+                        <h3>@totalEmpleados</h3>
+                        <p>Empleados Activos</p>
+                    </div>
+                    <div class="card-footer">
+                        <span class="text-info">@totalMateriales materiales</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alertas y notificaciones -->
+        @if (alertas.Any())
+        {
+            <div class="alert-section mb-4">
+                <div class="card">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0">⚠️ Alertas y Notificaciones</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-group list-group-flush">
+                            @foreach (var alerta in alertas)
+                            {
+                                <li class="list-group-item">
+                                    <span class="badge bg-warning text-dark me-2">!</span>
+                                    @alerta
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Proyectos recientes -->
+        <div class="proyectos-recientes">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">🏗️ Proyectos Recientes</h5>
+                    <button class="btn btn-primary btn-sm" @onclick="NavegarAProyectos">
+                        Ver todos
+                    </button>
+                </div>
+                <div class="card-body">
+                    @if (proyectosRecientes.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Nombre</th>
+                                        <th>Ubicación</th>
+                                        <th>Estado</th>
+                                        <th>Fecha Inicio</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var proyecto in proyectosRecientes)
+                                    {
+                                        <tr>
+                                            <td><strong>@proyecto.Nombre</strong></td>
+                                            <td>@proyecto.Municipio, @proyecto.Provincia</td>
+                                            <td>
+                                                <span class="badge @GetEstadoBadge(proyecto.Estado)">
+                                                    @proyecto.Estado.ToString()
+                                                </span>
+                                            </td>
+                                            <td>@proyecto.FechaInicio.ToShortDateString()</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-primary" 
+                                                        @onclick="() => VerProyecto(proyecto.Id)">
+                                                    Ver detalles
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center py-4">
+                            <p class="text-muted">No hay proyectos registrados aún</p>
+                            <button class="btn btn-primary" @onclick="NavegarAProyectos">
+                                Crear primer proyecto
+                            </button>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Accesos rápidos -->
+        <div class="row g-4 mt-4">
+            <div class="col-md-3">
+                <div class="quick-access-card" @onclick="@(() => Navigation.NavigateTo("/proyectos"))">
+                    <i class="bi bi-folder-plus"></i>
+                    <h6>Nuevo Proyecto</h6>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="quick-access-card" @onclick="@(() => Navigation.NavigateTo("/kanban"))">
+                    <i class="bi bi-kanban"></i>
+                    <h6>Tablero Kanban</h6>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="quick-access-card" @onclick="@(() => Navigation.NavigateTo("/empleados"))">
+                    <i class="bi bi-person-badge"></i>
+                    <h6>Gestión Empleados</h6>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="quick-access-card" @onclick="@(() => Navigation.NavigateTo("/materiales"))">
+                    <i class="bi bi-box-seam"></i>
+                    <h6>Materiales</h6>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool isLoading = true;
+    private int totalProyectos;
+    private int proyectosEnCurso;
+    private int totalTareas;
+    private int tareasBloqueadas;
+    private int totalEmpleados;
+    private int totalMateriales;
+    private List<string> alertas = new();
+    private List<Proyecto> proyectosRecientes = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatosDashboard();
+    }
+
+    private async Task CargarDatosDashboard()
+    {
+        isLoading = true;
+
+        try
+        {
+            // Cargar estadísticas generales
+            totalProyectos = await DbContext.Proyectos.CountAsync();
+            proyectosEnCurso = await DbContext.Proyectos
+                .CountAsync(p => p.Estado == EstadoProyecto.EnCurso);
+            
+            totalTareas = await DbContext.Tareas
+                .CountAsync(t => t.Estado != EstadoTarea.Finalizado);
+            
+            tareasBloqueadas = await DbContext.Tareas
+                .CountAsync(t => t.Estado == EstadoTarea.Bloqueado);
+            
+            totalEmpleados = await DbContext.Empleados.CountAsync();
+            totalMateriales = await DbContext.Materiales.CountAsync();
+
+            // Cargar proyectos recientes (últimos 5)
+            proyectosRecientes = await DbContext.Proyectos
+                .OrderByDescending(p => p.FechaInicio)
+                .Take(5)
+                .ToListAsync();
+
+            // Generar alertas
+            GenerarAlertas();
+        }
+        catch (Exception ex)
+        {
+            alertas.Add($"Error al cargar datos: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void GenerarAlertas()
+    {
+        if (tareasBloqueadas > 0)
+        {
+            alertas.Add($"{tareasBloqueadas} tareas bloqueadas requieren atención");
+        }
+
+        if (totalProyectos == 0)
+        {
+            alertas.Add("No hay proyectos registrados. Comienza creando tu primer proyecto.");
+        }
+
+        var proyectosBloqueados = proyectosRecientes.Count(p => p.Estado == EstadoProyecto.Bloqueado);
+        if (proyectosBloqueados > 0)
+        {
+            alertas.Add($"{proyectosBloqueados} proyectos están en estado bloqueado");
+        }
+    }
+
+    private string GetEstadoBadge(EstadoProyecto estado)
+    {
+        return estado switch
+        {
+            EstadoProyecto.Planificacion => "bg-secondary",
+            EstadoProyecto.EnCurso => "bg-primary",
+            EstadoProyecto.Bloqueado => "bg-warning",
+            EstadoProyecto.Finalizado => "bg-success",
+            EstadoProyecto.Cancelado => "bg-danger",
+            _ => "bg-secondary"
+        };
+    }
+
+    private void NavegarAProyectos()
+    {
+        Navigation.NavigateTo("/proyectos");
+    }
+
+    private void VerProyecto(int id)
+    {
+        Navigation.NavigateTo($"/proyectos/{id}");
+    }
+}

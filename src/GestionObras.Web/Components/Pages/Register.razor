@@ -1,0 +1,265 @@
+@page "/register"
+@using Microsoft.AspNetCore.Identity
+@using GestionObras.Core.Entities
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.Authorization
+@inject UserManager<UsuarioObra> UserManager
+@inject RoleManager<IdentityRole> RoleManager
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@rendermode InteractiveServer
+
+<PageTitle>Registrar Usuario - Gestión de Obras</PageTitle>
+
+<div class="register-container">
+    <div class="register-card">
+        <div class="register-header">
+            <h2>📝 Registro de Usuario</h2>
+            <p>Crea una nueva cuenta en el sistema</p>
+        </div>
+
+        <EditForm Model="@registerModel" OnValidSubmit="@HandleRegister" FormName="registerForm">
+            <DataAnnotationsValidator />
+            
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger" role="alert">
+                    @errorMessage
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(successMessage))
+            {
+                <div class="alert alert-success" role="alert">
+                    @successMessage
+                </div>
+            }
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="nombreCompleto">Nombre Completo *</label>
+                        <InputText id="nombreCompleto" class="form-control" @bind-Value="registerModel.NombreCompleto" placeholder="Juan Pérez García" />
+                        <ValidationMessage For="@(() => registerModel.NombreCompleto)" />
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="dni">DNI *</label>
+                        <InputText id="dni" class="form-control" @bind-Value="registerModel.DNI" placeholder="12345678A" />
+                        <ValidationMessage For="@(() => registerModel.DNI)" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="email">Correo Electrónico *</label>
+                        <InputText id="email" type="email" class="form-control" @bind-Value="registerModel.Email" placeholder="usuario@ejemplo.com" />
+                        <ValidationMessage For="@(() => registerModel.Email)" />
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="telefono">Teléfono Móvil</label>
+                        <InputText id="telefono" class="form-control" @bind-Value="registerModel.TelefonoMovil" placeholder="612345678" />
+                        <ValidationMessage For="@(() => registerModel.TelefonoMovil)" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="cargo">Cargo</label>
+                <InputText id="cargo" class="form-control" @bind-Value="registerModel.Cargo" placeholder="Arquitecto Técnico" />
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="password">Contraseña *</label>
+                        <InputText id="password" type="password" class="form-control" @bind-Value="registerModel.Password" placeholder="••••••••" />
+                        <ValidationMessage For="@(() => registerModel.Password)" />
+                        <small class="form-text text-muted">Mínimo 6 caracteres, una mayúscula y un número</small>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="confirmPassword">Confirmar Contraseña *</label>
+                        <InputText id="confirmPassword" type="password" class="form-control" @bind-Value="registerModel.ConfirmPassword" placeholder="••••••••" />
+                        <ValidationMessage For="@(() => registerModel.ConfirmPassword)" />
+                    </div>
+                </div>
+            </div>
+
+            @if (isAdmin)
+            {
+                <div class="form-group">
+                    <label for="tipoUsuario">Tipo de Usuario *</label>
+                    <InputSelect id="tipoUsuario" class="form-control" @bind-Value="registerModel.TipoUsuario">
+                        <option value="@TipoUsuario.Administrador">Administrador</option>
+                        <option value="@TipoUsuario.JefeObra">Jefe de Obra</option>
+                        <option value="@TipoUsuario.OficinaTecnica">Oficina Técnica</option>
+                        <option value="@TipoUsuario.Operario">Operario</option>
+                    </InputSelect>
+                    <ValidationMessage For="@(() => registerModel.TipoUsuario)" />
+                </div>
+            }
+            else
+            {
+                <input type="hidden" @bind="registerModel.TipoUsuario" />
+            }
+
+            <button type="submit" class="btn btn-primary btn-block" disabled="@isLoading">
+                @if (isLoading)
+                {
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    <span> Registrando...</span>
+                }
+                else
+                {
+                    <span>Registrar Usuario</span>
+                }
+            </button>
+
+            <div class="text-center mt-3">
+                <a href="/login">¿Ya tienes cuenta? Inicia sesión</a>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private RegisterModel registerModel = new();
+    private string? errorMessage;
+    private string? successMessage;
+    private bool isLoading = false;
+    private bool isAdmin = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        isAdmin = user.IsInRole("Administrador");
+
+        // Si no es admin, el tipo de usuario por defecto es Operario
+        if (!isAdmin)
+        {
+            registerModel.TipoUsuario = TipoUsuario.Operario;
+        }
+    }
+
+    private async Task HandleRegister()
+    {
+        isLoading = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            // Validar que las contraseñas coincidan
+            if (registerModel.Password != registerModel.ConfirmPassword)
+            {
+                errorMessage = "Las contraseñas no coinciden.";
+                isLoading = false;
+                return;
+            }
+
+            // Crear el usuario
+            var user = new UsuarioObra
+            {
+                UserName = registerModel.Email,
+                Email = registerModel.Email,
+                NombreCompleto = registerModel.NombreCompleto,
+                DNI = registerModel.DNI,
+                TelefonoMovil = registerModel.TelefonoMovil,
+                Cargo = registerModel.Cargo,
+                TipoUsuario = registerModel.TipoUsuario,
+                Activo = true,
+                FechaCreacion = DateTime.Now,
+                EmailConfirmed = true // Auto-confirmar para desarrollo
+            };
+
+            var result = await UserManager.CreateAsync(user, registerModel.Password);
+
+            if (result.Succeeded)
+            {
+                // Asignar rol según el tipo de usuario
+                string roleName = registerModel.TipoUsuario switch
+                {
+                    TipoUsuario.Administrador => "Administrador",
+                    TipoUsuario.JefeObra => "JefeObra",
+                    TipoUsuario.OficinaTecnica => "OficinaTecnica",
+                    TipoUsuario.Operario => "Operario",
+                    _ => "Operario"
+                };
+
+                // Verificar que el rol exista
+                if (!await RoleManager.RoleExistsAsync(roleName))
+                {
+                    await RoleManager.CreateAsync(new IdentityRole(roleName));
+                }
+
+                await UserManager.AddToRoleAsync(user, roleName);
+
+                successMessage = $"Usuario {user.NombreCompleto} registrado exitosamente como {roleName}.";
+                
+                // Limpiar formulario
+                registerModel = new RegisterModel();
+
+                // Redirigir al login después de 2 segundos
+                await Task.Delay(2000);
+                Navigation.NavigateTo("/login");
+            }
+            else
+            {
+                errorMessage = string.Join(", ", result.Errors.Select(e => e.Description));
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error al registrar usuario: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    public class RegisterModel
+    {
+        [Required(ErrorMessage = "El nombre completo es obligatorio")]
+        [StringLength(200, ErrorMessage = "El nombre no puede exceder 200 caracteres")]
+        public string NombreCompleto { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "El DNI es obligatorio")]
+        [RegularExpression(@"^\d{8}[A-Z]$", ErrorMessage = "El formato del DNI debe ser 8 dígitos seguidos de una letra mayúscula (ej: 12345678A)")]
+        public string DNI { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "El correo electrónico es obligatorio")]
+        [EmailAddress(ErrorMessage = "El formato del correo no es válido")]
+        public string Email { get; set; } = string.Empty;
+
+        [Phone(ErrorMessage = "El formato del teléfono no es válido")]
+        [StringLength(20)]
+        public string? TelefonoMovil { get; set; }
+
+        [StringLength(100)]
+        public string? Cargo { get; set; }
+
+        [Required(ErrorMessage = "La contraseña es obligatoria")]
+        [StringLength(100, MinimumLength = 6, ErrorMessage = "La contraseña debe tener al menos 6 caracteres")]
+        [DataType(DataType.Password)]
+        public string Password { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Debes confirmar la contraseña")]
+        [DataType(DataType.Password)]
+        [Compare("Password", ErrorMessage = "Las contraseñas no coinciden")]
+        public string ConfirmPassword { get; set; } = string.Empty;
+
+        public TipoUsuario TipoUsuario { get; set; } = TipoUsuario.Operario;
+    }
+}
