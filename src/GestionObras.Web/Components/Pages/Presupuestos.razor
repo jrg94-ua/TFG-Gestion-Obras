@@ -1,0 +1,465 @@
+@page "/presupuestos"
+@using GestionObras.Core.Entities
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Administrador,OficinaTecnica")]
+@rendermode InteractiveServer
+
+<PageTitle>Presupuestos - Gestión Obras</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">
+            <i class="bi bi-calculator"></i> Gestión de Presupuestos
+        </h1>
+        <button class="btn btn-primary" @onclick="AbrirModalNuevo">
+            <i class="bi bi-plus-circle"></i> Nuevo Presupuesto
+        </button>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-8">
+                    <input type="text" class="form-control" placeholder="🔍 Buscar por proyecto u observaciones..."
+                           @bind="filtroBusqueda" @bind:event="oninput" />
+                </div>
+                <div class="col-md-4">
+                    <button class="btn btn-outline-secondary w-100" @onclick="LimpiarFiltros">
+                        <i class="bi bi-x-circle"></i> Limpiar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resumen -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card border-primary">
+                <div class="card-body">
+                    <h6 class="text-primary">Total Presupuestos</h6>
+                    <h3 class="mb-0">@presupuestos.Count</h3>
+                    <small class="text-muted">@presupuestos.Sum(p => p.Total).ToString("C2")</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-info">
+                <div class="card-body">
+                    <h6 class="text-info">Promedio</h6>
+                    <h3 class="mb-0">@((presupuestos.Any() ? presupuestos.Average(p => p.Total) : 0).ToString("C2"))</h3>
+                    <small class="text-muted">Por proyecto</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-success">
+                <div class="card-body">
+                    <h6 class="text-success">Mayor Presupuesto</h6>
+                    <h3 class="mb-0">@((presupuestos.Any() ? presupuestos.Max(p => p.Total) : 0).ToString("C2"))</h3>
+                    <small class="text-muted">Valor máximo</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de presupuestos -->
+    <div class="card">
+        <div class="card-body">
+            @if (cargando)
+            {
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Cargando presupuestos...</p>
+                </div>
+            }
+            else if (!presupuestosFiltrados.Any())
+            {
+                <div class="alert alert-info text-center">
+                    <i class="bi bi-info-circle"></i> No se encontraron presupuestos
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Fecha Elaboración</th>
+                                <th>Proyecto</th>
+                                <th>Total</th>
+                                <th>Observaciones</th>
+                                <th class="text-end">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var presupuesto in presupuestosFiltrados)
+                            {
+                                <tr>
+                                    <td><code>PRE-@presupuesto.Id.ToString("000")</code></td>
+                                    <td>@presupuesto.FechaElaboracion.ToString("dd/MM/yyyy")</td>
+                                    <td>
+                                        @if (presupuesto.Proyecto != null)
+                                        {
+                                            <strong>@presupuesto.Proyecto.Nombre</strong>
+                                            <br /><small class="text-muted">@presupuesto.Proyecto.Municipio, @presupuesto.Proyecto.Provincia</small>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted fst-italic">Proyecto ID: @presupuesto.ProyectoId</span>
+                                        }
+                                    </td>
+                                    <td><strong class="text-primary">@presupuesto.Total.ToString("C2")</strong></td>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(presupuesto.Observaciones))
+                                        {
+                                            <small class="text-muted">@(presupuesto.Observaciones.Length > 50 ? presupuesto.Observaciones.Substring(0, 50) + "..." : presupuesto.Observaciones)</small>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted fst-italic">Sin observaciones</span>
+                                        }
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="btn-group" role="group">
+                                            <button class="btn btn-sm btn-outline-info" 
+                                                    @onclick="() => VerDetalle(presupuesto)"
+                                                    title="Ver detalle">
+                                                <i class="bi bi-eye-fill"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-primary" 
+                                                    @onclick="() => AbrirModalEditar(presupuesto)"
+                                                    title="Editar">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger" 
+                                                    @onclick="() => ConfirmarEliminar(presupuesto)"
+                                                    title="Eliminar">
+                                                <i class="bi bi-trash3"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Modal para crear/editar presupuesto -->
+@if (mostrarModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        @(presupuestoSeleccionado.Id == 0 ? "Nuevo Presupuesto" : "Editar Presupuesto")
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Fecha de Elaboración *</label>
+                            <input type="date" class="form-control" @bind="presupuestoSeleccionado.FechaElaboracion" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Total Presupuesto *</label>
+                            <input type="number" step="0.01" class="form-control" @bind="presupuestoSeleccionado.Total" />
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label">Proyecto *</label>
+                            <select class="form-select" @bind="presupuestoSeleccionado.ProyectoId">
+                                <option value="0">Seleccione un proyecto...</option>
+                                @foreach (var proyecto in proyectosDisponibles)
+                                {
+                                    <option value="@proyecto.Id">@proyecto.Nombre - @proyecto.Municipio, @proyecto.Provincia</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label">Observaciones</label>
+                            <textarea class="form-control" rows="4" @bind="presupuestoSeleccionado.Observaciones" 
+                                      placeholder="Detalles del presupuesto, partidas incluidas, notas importantes..."></textarea>
+                        </div>
+                        <div class="col-md-12">
+                            <div class="alert alert-info">
+                                <small>
+                                    <i class="bi bi-info-circle"></i> 
+                                    El presupuesto debe estar asociado a un proyecto existente.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CerrarModal">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-primary" @onclick="GuardarPresupuesto">
+                        <i class="bi bi-save2"></i> Guardar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal de detalle -->
+@if (mostrarModalDetalle)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-file-text"></i> Detalle del Presupuesto
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarModalDetalle"></button>
+                </div>
+                <div class="modal-body">
+                    @if (presupuestoDetalle != null)
+                    {
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <strong>ID Presupuesto:</strong>
+                                <p><code>PRE-@presupuestoDetalle.Id.ToString("000")</code></p>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Fecha de Elaboración:</strong>
+                                <p>@presupuestoDetalle.FechaElaboracion.ToString("dd/MM/yyyy")</p>
+                            </div>
+                            <div class="col-md-12">
+                                <strong>Proyecto:</strong>
+                                @if (presupuestoDetalle.Proyecto != null)
+                                {
+                                    <p>@presupuestoDetalle.Proyecto.Nombre<br />
+                                    <small class="text-muted">@presupuestoDetalle.Proyecto.Municipio, @presupuestoDetalle.Proyecto.Provincia</small></p>
+                                }
+                                else
+                                {
+                                    <p class="text-muted fst-italic">Proyecto ID: @presupuestoDetalle.ProyectoId</p>
+                                }
+                            </div>
+                            <div class="col-md-12">
+                                <strong>Total Presupuesto:</strong>
+                                <h3 class="text-primary">@presupuestoDetalle.Total.ToString("C2")</h3>
+                            </div>
+                            <div class="col-md-12">
+                                <strong>Observaciones:</strong>
+                                <p class="text-muted">@(string.IsNullOrEmpty(presupuestoDetalle.Observaciones) ? "Sin observaciones" : presupuestoDetalle.Observaciones)</p>
+                            </div>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CerrarModalDetalle">
+                        <i class="bi bi-x-circle"></i> Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal de confirmación de eliminación -->
+@if (mostrarModalEliminar)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">Confirmar eliminación</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarModalEliminar"></button>
+                </div>
+                <div class="modal-body">
+                    <p>¿Está seguro de que desea eliminar el presupuesto?</p>
+                    <p class="fw-bold">PRE-@presupuestoAEliminar?.Id.ToString("000")</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CerrarModalEliminar">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-danger" @onclick="EliminarPresupuesto">
+                        <i class="bi bi-trash3-fill"></i> Eliminar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Presupuesto> presupuestos = new();
+    private List<Proyecto> proyectosDisponibles = new();
+    private bool cargando = true;
+    private bool mostrarModal = false;
+    private bool mostrarModalDetalle = false;
+    private bool mostrarModalEliminar = false;
+    private Presupuesto presupuestoSeleccionado = new();
+    private Presupuesto? presupuestoDetalle;
+    private Presupuesto? presupuestoAEliminar;
+
+    private string filtroBusqueda = "";
+
+    private IEnumerable<Presupuesto> presupuestosFiltrados => presupuestos
+        .Where(p => string.IsNullOrEmpty(filtroBusqueda) || 
+                   (p.Proyecto != null && p.Proyecto.Nombre.Contains(filtroBusqueda, StringComparison.OrdinalIgnoreCase)) ||
+                   p.Observaciones.Contains(filtroBusqueda, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        cargando = true;
+        await Task.Delay(500);
+
+        // Cargar proyectos disponibles
+        proyectosDisponibles = new List<Proyecto>
+        {
+            new Proyecto { Id = 1, Nombre = "Edificio Residencial Centro", Municipio = "Madrid", Provincia = "Madrid" },
+            new Proyecto { Id = 2, Nombre = "Rehabilitación Edificio Histórico", Municipio = "Salamanca", Provincia = "Salamanca" },
+            new Proyecto { Id = 3, Nombre = "Nave Industrial Polígono Norte", Municipio = "Valencia", Provincia = "Valencia" }
+        };
+
+        // Cargar presupuestos con proyectos ya asignados
+        presupuestos = new List<Presupuesto>
+        {
+            new Presupuesto 
+            { 
+                Id = 1,
+                ProyectoId = 1,
+                Proyecto = proyectosDisponibles[0],
+                Total = 450000m,
+                FechaElaboracion = new DateTime(2024, 1, 10),
+                Observaciones = "Incluye estructura, albañilería, instalaciones básicas y acabados estándar. No incluye mobiliario ni decoración."
+            },
+            new Presupuesto 
+            { 
+                Id = 2,
+                ProyectoId = 2,
+                Proyecto = proyectosDisponibles[1],
+                Total = 680000m,
+                FechaElaboracion = new DateTime(2024, 1, 20),
+                Observaciones = "Rehabilitación integral con criterios de protección patrimonial. Incluye refuerzo estructural, nueva instalaciones y restauración de elementos originales."
+            },
+            new Presupuesto 
+            { 
+                Id = 3,
+                ProyectoId = 3,
+                Proyecto = proyectosDisponibles[2],
+                Total = 320000m,
+                FechaElaboracion = new DateTime(2024, 2, 1),
+                Observaciones = "Construcción de nave diáfana con oficinas auxiliares. Estructura metálica, cerramiento de panel sándwich e instalaciones industriales."
+            }
+        };
+
+        cargando = false;
+    }
+
+    private void AbrirModalNuevo()
+    {
+        presupuestoSeleccionado = new Presupuesto 
+        { 
+            FechaElaboracion = DateTime.Today,
+            Total = 0
+        };
+        mostrarModal = true;
+    }
+
+    private void AbrirModalEditar(Presupuesto presupuesto)
+    {
+        presupuestoSeleccionado = new Presupuesto
+        {
+            Id = presupuesto.Id,
+            ProyectoId = presupuesto.ProyectoId,
+            Total = presupuesto.Total,
+            FechaElaboracion = presupuesto.FechaElaboracion,
+            Observaciones = presupuesto.Observaciones
+        };
+        mostrarModal = true;
+    }
+
+    private void CerrarModal()
+    {
+        mostrarModal = false;
+        presupuestoSeleccionado = new();
+    }
+
+    private void VerDetalle(Presupuesto presupuesto)
+    {
+        presupuestoDetalle = presupuesto;
+        mostrarModalDetalle = true;
+    }
+
+    private void CerrarModalDetalle()
+    {
+        mostrarModalDetalle = false;
+        presupuestoDetalle = null;
+    }
+
+    private async Task GuardarPresupuesto()
+    {
+        if (presupuestoSeleccionado.Id == 0)
+        {
+            presupuestoSeleccionado.Id = presupuestos.Any() ? presupuestos.Max(p => p.Id) + 1 : 1;
+            
+            // Asignar el proyecto
+            presupuestoSeleccionado.Proyecto = proyectosDisponibles.FirstOrDefault(p => p.Id == presupuestoSeleccionado.ProyectoId);
+            
+            presupuestos.Add(presupuestoSeleccionado);
+        }
+        else
+        {
+            var presupuesto = presupuestos.FirstOrDefault(p => p.Id == presupuestoSeleccionado.Id);
+            if (presupuesto != null)
+            {
+                presupuesto.ProyectoId = presupuestoSeleccionado.ProyectoId;
+                presupuesto.Proyecto = proyectosDisponibles.FirstOrDefault(p => p.Id == presupuestoSeleccionado.ProyectoId);
+                presupuesto.Total = presupuestoSeleccionado.Total;
+                presupuesto.FechaElaboracion = presupuestoSeleccionado.FechaElaboracion;
+                presupuesto.Observaciones = presupuestoSeleccionado.Observaciones;
+            }
+        }
+        CerrarModal();
+        StateHasChanged();
+    }
+
+    private void ConfirmarEliminar(Presupuesto presupuesto)
+    {
+        presupuestoAEliminar = presupuesto;
+        mostrarModalEliminar = true;
+    }
+
+    private void CerrarModalEliminar()
+    {
+        mostrarModalEliminar = false;
+        presupuestoAEliminar = null;
+    }
+
+    private async Task EliminarPresupuesto()
+    {
+        if (presupuestoAEliminar != null)
+        {
+            presupuestos.Remove(presupuestoAEliminar);
+        }
+        CerrarModalEliminar();
+        StateHasChanged();
+    }
+
+    private void LimpiarFiltros()
+    {
+        filtroBusqueda = "";
+    }
+}

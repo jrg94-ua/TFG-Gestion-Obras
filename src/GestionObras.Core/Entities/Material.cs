@@ -23,6 +23,12 @@ namespace GestionObras.Core.Entities
         public string UnidadMedida { get; set; } = string.Empty; // m², m³, ud, kg
         public int StockDisponible { get; set; }
         
+        // Propiedades adicionales para gestión
+        public string Categoria { get; set; } = string.Empty;
+        public string Unidad { get; set; } = string.Empty; // Alias de UnidadMedida
+        public decimal Stock { get; set; } // Alias de StockDisponible
+        public decimal StockMinimo { get; set; } = 10;
+        
         // Proveedor
         public int? ProveedorId { get; set; }
         public Proveedor? Proveedor { get; set; }

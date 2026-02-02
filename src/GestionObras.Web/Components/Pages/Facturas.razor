@@ -1,0 +1,505 @@
+@page "/facturas"
+@using GestionObras.Core.Entities
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Administrador,OficinaTecnica")]
+@rendermode InteractiveServer
+
+<PageTitle>Facturas - Gestión Obras</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">
+            <i class="bi bi-receipt"></i> Gestión de Facturas
+        </h1>
+        <button class="btn btn-primary" @onclick="AbrirModalNuevo">
+            <i class="bi bi-plus-circle"></i> Nueva Factura
+        </button>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <input type="text" class="form-control" placeholder="🔍 Buscar factura..."
+                           @bind="filtroNumero" @bind:event="oninput" />
+                </div>
+                <div class="col-md-4">
+                    <select class="form-select" @bind="filtroEstado">
+                        <option value="">Todos los estados</option>
+                        <option value="Pendiente">Pendiente</option>
+                        <option value="Pagada">Pagada</option>
+                        <option value="Vencida">Vencida</option>
+                        <option value="Cancelada">Cancelada</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <button class="btn btn-outline-secondary w-100" @onclick="LimpiarFiltros">
+                        <i class="bi bi-x-circle"></i> Limpiar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resumen -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-warning">
+                <div class="card-body">
+                    <h6 class="text-warning">Pendientes</h6>
+                    <h3 class="mb-0">@facturasPendientes.Count()</h3>
+                    <small class="text-muted">@facturasPendientes.Sum(f => f.ImporteTotal).ToString("C2")</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-success">
+                <div class="card-body">
+                    <h6 class="text-success">Pagadas</h6>
+                    <h3 class="mb-0">@facturasPagadas.Count()</h3>
+                    <small class="text-muted">@facturasPagadas.Sum(f => f.ImporteTotal).ToString("C2")</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-danger">
+                <div class="card-body">
+                    <h6 class="text-danger">Vencidas</h6>
+                    <h3 class="mb-0">@facturasVencidas.Count()</h3>
+                    <small class="text-muted">@facturasVencidas.Sum(f => f.ImporteTotal).ToString("C2")</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-secondary">
+                <div class="card-body">
+                    <h6 class="text-secondary">Total</h6>
+                    <h3 class="mb-0">@facturas.Count</h3>
+                    <small class="text-muted">@facturas.Sum(f => f.ImporteTotal).ToString("C2")</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de facturas -->
+    <div class="card">
+        <div class="card-body">
+            @if (cargando)
+            {
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Cargando facturas...</p>
+                </div>
+            }
+            else if (!facturasFiltradas.Any())
+            {
+                <div class="alert alert-info text-center">
+                    <i class="bi bi-info-circle"></i> No se encontraron facturas
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Número</th>
+                                <th>Fecha Emisión</th>
+                                <th>Concepto</th>
+                                <th>Proveedor</th>
+                                <th>Base</th>
+                                <th>IVA</th>
+                                <th>Total</th>
+                                <th>Estado</th>
+                                <th class="text-end">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var factura in facturasFiltradas)
+                            {
+                                <tr>
+                                    <td><code>@factura.NumeroFactura</code></td>
+                                    <td>@factura.FechaEmision.ToString("dd/MM/yyyy")</td>
+                                    <td>
+                                        <strong>@factura.Concepto</strong>
+                                        @if (!string.IsNullOrEmpty(factura.NombreProyecto))
+                                        {
+                                            <br /><small class="text-muted">@factura.NombreProyecto</small>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (factura.Proveedor != null)
+                                        {
+                                            <span class="text-muted">@factura.Proveedor.Nombre</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted fst-italic">Sin proveedor</span>
+                                        }
+                                    </td>
+                                    <td>@factura.BaseImponible.ToString("C2")</td>
+                                    <td>@factura.IVA.ToString("C2")</td>
+                                    <td><strong>@factura.ImporteTotal.ToString("C2")</strong></td>
+                                    <td>
+                                        @if (factura.Estado == EstadoFactura.Pendiente)
+                                        {
+                                            <span class="badge bg-warning text-dark">Pendiente</span>
+                                        }
+                                        else if (factura.Estado == EstadoFactura.Pagada)
+                                        {
+                                            <span class="badge bg-success">Pagada</span>
+                                        }
+                                        else if (factura.Estado == EstadoFactura.Vencida)
+                                        {
+                                            <span class="badge bg-danger">Vencida</span>
+                                        }
+                                        else if (factura.Estado == EstadoFactura.Cancelada)
+                                        {
+                                            <span class="badge bg-secondary">Cancelada</span>
+                                        }
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="btn-group" role="group">
+                                            <button class="btn btn-sm btn-outline-primary" 
+                                                    @onclick="() => AbrirModalEditar(factura)"
+                                                    title="Editar">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger" 
+                                                    @onclick="() => ConfirmarEliminar(factura)"
+                                                    title="Eliminar">
+                                                <i class="bi bi-trash3"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Modal para crear/editar factura -->
+@if (mostrarModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        @(facturaSeleccionada.Id == 0 ? "Nueva Factura" : "Editar Factura")
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Número de Factura *</label>
+                            <input class="form-control" @bind="facturaSeleccionada.NumeroFactura" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Estado *</label>
+                            <select class="form-select" @bind="facturaSeleccionada.Estado">
+                                <option value="@EstadoFactura.Pendiente">Pendiente</option>
+                                <option value="@EstadoFactura.Pagada">Pagada</option>
+                                <option value="@EstadoFactura.Vencida">Vencida</option>
+                                <option value="@EstadoFactura.Cancelada">Cancelada</option>
+                            </select>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label">Concepto *</label>
+                            <input class="form-control" @bind="facturaSeleccionada.Concepto" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Fecha Emisión *</label>
+                            <input type="date" class="form-control" @bind="facturaSeleccionada.FechaEmision" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Fecha Vencimiento *</label>
+                            <input type="date" class="form-control" @bind="facturaSeleccionada.FechaVencimiento" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Base Imponible *</label>
+                            <input type="number" step="0.01" class="form-control" 
+                                   @bind="facturaSeleccionada.BaseImponible" 
+                                   @oninput="CalcularTotales" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">IVA (%) *</label>
+                            <input type="number" step="0.01" class="form-control" 
+                                   @bind="facturaSeleccionada.PorcentajeIVA"
+                                   @oninput="CalcularTotales" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Importe IVA</label>
+                            <input type="number" step="0.01" class="form-control" 
+                                   @bind="facturaSeleccionada.IVA" readonly />
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label">Total Factura</label>
+                            <input type="number" step="0.01" class="form-control fw-bold" 
+                                   @bind="facturaSeleccionada.ImporteTotal" readonly />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Nombre Proyecto</label>
+                            <input class="form-control" @bind="facturaSeleccionada.NombreProyecto" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Método de Pago</label>
+                            <input class="form-control" @bind="facturaSeleccionada.MetodoPago" placeholder="Transferencia, Efectivo..." />
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label">Observaciones</label>
+                            <textarea class="form-control" rows="2" @bind="facturaSeleccionada.Observaciones"></textarea>
+                        </div>
+                        <div class="col-md-12">
+                            <div class="alert alert-info">
+                                <small>
+                                    <i class="bi bi-info-circle"></i> 
+                                    El proveedor se gestiona mediante relaciones de base de datos.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CerrarModal">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-primary" @onclick="GuardarFactura">
+                        <i class="bi bi-save2"></i> Guardar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal de confirmación de eliminación -->
+@if (mostrarModalEliminar)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">Confirmar eliminación</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarModalEliminar"></button>
+                </div>
+                <div class="modal-body">
+                    <p>¿Está seguro de que desea eliminar la factura?</p>
+                    <p class="fw-bold">@facturaAEliminar?.NumeroFactura</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CerrarModalEliminar">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-danger" @onclick="EliminarFactura">
+                        <i class="bi bi-trash3-fill"></i> Eliminar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Factura> facturas = new();
+    private bool cargando = true;
+    private bool mostrarModal = false;
+    private bool mostrarModalEliminar = false;
+    private Factura facturaSeleccionada = new();
+    private Factura? facturaAEliminar;
+
+    private string filtroNumero = "";
+    private string filtroEstado = "";
+
+    private IEnumerable<Factura> facturasFiltradas => facturas
+        .Where(f => string.IsNullOrEmpty(filtroNumero) || 
+                   f.NumeroFactura.Contains(filtroNumero, StringComparison.OrdinalIgnoreCase) ||
+                   f.Concepto.Contains(filtroNumero, StringComparison.OrdinalIgnoreCase))
+        .Where(f => string.IsNullOrEmpty(filtroEstado) || f.Estado.ToString() == filtroEstado);
+
+    private IEnumerable<Factura> facturasPendientes => facturas.Where(f => f.Estado == EstadoFactura.Pendiente);
+    private IEnumerable<Factura> facturasPagadas => facturas.Where(f => f.Estado == EstadoFactura.Pagada);
+    private IEnumerable<Factura> facturasVencidas => facturas.Where(f => f.Estado == EstadoFactura.Vencida);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarFacturas();
+    }
+
+    private async Task CargarFacturas()
+    {
+        cargando = true;
+        await Task.Delay(500);
+
+        facturas = new List<Factura>
+        {
+            new Factura 
+            { 
+                Id = 1, 
+                NumeroFactura = "F-2024-001", 
+                Concepto = "Materiales de construcción",
+                FechaEmision = new DateTime(2024, 1, 15),
+                FechaVencimiento = new DateTime(2024, 2, 15),
+                BaseImponible = 5000m,
+                PorcentajeIVA = 21m,
+                IVA = 1050m,
+                ImporteTotal = 6050m,
+                Estado = EstadoFactura.Pagada,
+                NombreProyecto = "Edificio Residencial Centro",
+                MetodoPago = "Transferencia",
+                FechaPago = new DateTime(2024, 2, 10)
+            },
+            new Factura 
+            { 
+                Id = 2, 
+                NumeroFactura = "F-2024-002", 
+                Concepto = "Mano de obra - Enero 2024",
+                FechaEmision = new DateTime(2024, 1, 31),
+                FechaVencimiento = new DateTime(2024, 2, 28),
+                BaseImponible = 12000m,
+                PorcentajeIVA = 21m,
+                IVA = 2520m,
+                ImporteTotal = 14520m,
+                Estado = EstadoFactura.Pendiente,
+                NombreProyecto = "Rehabilitación Edificio Histórico",
+                MetodoPago = "Transferencia"
+            },
+            new Factura 
+            { 
+                Id = 3, 
+                NumeroFactura = "F-2024-003", 
+                Concepto = "Alquiler maquinaria pesada",
+                FechaEmision = new DateTime(2024, 1, 1),
+                FechaVencimiento = new DateTime(2024, 1, 31),
+                BaseImponible = 3500m,
+                PorcentajeIVA = 21m,
+                IVA = 735m,
+                ImporteTotal = 4235m,
+                Estado = EstadoFactura.Vencida,
+                NombreProyecto = "Nave Industrial Polígono Norte",
+                MetodoPago = "Transferencia"
+            }
+        };
+
+        cargando = false;
+    }
+
+    private void AbrirModalNuevo()
+    {
+        facturaSeleccionada = new Factura 
+        { 
+            FechaEmision = DateTime.Today,
+            FechaVencimiento = DateTime.Today.AddDays(30),
+            Estado = EstadoFactura.Pendiente,
+            PorcentajeIVA = 21m
+        };
+        mostrarModal = true;
+    }
+
+    private void AbrirModalEditar(Factura factura)
+    {
+        facturaSeleccionada = new Factura
+        {
+            Id = factura.Id,
+            NumeroFactura = factura.NumeroFactura,
+            Concepto = factura.Concepto,
+            FechaEmision = factura.FechaEmision,
+            FechaVencimiento = factura.FechaVencimiento,
+            FechaPago = factura.FechaPago,
+            BaseImponible = factura.BaseImponible,
+            PorcentajeIVA = factura.PorcentajeIVA,
+            IVA = factura.IVA,
+            ImporteTotal = factura.ImporteTotal,
+            Estado = factura.Estado,
+            NombreProyecto = factura.NombreProyecto,
+            MetodoPago = factura.MetodoPago,
+            Observaciones = factura.Observaciones
+        };
+        mostrarModal = true;
+    }
+
+    private void CerrarModal()
+    {
+        mostrarModal = false;
+        facturaSeleccionada = new();
+    }
+
+    private void CalcularTotales(ChangeEventArgs e)
+    {
+        facturaSeleccionada.IVA = facturaSeleccionada.BaseImponible * (facturaSeleccionada.PorcentajeIVA / 100);
+        facturaSeleccionada.ImporteTotal = facturaSeleccionada.BaseImponible + facturaSeleccionada.IVA;
+    }
+
+    private async Task GuardarFactura()
+    {
+        // Recalcular antes de guardar
+        facturaSeleccionada.IVA = facturaSeleccionada.BaseImponible * (facturaSeleccionada.PorcentajeIVA / 100);
+        facturaSeleccionada.ImporteTotal = facturaSeleccionada.BaseImponible + facturaSeleccionada.IVA;
+        facturaSeleccionada.Importe = facturaSeleccionada.ImporteTotal;
+
+        if (facturaSeleccionada.Id == 0)
+        {
+            facturaSeleccionada.Id = facturas.Any() ? facturas.Max(f => f.Id) + 1 : 1;
+            facturas.Add(facturaSeleccionada);
+        }
+        else
+        {
+            var factura = facturas.FirstOrDefault(f => f.Id == facturaSeleccionada.Id);
+            if (factura != null)
+            {
+                factura.NumeroFactura = facturaSeleccionada.NumeroFactura;
+                factura.Concepto = facturaSeleccionada.Concepto;
+                factura.FechaEmision = facturaSeleccionada.FechaEmision;
+                factura.FechaVencimiento = facturaSeleccionada.FechaVencimiento;
+                factura.FechaPago = facturaSeleccionada.FechaPago;
+                factura.BaseImponible = facturaSeleccionada.BaseImponible;
+                factura.PorcentajeIVA = facturaSeleccionada.PorcentajeIVA;
+                factura.IVA = facturaSeleccionada.IVA;
+                factura.ImporteTotal = facturaSeleccionada.ImporteTotal;
+                factura.Importe = facturaSeleccionada.ImporteTotal;
+                factura.Estado = facturaSeleccionada.Estado;
+                factura.NombreProyecto = facturaSeleccionada.NombreProyecto;
+                factura.MetodoPago = facturaSeleccionada.MetodoPago;
+                factura.Observaciones = facturaSeleccionada.Observaciones;
+            }
+        }
+        CerrarModal();
+        StateHasChanged();
+    }
+
+    private void ConfirmarEliminar(Factura factura)
+    {
+        facturaAEliminar = factura;
+        mostrarModalEliminar = true;
+    }
+
+    private void CerrarModalEliminar()
+    {
+        mostrarModalEliminar = false;
+        facturaAEliminar = null;
+    }
+
+    private async Task EliminarFactura()
+    {
+        if (facturaAEliminar != null)
+        {
+            facturas.Remove(facturaAEliminar);
+        }
+        CerrarModalEliminar();
+        StateHasChanged();
+    }
+
+    private void LimpiarFiltros()
+    {
+        filtroNumero = "";
+        filtroEstado = "";
+    }
+}

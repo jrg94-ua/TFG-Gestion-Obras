@@ -1,0 +1,393 @@
+@page "/empleados"
+@using GestionObras.Core.Entities
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Administrador,JefeObra")]
+@rendermode InteractiveServer
+
+<PageTitle>Empleados - Gestión Obras</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">
+            <i class="bi bi-people"></i> Gestión de Empleados
+        </h1>
+        <button class="btn btn-primary" @onclick="AbrirModalNuevo">
+            <i class="bi bi-plus-circle"></i> Nuevo Empleado
+        </button>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <input type="text" class="form-control" placeholder="🔍 Buscar por nombre..."
+                           @bind="filtroNombre" @bind:event="oninput" />
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" @bind="filtroEstado">
+                        <option value="">Todos los estados</option>
+                        <option value="true">Activos</option>
+                        <option value="false">Inactivos</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-outline-secondary w-100" @onclick="LimpiarFiltros">
+                        <i class="bi bi-x-circle"></i> Limpiar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de empleados -->
+    <div class="card">
+        <div class="card-body">
+            @if (cargando)
+            {
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Cargando empleados...</p>
+                </div>
+            }
+            else if (!empleadosFiltrados.Any())
+            {
+                <div class="alert alert-info text-center">
+                    <i class="bi bi-info-circle"></i> No se encontraron empleados
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>DNI</th>
+                                <th>Email</th>
+                                <th>Teléfono</th>
+                                <th>Departamento</th>
+                                <th>Cargo</th>
+                                <th>Estado</th>
+                                <th class="text-end">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var empleado in empleadosFiltrados)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="avatar-circle me-2">
+                                                @empleado.Nombre.Substring(0, 1)@empleado.Apellidos.Substring(0, 1)
+                                            </div>
+                                            <strong>@empleado.Nombre @empleado.Apellidos</strong>
+                                        </div>
+                                    </td>
+                                    <td>@empleado.DNI</td>
+                                    <td>@empleado.Email</td>
+                                    <td>@empleado.Telefono</td>
+                                    <td>
+                                        <span class="badge bg-info">@empleado.Departamento</span>
+                                    </td>
+                                    <td>@empleado.Cargo</td>
+                                    <td>
+                                        @if (empleado.Activo)
+                                        {
+                                            <span class="badge bg-success">Activo</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">Inactivo</span>
+                                        }
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="btn-group" role="group">
+                                            <button class="btn btn-sm btn-outline-primary" 
+                                                    @onclick="() => AbrirModalEditar(empleado)"
+                                                    title="Editar">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger" 
+                                                    @onclick="() => ConfirmarEliminar(empleado)"
+                                                    title="Eliminar">
+                                                <i class="bi bi-trash3"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Modal para crear/editar empleado -->
+@if (mostrarModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        @(empleadoSeleccionado.Id == 0 ? "Nuevo Empleado" : "Editar Empleado")
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Nombre *</label>
+                            <input class="form-control" @bind="empleadoSeleccionado.Nombre" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Apellidos *</label>
+                            <input class="form-control" @bind="empleadoSeleccionado.Apellidos" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">DNI *</label>
+                            <input class="form-control" @bind="empleadoSeleccionado.DNI" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Email *</label>
+                            <input type="email" class="form-control" @bind="empleadoSeleccionado.Email" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Teléfono *</label>
+                            <input class="form-control" @bind="empleadoSeleccionado.Telefono" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Fecha de Contratación *</label>
+                            <input type="date" class="form-control" @bind="empleadoSeleccionado.FechaContratacion" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Departamento *</label>
+                            <input class="form-control" @bind="empleadoSeleccionado.Departamento" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Cargo *</label>
+                            <input class="form-control" @bind="empleadoSeleccionado.Cargo" />
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label">Dirección</label>
+                            <input class="form-control" @bind="empleadoSeleccionado.Direccion" />
+                        </div>
+                        <div class="col-md-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" @bind="empleadoSeleccionado.Activo" />
+                                <label class="form-check-label">Empleado activo</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CerrarModal">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-primary" @onclick="GuardarEmpleado">
+                        <i class="bi bi-save2"></i> Guardar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal de confirmación de eliminación -->
+@if (mostrarModalEliminar)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">Confirmar eliminación</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarModalEliminar"></button>
+                </div>
+                <div class="modal-body">
+                    <p>¿Está seguro de que desea eliminar al empleado?</p>
+                    <p class="fw-bold">@empleadoAEliminar?.Nombre @empleadoAEliminar?.Apellidos</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CerrarModalEliminar">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-danger" @onclick="EliminarEmpleado">
+                        <i class="bi bi-trash3-fill"></i> Eliminar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Empleado> empleados = new();
+    private bool cargando = true;
+    private bool mostrarModal = false;
+    private bool mostrarModalEliminar = false;
+    private Empleado empleadoSeleccionado = new();
+    private Empleado? empleadoAEliminar;
+
+    private string filtroNombre = "";
+    private string filtroEstado = "";
+
+    private IEnumerable<Empleado> empleadosFiltrados => empleados
+        .Where(e => string.IsNullOrEmpty(filtroNombre) || 
+                   $"{e.Nombre} {e.Apellidos}".Contains(filtroNombre, StringComparison.OrdinalIgnoreCase))
+        .Where(e => string.IsNullOrEmpty(filtroEstado) || e.Activo.ToString().Equals(filtroEstado, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarEmpleados();
+    }
+
+    private async Task CargarEmpleados()
+    {
+        cargando = true;
+        await Task.Delay(500);
+
+        empleados = new List<Empleado>
+        {
+            new Empleado 
+            { 
+                Id = 1, 
+                Nombre = "Juan", 
+                Apellidos = "García López", 
+                DNI = "12345678A", 
+                Email = "juan.garcia@obras.com",
+                Telefono = "666111222",
+                Departamento = "Obras",
+                Cargo = "Jefe de Obra",
+                FechaContratacion = new DateTime(2020, 1, 15),
+                Direccion = "Calle Mayor 1, Madrid",
+                Activo = true
+            },
+            new Empleado 
+            { 
+                Id = 2, 
+                Nombre = "María", 
+                Apellidos = "Rodríguez Pérez", 
+                DNI = "87654321B", 
+                Email = "maria.rodriguez@obras.com",
+                Telefono = "666333444",
+                Departamento = "Oficina Técnica",
+                Cargo = "Arquitecta Técnica",
+                FechaContratacion = new DateTime(2019, 3, 10),
+                Direccion = "Avenida Principal 45, Barcelona",
+                Activo = true
+            },
+            new Empleado 
+            { 
+                Id = 3, 
+                Nombre = "Carlos", 
+                Apellidos = "Martínez Sánchez", 
+                DNI = "45678912C", 
+                Email = "carlos.martinez@obras.com",
+                Telefono = "666555666",
+                Departamento = "Operarios",
+                Cargo = "Operario Oficial 1ª",
+                FechaContratacion = new DateTime(2021, 6, 1),
+                Direccion = "Plaza España 12, Valencia",
+                Activo = true
+            }
+        };
+
+        cargando = false;
+    }
+
+    private void AbrirModalNuevo()
+    {
+        empleadoSeleccionado = new Empleado 
+        { 
+            FechaContratacion = DateTime.Today,
+            Activo = true
+        };
+        mostrarModal = true;
+    }
+
+    private void AbrirModalEditar(Empleado empleado)
+    {
+        empleadoSeleccionado = new Empleado
+        {
+            Id = empleado.Id,
+            Nombre = empleado.Nombre,
+            Apellidos = empleado.Apellidos,
+            DNI = empleado.DNI,
+            Email = empleado.Email,
+            Telefono = empleado.Telefono,
+            FechaContratacion = empleado.FechaContratacion,
+            Departamento = empleado.Departamento,
+            Cargo = empleado.Cargo,
+            Direccion = empleado.Direccion,
+            Activo = empleado.Activo
+        };
+        mostrarModal = true;
+    }
+
+    private void CerrarModal()
+    {
+        mostrarModal = false;
+        empleadoSeleccionado = new();
+    }
+
+    private async Task GuardarEmpleado()
+    {
+        if (empleadoSeleccionado.Id == 0)
+        {
+            empleadoSeleccionado.Id = empleados.Max(e => e.Id) + 1;
+            empleados.Add(empleadoSeleccionado);
+        }
+        else
+        {
+            var empleado = empleados.FirstOrDefault(e => e.Id == empleadoSeleccionado.Id);
+            if (empleado != null)
+            {
+                empleado.Nombre = empleadoSeleccionado.Nombre;
+                empleado.Apellidos = empleadoSeleccionado.Apellidos;
+                empleado.DNI = empleadoSeleccionado.DNI;
+                empleado.Email = empleadoSeleccionado.Email;
+                empleado.Telefono = empleadoSeleccionado.Telefono;
+                empleado.FechaContratacion = empleadoSeleccionado.FechaContratacion;
+                empleado.Departamento = empleadoSeleccionado.Departamento;
+                empleado.Cargo = empleadoSeleccionado.Cargo;
+                empleado.Direccion = empleadoSeleccionado.Direccion;
+                empleado.Activo = empleadoSeleccionado.Activo;
+            }
+        }
+        CerrarModal();
+        StateHasChanged();
+    }
+
+    private void ConfirmarEliminar(Empleado empleado)
+    {
+        empleadoAEliminar = empleado;
+        mostrarModalEliminar = true;
+    }
+
+    private void CerrarModalEliminar()
+    {
+        mostrarModalEliminar = false;
+        empleadoAEliminar = null;
+    }
+
+    private async Task EliminarEmpleado()
+    {
+        if (empleadoAEliminar != null)
+        {
+            empleados.Remove(empleadoAEliminar);
+        }
+        CerrarModalEliminar();
+        StateHasChanged();
+    }
+
+    private void LimpiarFiltros()
+    {
+        filtroNombre = "";
+        filtroEstado = "";
+    }
+}

@@ -174,12 +174,12 @@ else
     <!-- Modal de Tarea -->
     @if (mostrarModalTarea)
     {
-        <div class="modal fade show d-block" tabindex="-1">
+        <div class="modal fade show d-block" tabindex="-1" @key="@Guid.NewGuid()">
             <div class="modal-dialog modal-lg">
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title">@(tareaEditando?.Id == 0 ? "Nueva Tarea" : "Editar Tarea")</h5>
-                        <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+                        <button type="button" class="btn-close" @onclick="CerrarModal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
                         <EditForm Model="@tareaEditando" OnValidSubmit="GuardarTarea">
@@ -264,7 +264,7 @@ else
                             <div class="mb-3">
                                 <label class="form-label">Responsables *</label>
                                 <select class="form-select" multiple @onchange="AsignarResponsables" size="5">
-                                    @foreach (var empleado in empleadosDisponibles)
+                                    @foreach (var empleado in ObtenerEmpleadosDisponiblesSegunTipo())
                                     {
                                         var seleccionado = responsablesSeleccionados.Contains(empleado.Id);
                                         <option value="@empleado.Id" selected="@seleccionado">
@@ -273,6 +273,15 @@ else
                                     }
                                 </select>
                                 <small class="form-text text-muted">
+                                    @if (tareaPadreTemp != null || tareaEditando.TareaPadreId != null)
+                                    {
+                                        <span>✅ <strong>Subtarea:</strong> Cualquier usuario puede ser responsable</span>
+                                    }
+                                    else
+                                    {
+                                        <span>⚠️ <strong>Tarea Principal:</strong> Solo Administrador, Jefe de Obra u Oficina Técnica</span>
+                                    }
+                                    <br />
                                     Mantenga presionada la tecla Ctrl (Windows) o Command (Mac) para seleccionar múltiples responsables
                                 </small>
                                 @if (responsablesSeleccionados.Any())
@@ -302,7 +311,7 @@ else
                 </div>
             </div>
         </div>
-        <div class="modal-backdrop fade show"></div>
+        <div class="modal-backdrop fade show" @onclick="CerrarModal"></div>
     }
 
     <!-- Modal de Bloqueo (RF-07) -->
@@ -808,6 +817,24 @@ else
         }
     }
 
+    private List<UsuarioObra> ObtenerEmpleadosDisponiblesSegunTipo()
+    {
+        // Si es una subtarea (tiene tarea padre), mostrar todos los usuarios activos
+        if (tareaPadreTemp != null || tareaEditando.TareaPadreId != null)
+        {
+            return empleadosDisponibles;
+        }
+        
+        // Si es una tarea principal, solo mostrar Admin, JefeObra y OficinaTecnica
+        return empleadosDisponibles.Where(e => 
+        {
+            var roles = UserManager.GetRolesAsync(e).Result;
+            return roles.Contains("Administrador") || 
+                   roles.Contains("JefeObra") || 
+                   roles.Contains("OficinaTecnica");
+        }).ToList();
+    }
+
     private async Task GuardarTarea()
     {
         try
@@ -859,6 +886,8 @@ else
         mostrarModalTarea = false;
         tareaEditando = new();
         tareaPadreTemp = null;
+        responsablesSeleccionados = new();
+        StateHasChanged();
     }
 
     // Gestión de Bloqueos (RF-07)

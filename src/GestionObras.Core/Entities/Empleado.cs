@@ -17,6 +17,13 @@ namespace GestionObras.Core.Entities
         public string Telefono { get; set; } = string.Empty;
         public CategoriaLaboral Categoria { get; set; }
         
+        // Propiedades adicionales para gestión
+        public DateTime FechaContratacion { get; set; } = DateTime.Today;
+        public string Departamento { get; set; } = string.Empty;
+        public string Cargo { get; set; } = string.Empty;
+        public string? Direccion { get; set; }
+        public bool Activo { get; set; } = true;
+        
         // Relación con usuario del sistema
         public string? UsuarioId { get; set; }
         public UsuarioObra? Usuario { get; set; }

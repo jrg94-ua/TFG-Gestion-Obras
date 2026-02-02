@@ -16,6 +16,15 @@ namespace GestionObras.Core.Entities
         public EstadoFactura Estado { get; set; }
         public string Concepto { get; set; } = string.Empty;
         
+        // Propiedades adicionales para gestión
+        public decimal BaseImponible { get; set; }
+        public decimal PorcentajeIVA { get; set; } = 21;
+        public decimal IVA { get; set; }
+        public decimal ImporteTotal { get; set; }
+        public string? NombreProyecto { get; set; }
+        public string? MetodoPago { get; set; }
+        public string? Observaciones { get; set; }
+        
         // Relaciones
         public int? ProyectoId { get; set; }
         public Proyecto? Proyecto { get; set; }
