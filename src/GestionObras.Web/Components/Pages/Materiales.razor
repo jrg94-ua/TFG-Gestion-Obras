@@ -1,6 +1,10 @@
 @page "/materiales"
 @using GestionObras.Core.Entities
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using GestionObras.Infrastructure.Data
+@inject GestionObrasDbContext DbContext
+@inject NavigationManager Navigation
 @attribute [Authorize]
 @rendermode InteractiveServer
 
@@ -264,49 +268,22 @@
     private async Task CargarMateriales()
     {
         cargando = true;
-        await Task.Delay(500);
-
-        materiales = new List<Material>
+        try
         {
-            new Material 
-            { 
-                Id = 1, 
-                Codigo = "MAT-001", 
-                Nombre = "Ladrillo cerámico 24x11,5x7", 
-                Descripcion = "Ladrillo perforado para fachada",
-                Categoria = "Estructural",
-                UnidadMedida = "unid",
-                PrecioUnitario = 0.45m,
-                StockDisponible = 15000,
-                StockMinimo = 5000
-            },
-            new Material 
-            { 
-                Id = 2, 
-                Codigo = "MAT-002", 
-                Nombre = "Aislamiento XPS 50mm", 
-                Descripcion = "Poliestireno extruido",
-                Categoria = "Aislamiento",
-                UnidadMedida = "m²",
-                PrecioUnitario = 12.80m,
-                StockDisponible = 2500,
-                StockMinimo = 1000
-            },
-            new Material 
-            { 
-                Id = 3, 
-                Codigo = "MAT-003", 
-                Nombre = "Cemento Portland CEM II/A-L 32,5R", 
-                Descripcion = "Saco 25kg",
-                Categoria = "Estructural",
-                UnidadMedida = "kg",
-                PrecioUnitario = 8.50m,
-                StockDisponible = 800,
-                StockMinimo = 1000
-            }
-        };
-
-        cargando = false;
+            materiales = await DbContext.Materiales
+                .Include(m => m.Proveedor)
+                .OrderBy(m => m.Nombre)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar materiales: {ex.Message}");
+            materiales = new List<Material>();
+        }
+        finally
+        {
+            cargando = false;
+        }
     }
 
     private void AbrirModalNuevo()
@@ -317,6 +294,7 @@
             StockMinimo = 100
         };
         mostrarModal = true;
+        StateHasChanged();
     }
 
     private void AbrirModalEditar(Material material)
@@ -334,6 +312,7 @@
             StockMinimo = material.StockMinimo
         };
         mostrarModal = true;
+        StateHasChanged();
     }
 
     private void CerrarModal()
@@ -344,26 +323,39 @@
 
     private async Task GuardarMaterial()
     {
-        if (materialSeleccionado.Id == 0)
+        try
         {
-            materialSeleccionado.Id = materiales.Any() ? materiales.Max(m => m.Id) + 1 : 1;
-            materiales.Add(materialSeleccionado);
-        }
-        else
-        {
-            var material = materiales.FirstOrDefault(m => m.Id == materialSeleccionado.Id);
-            if (material != null)
+            if (materialSeleccionado.Id == 0)
             {
-                material.Codigo = materialSeleccionado.Codigo;
-                material.Nombre = materialSeleccionado.Nombre;
-                material.Descripcion = materialSeleccionado.Descripcion;
-                material.Categoria = materialSeleccionado.Categoria;
-                material.UnidadMedida = materialSeleccionado.UnidadMedida;
-                material.PrecioUnitario = materialSeleccionado.PrecioUnitario;
-                material.StockDisponible = materialSeleccionado.StockDisponible;
-                material.StockMinimo = materialSeleccionado.StockMinimo;
+                // Nuevo material
+                DbContext.Materiales.Add(materialSeleccionado);
             }
+            else
+            {
+                // Editar material existente
+                var material = await DbContext.Materiales.FindAsync(materialSeleccionado.Id);
+                if (material != null)
+                {
+                    material.Codigo = materialSeleccionado.Codigo;
+                    material.Nombre = materialSeleccionado.Nombre;
+                    material.Descripcion = materialSeleccionado.Descripcion;
+                    material.Categoria = materialSeleccionado.Categoria;
+                    material.UnidadMedida = materialSeleccionado.UnidadMedida;
+                    material.PrecioUnitario = materialSeleccionado.PrecioUnitario;
+                    material.StockDisponible = materialSeleccionado.StockDisponible;
+                    material.StockMinimo = materialSeleccionado.StockMinimo;
+                    DbContext.Materiales.Update(material);
+                }
+            }
+            
+            await DbContext.SaveChangesAsync();
+            await CargarMateriales();
         }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al guardar material: {ex.Message}");
+        }
+        
         CerrarModal();
         StateHasChanged();
     }
@@ -372,6 +364,7 @@
     {
         materialAEliminar = material;
         mostrarModalEliminar = true;
+        StateHasChanged();
     }
 
     private void CerrarModalEliminar()
@@ -384,7 +377,20 @@
     {
         if (materialAEliminar != null)
         {
-            materiales.Remove(materialAEliminar);
+            try
+            {
+                var material = await DbContext.Materiales.FindAsync(materialAEliminar.Id);
+                if (material != null)
+                {
+                    DbContext.Materiales.Remove(material);
+                    await DbContext.SaveChangesAsync();
+                    await CargarMateriales();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al eliminar material: {ex.Message}");
+            }
         }
         CerrarModalEliminar();
         StateHasChanged();

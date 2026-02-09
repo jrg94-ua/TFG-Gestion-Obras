@@ -312,6 +312,7 @@
             Activo = true
         };
         mostrarModal = true;
+        StateHasChanged();
     }
 
     private void AbrirModalEditar(Empleado empleado)
@@ -331,6 +332,7 @@
             Activo = empleado.Activo
         };
         mostrarModal = true;
+        StateHasChanged();
     }
 
     private void CerrarModal()
@@ -371,6 +373,7 @@
     {
         empleadoAEliminar = empleado;
         mostrarModalEliminar = true;
+        StateHasChanged();
     }
 
     private void CerrarModalEliminar()

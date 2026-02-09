@@ -186,7 +186,7 @@ else
     <!-- Modal de Edición -->
     @if (mostrarModalEditar)
     {
-        <div class="modal fade show d-block" tabindex="-1">
+        <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
             <div class="modal-dialog modal-lg">
                 <div class="modal-content">
                     <div class="modal-header">
@@ -260,7 +260,7 @@ else
     <!-- Modal de Bloqueo -->
     @if (mostrarModalBloqueo)
     {
-        <div class="modal fade show d-block" tabindex="-1">
+        <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
             <div class="modal-dialog">
                 <div class="modal-content">
                     <div class="modal-header bg-warning">
@@ -308,7 +308,7 @@ else
     <!-- Modal de Desbloqueo -->
     @if (mostrarModalDesbloqueo)
     {
-        <div class="modal fade show d-block" tabindex="-1">
+        <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
             <div class="modal-dialog">
                 <div class="modal-content">
                     <div class="modal-header bg-success text-white">
@@ -487,8 +487,16 @@ else
 
     private void AbrirModalEditarTarea(Tarea tarea)
     {
-        tareaEditando = tarea;
-        mostrarModalEditar = true;
+        try
+        {
+            tareaEditando = tarea;
+            mostrarModalEditar = true;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error en AbrirModalEditarTarea: {ex.Message}");
+        }
     }
 
     private async Task GuardarTarea()
@@ -562,6 +570,7 @@ else
     {
         tareaParaDesbloquear = tarea;
         mostrarModalDesbloqueo = true;
+        StateHasChanged();
     }
 
     private async Task DesbloquearTarea()

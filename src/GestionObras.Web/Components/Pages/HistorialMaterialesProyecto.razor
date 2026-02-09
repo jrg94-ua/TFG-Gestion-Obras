@@ -1,0 +1,455 @@
+@page "/proyectos/{ProyectoId:int}/historial-materiales"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using GestionObras.Core.Entities
+@using GestionObras.Infrastructure.Data
+@using Microsoft.EntityFrameworkCore
+@inject GestionObrasDbContext DbContext
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Historial de Materiales - @proyecto?.Nombre</PageTitle>
+
+<div class="container-fluid">
+    @if (proyecto == null)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="page-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1>📦 Historial de Materiales</h1>
+                    <h4 class="text-muted">Proyecto: @proyecto.Nombre</h4>
+                </div>
+                <button class="btn btn-secondary" @onclick="Volver">
+                    <i class="bi bi-arrow-left"></i> Volver a Proyectos
+                </button>
+            </div>
+        </div>
+
+        <!-- Resumen y Estadísticas -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h6 class="card-title text-muted">Total Solicitudes</h6>
+                        <h2 class="mb-0">@solicitudes.Count</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center bg-warning bg-opacity-10">
+                    <div class="card-body">
+                        <h6 class="card-title text-muted">Pendientes</h6>
+                        <h2 class="mb-0 text-warning">@solicitudes.Count(s => s.Estado == EstadoSolicitudMaterial.Pendiente)</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center bg-success bg-opacity-10">
+                    <div class="card-body">
+                        <h6 class="card-title text-muted">Aprobadas</h6>
+                        <h2 class="mb-0 text-success">@solicitudes.Count(s => s.Estado == EstadoSolicitudMaterial.Aprobada)</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center bg-primary bg-opacity-10">
+                    <div class="card-body">
+                        <h6 class="card-title text-muted">Total Gastado</h6>
+                        <h2 class="mb-0 text-primary">@CalcularTotalGastado().ToString("C")</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filtros -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Filtrar por Estado:</label>
+                        <select class="form-select" @bind="filtroEstado" @bind:after="AplicarFiltros">
+                            <option value="">Todos los estados</option>
+                            <option value="@EstadoSolicitudMaterial.Pendiente">Pendiente</option>
+                            <option value="@EstadoSolicitudMaterial.Aprobada">Aprobada</option>
+                            <option value="@EstadoSolicitudMaterial.Rechazada">Rechazada</option>
+                            <option value="@EstadoSolicitudMaterial.Cancelada">Cancelada</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Buscar Material:</label>
+                        <input type="text" class="form-control" placeholder="Nombre del material..." 
+                               @bind="busqueda" @bind:event="oninput" @bind:after="AplicarFiltros" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Ordenar por:</label>
+                        <select class="form-select" @bind="ordenamiento" @bind:after="AplicarFiltros">
+                            <option value="FechaDesc">Fecha (Más reciente)</option>
+                            <option value="FechaAsc">Fecha (Más antigua)</option>
+                            <option value="MontoDesc">Monto (Mayor a menor)</option>
+                            <option value="MontoAsc">Monto (Menor a mayor)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabla de Historial -->
+        @if (!solicitudesFiltradas.Any())
+        {
+            <div class="alert alert-info text-center">
+                <i class="bi bi-info-circle"></i> No se encontraron solicitudes de materiales para este proyecto.
+            </div>
+        }
+        else
+        {
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Fecha Solicitud</th>
+                                    <th>Material</th>
+                                    <th>Cantidad</th>
+                                    <th>Precio Unit.</th>
+                                    <th>Total</th>
+                                    <th>Estado</th>
+                                    <th>Solicitado Por</th>
+                                    <th>Prioridad</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var solicitud in solicitudesFiltradas)
+                                {
+                                    <tr>
+                                        <td>@solicitud.FechaSolicitud.ToString("dd/MM/yyyy HH:mm")</td>
+                                        <td>
+                                            <strong>@solicitud.Material.Nombre</strong>
+                                            <br />
+                                            <small class="text-muted">@solicitud.Material.Codigo</small>
+                                        </td>
+                                        <td>@solicitud.CantidadSolicitada @solicitud.Material.UnidadMedida</td>
+                                        <td>@solicitud.Material.PrecioUnitario.ToString("C")</td>
+                                        <td>
+                                            <strong>@((solicitud.CantidadSolicitada * solicitud.Material.PrecioUnitario).ToString("C"))</strong>
+                                        </td>
+                                        <td>
+                                            <span class="badge @GetEstadoBadgeClass(solicitud.Estado)">
+                                                @GetEstadoTexto(solicitud.Estado)
+                                            </span>
+                                        </td>
+                                        <td>@solicitud.SolicitadoPor.NombreCompleto</td>
+                                        <td>
+                                            <span class="badge @GetPrioridadBadgeClass(solicitud.Prioridad)">
+                                                @GetPrioridadTexto(solicitud.Prioridad)
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary" @onclick="() => VerDetalle(solicitud)">
+                                                <i class="bi bi-eye"></i> Ver
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <th colspan="4" class="text-end">Total en página:</th>
+                                    <th colspan="5">
+                                        <strong class="text-primary">
+                                            @solicitudesFiltradas.Sum(s => s.CantidadSolicitada * s.Material.PrecioUnitario).ToString("C")
+                                        </strong>
+                                    </th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Modal Detalle de Solicitud -->
+        @if (mostrarModalDetalle && solicitudSeleccionada != null)
+        {
+            <div class="modal fade show" style="display: block; background: rgba(0,0,0,0.5);" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Detalle de Solicitud</h5>
+                            <button type="button" class="btn-close" @onclick="CerrarModalDetalle"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <h6 class="text-muted">Material</h6>
+                                    <p><strong>@solicitudSeleccionada.Material.Nombre</strong></p>
+                                    <p class="text-muted">Código: @solicitudSeleccionada.Material.Codigo</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6 class="text-muted">Estado</h6>
+                                    <p>
+                                        <span class="badge @GetEstadoBadgeClass(solicitudSeleccionada.Estado) fs-6">
+                                            @GetEstadoTexto(solicitudSeleccionada.Estado)
+                                        </span>
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <h6 class="text-muted">Cantidad Solicitada</h6>
+                                    <p>@solicitudSeleccionada.CantidadSolicitada @solicitudSeleccionada.Material.UnidadMedida</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6 class="text-muted">Precio Total</h6>
+                                    <p><strong class="text-primary fs-5">@((solicitudSeleccionada.CantidadSolicitada * solicitudSeleccionada.Material.PrecioUnitario).ToString("C"))</strong></p>
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <h6 class="text-muted">Fecha de Solicitud</h6>
+                                    <p>@solicitudSeleccionada.FechaSolicitud.ToString("dd/MM/yyyy HH:mm")</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6 class="text-muted">Prioridad</h6>
+                                    <p>
+                                        <span class="badge @GetPrioridadBadgeClass(solicitudSeleccionada.Prioridad) fs-6">
+                                            @GetPrioridadTexto(solicitudSeleccionada.Prioridad)
+                                        </span>
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <h6 class="text-muted">Justificación</h6>
+                                    <p class="border p-3 bg-light rounded">@solicitudSeleccionada.Justificacion</p>
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <h6 class="text-muted">Solicitado Por</h6>
+                                    <p>@solicitudSeleccionada.SolicitadoPor.NombreCompleto</p>
+                                    <p class="text-muted small">@solicitudSeleccionada.SolicitadoPor.Email</p>
+                                </div>
+                                @if (solicitudSeleccionada.FechaNecesaria.HasValue)
+                                {
+                                    <div class="col-md-6">
+                                        <h6 class="text-muted">Fecha Necesaria</h6>
+                                        <p>@solicitudSeleccionada.FechaNecesaria.Value.ToString("dd/MM/yyyy")</p>
+                                    </div>
+                                }
+                            </div>
+
+                            @if (solicitudSeleccionada.Estado != EstadoSolicitudMaterial.Pendiente)
+                            {
+                                <hr />
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <h6 class="text-muted">Revisado Por</h6>
+                                        <p>@(solicitudSeleccionada.RevisadoPor?.NombreCompleto ?? "N/A")</p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6 class="text-muted">Fecha de Respuesta</h6>
+                                        <p>@(solicitudSeleccionada.FechaRespuesta?.ToString("dd/MM/yyyy HH:mm") ?? "N/A")</p>
+                                    </div>
+                                </div>
+                                @if (!string.IsNullOrEmpty(solicitudSeleccionada.ObservacionesAdmin))
+                                {
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <h6 class="text-muted">Observaciones del Administrador</h6>
+                                            <p class="border p-3 bg-light rounded">@solicitudSeleccionada.ObservacionesAdmin</p>
+                                        </div>
+                                    </div>
+                                }
+                            }
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @onclick="CerrarModalDetalle">Cerrar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+<style>
+    .page-header {
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .card {
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        border: none;
+        border-radius: 8px;
+    }
+
+    .table {
+        margin-bottom: 0;
+    }
+
+    .table thead th {
+        background-color: #f8f9fa;
+        border-bottom: 2px solid #dee2e6;
+        font-weight: 600;
+    }
+
+    .table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public int ProyectoId { get; set; }
+
+    private Proyecto? proyecto;
+    private List<SolicitudMaterial> solicitudes = new();
+    private List<SolicitudMaterial> solicitudesFiltradas = new();
+    
+    private string filtroEstado = "";
+    private string busqueda = "";
+    private string ordenamiento = "FechaDesc";
+
+    private bool mostrarModalDetalle = false;
+    private SolicitudMaterial? solicitudSeleccionada;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        proyecto = await DbContext.Proyectos
+            .FirstOrDefaultAsync(p => p.Id == ProyectoId);
+
+        if (proyecto != null)
+        {
+            solicitudes = await DbContext.SolicitudesMateriales
+                .Include(s => s.Material)
+                .Include(s => s.SolicitadoPor)
+                .Include(s => s.RevisadoPor)
+                .Where(s => s.ProyectoId == ProyectoId)
+                .ToListAsync();
+
+            AplicarFiltros();
+        }
+    }
+
+    private void AplicarFiltros()
+    {
+        IEnumerable<SolicitudMaterial> resultado = solicitudes;
+
+        // Filtrar por estado
+        if (!string.IsNullOrEmpty(filtroEstado) && Enum.TryParse<EstadoSolicitudMaterial>(filtroEstado, out var estado))
+        {
+            resultado = resultado.Where(s => s.Estado == estado);
+        }
+
+        // Filtrar por búsqueda
+        if (!string.IsNullOrEmpty(busqueda))
+        {
+            resultado = resultado
+                .Where(s => s.Material.Nombre.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ||
+                           s.Material.Codigo.Contains(busqueda, StringComparison.OrdinalIgnoreCase));
+        }
+
+        // Ordenar
+        solicitudesFiltradas = ordenamiento switch
+        {
+            "FechaDesc" => resultado.OrderByDescending(s => s.FechaSolicitud).ToList(),
+            "FechaAsc" => resultado.OrderBy(s => s.FechaSolicitud).ToList(),
+            "MontoDesc" => resultado.OrderByDescending(s => s.CantidadSolicitada * s.Material.PrecioUnitario).ToList(),
+            "MontoAsc" => resultado.OrderBy(s => s.CantidadSolicitada * s.Material.PrecioUnitario).ToList(),
+            _ => resultado.OrderByDescending(s => s.FechaSolicitud).ToList()
+        };
+    }
+
+    private decimal CalcularTotalGastado()
+    {
+        return solicitudes
+            .Where(s => s.Estado == EstadoSolicitudMaterial.Aprobada)
+            .Sum(s => s.CantidadSolicitada * s.Material.PrecioUnitario);
+    }
+
+    private void VerDetalle(SolicitudMaterial solicitud)
+    {
+        solicitudSeleccionada = solicitud;
+        mostrarModalDetalle = true;
+    }
+
+    private void CerrarModalDetalle()
+    {
+        mostrarModalDetalle = false;
+        solicitudSeleccionada = null;
+    }
+
+    private void Volver()
+    {
+        Navigation.NavigateTo("/proyectos");
+    }
+
+    private string GetEstadoBadgeClass(EstadoSolicitudMaterial estado)
+    {
+        return estado switch
+        {
+            EstadoSolicitudMaterial.Pendiente => "bg-warning",
+            EstadoSolicitudMaterial.Aprobada => "bg-success",
+            EstadoSolicitudMaterial.Rechazada => "bg-danger",
+            EstadoSolicitudMaterial.Cancelada => "bg-secondary",
+            _ => "bg-secondary"
+        };
+    }
+
+    private string GetEstadoTexto(EstadoSolicitudMaterial estado)
+    {
+        return estado switch
+        {
+            EstadoSolicitudMaterial.Pendiente => "Pendiente",
+            EstadoSolicitudMaterial.Aprobada => "Aprobada",
+            EstadoSolicitudMaterial.Rechazada => "Rechazada",
+            EstadoSolicitudMaterial.Cancelada => "Cancelada",
+            _ => estado.ToString()
+        };
+    }
+
+    private string GetPrioridadBadgeClass(PrioridadSolicitud prioridad)
+    {
+        return prioridad switch
+        {
+            PrioridadSolicitud.Baja => "bg-info",
+            PrioridadSolicitud.Media => "bg-primary",
+            PrioridadSolicitud.Alta => "bg-warning",
+            PrioridadSolicitud.Urgente => "bg-danger",
+            _ => "bg-secondary"
+        };
+    }
+
+    private string GetPrioridadTexto(PrioridadSolicitud prioridad)
+    {
+        return prioridad switch
+        {
+            PrioridadSolicitud.Baja => "Baja",
+            PrioridadSolicitud.Media => "Media",
+            PrioridadSolicitud.Alta => "Alta",
+            PrioridadSolicitud.Urgente => "Urgente",
+            _ => prioridad.ToString()
+        };
+    }
+}

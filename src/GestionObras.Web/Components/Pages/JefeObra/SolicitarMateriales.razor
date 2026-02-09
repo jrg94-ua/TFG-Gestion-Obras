@@ -1,0 +1,383 @@
+@page "/jefe-obra/solicitar-materiales"
+@using GestionObras.Core.Entities
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+@using GestionObras.Infrastructure.Data
+@inject GestionObrasDbContext DbContext
+@inject UserManager<UsuarioObra> UserManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager Navigation
+@attribute [Authorize(Roles = "JefeObra")]
+@rendermode InteractiveServer
+
+<PageTitle>Solicitar Materiales - Gestión Obras</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">
+            <i class="bi bi-cart-plus"></i> Solicitar Materiales
+        </h1>
+        <button class="btn btn-outline-secondary" @onclick="VerMisSolicitudes">
+            <i class="bi bi-list-check"></i> Ver Mis Solicitudes
+        </button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(mensaje))
+    {
+        <div class="alert @(mensajeExito ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+            <i class="bi @(mensajeExito ? "bi-check-circle" : "bi-exclamation-triangle")"></i>
+            @mensaje
+            <button type="button" class="btn-close" @onclick="() => mensaje = string.Empty"></button>
+        </div>
+    }
+
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Proyecto</label>
+                    <select class="form-select" @bind="proyectoSeleccionadoId">
+                        <option value="0">Seleccione un proyecto...</option>
+                        @foreach (var proyecto in misProyectos)
+                        {
+                            <option value="@proyecto.Id">@proyecto.Nombre</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Buscar Material</label>
+                    <input type="text" class="form-control" placeholder="🔍 Buscar..."
+                           @bind="filtroNombre" @bind:event="oninput" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Categoría</label>
+                    <select class="form-select" @bind="filtroCategoria">
+                        <option value="">Todas las categorías</option>
+                        <option value="Estructural">Estructural</option>
+                        <option value="Aislamiento">Aislamiento</option>
+                        <option value="Acabados">Acabados</option>
+                        <option value="Instalaciones">Instalaciones</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (proyectoSeleccionadoId == 0)
+    {
+        <div class="alert alert-warning">
+            <i class="bi bi-info-circle"></i> Seleccione un proyecto para solicitar materiales
+        </div>
+    }
+    else
+    {
+        <!-- Catálogo de materiales -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Catálogo de Materiales Disponibles</h5>
+            </div>
+            <div class="card-body">
+                @if (cargando)
+                {
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary"></div>
+                        <p class="mt-2 text-muted">Cargando materiales...</p>
+                    </div>
+                }
+                else if (!materialesFiltrados.Any())
+                {
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> No se encontraron materiales
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Material</th>
+                                    <th>Categoría</th>
+                                    <th>Stock</th>
+                                    <th>Precio/Ud</th>
+                                    <th class="text-end">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var material in materialesFiltrados)
+                                {
+                                    <tr>
+                                        <td><code>@material.Codigo</code></td>
+                                        <td>
+                                            <strong>@material.Nombre</strong>
+                                            @if (!string.IsNullOrEmpty(material.Descripcion))
+                                            {
+                                                <br /><small class="text-muted">@material.Descripcion</small>
+                                            }
+                                        </td>
+                                        <td><span class="badge bg-secondary">@material.Categoria</span></td>
+                                        <td>
+                                            @if (material.StockDisponible <= material.StockMinimo)
+                                            {
+                                                <span class="badge bg-warning text-dark">
+                                                    @material.StockDisponible @material.UnidadMedida
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-success">
+                                                    @material.StockDisponible @material.UnidadMedida
+                                                </span>
+                                            }
+                                        </td>
+                                        <td>@material.PrecioUnitario.ToString("C") / @material.UnidadMedida</td>
+                                        <td class="text-end">
+                                            <button class="btn btn-sm btn-primary" @onclick="() => AbrirModalSolicitud(material)">
+                                                <i class="bi bi-cart-plus"></i> Solicitar
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Modal para solicitar material -->
+@if (mostrarModal && materialSeleccionado != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-cart-plus"></i> Solicitar Material
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Material:</strong>
+                            <p>@materialSeleccionado.Nombre</p>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Código:</strong>
+                            <p><code>@materialSeleccionado.Codigo</code></p>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Stock Disponible:</strong>
+                            <p>@materialSeleccionado.StockDisponible @materialSeleccionado.UnidadMedida</p>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Precio Unitario:</strong>
+                            <p>@materialSeleccionado.PrecioUnitario.ToString("C")</p>
+                        </div>
+                    </div>
+
+                    <hr />
+
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <strong>Cantidad Solicitada</strong> <span class="text-danger">*</span>
+                        </label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" @bind="nuevaSolicitud.CantidadSolicitada" 
+                                   step="0.01" min="0.01" />
+                            <span class="input-group-text">@materialSeleccionado.UnidadMedida</span>
+                        </div>
+                        @if (nuevaSolicitud.CantidadSolicitada > 0)
+                        {
+                            <small class="text-muted">
+                                Coste estimado: @((nuevaSolicitud.CantidadSolicitada * materialSeleccionado.PrecioUnitario).ToString("C"))
+                            </small>
+                        }
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <strong>Prioridad</strong> <span class="text-danger">*</span>
+                        </label>
+                        <select class="form-select" @bind="nuevaSolicitud.Prioridad">
+                            <option value="@PrioridadSolicitud.Baja">Baja</option>
+                            <option value="@PrioridadSolicitud.Media">Media</option>
+                            <option value="@PrioridadSolicitud.Alta">Alta</option>
+                            <option value="@PrioridadSolicitud.Urgente">Urgente</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <strong>Fecha en que se necesita</strong>
+                        </label>
+                        <input type="date" class="form-control" @bind="nuevaSolicitud.FechaNecesaria" 
+                               min="@DateTime.Now.ToString("yyyy-MM-dd")" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <strong>Justificación</strong> <span class="text-danger">*</span>
+                        </label>
+                        <textarea class="form-control" rows="4" @bind="nuevaSolicitud.Justificacion"
+                                  placeholder="Explique para qué necesita este material y por qué es necesario..."></textarea>
+                        <small class="text-muted">Máximo 1000 caracteres</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CerrarModal">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-primary" @onclick="GuardarSolicitud"
+                            disabled="@(nuevaSolicitud.CantidadSolicitada <= 0 || string.IsNullOrWhiteSpace(nuevaSolicitud.Justificacion))">
+                        <i class="bi bi-send"></i> Enviar Solicitud
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool cargando = true;
+    private List<Material> materiales = new();
+    private List<Proyecto> misProyectos = new();
+    private int proyectoSeleccionadoId = 0;
+    private string filtroNombre = string.Empty;
+    private string filtroCategoria = string.Empty;
+    private string mensaje = string.Empty;
+    private bool mensajeExito = false;
+    private string usuarioActualId = string.Empty;
+
+    private bool mostrarModal = false;
+    private Material? materialSeleccionado;
+    private SolicitudMaterial nuevaSolicitud = new();
+
+    private IEnumerable<Material> materialesFiltrados =>
+        materiales.Where(m =>
+            (string.IsNullOrEmpty(filtroNombre) || m.Nombre.Contains(filtroNombre, StringComparison.OrdinalIgnoreCase) || 
+             m.Codigo.Contains(filtroNombre, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(filtroCategoria) || m.Categoria == filtroCategoria)
+        );
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        cargando = true;
+        StateHasChanged();
+        
+        try
+        {
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                var usuario = await UserManager.GetUserAsync(user);
+                if (usuario != null)
+                {
+                    usuarioActualId = usuario.Id;
+                    
+                    // Cargar proyectos donde soy responsable o estoy asignado
+                    misProyectos = await DbContext.Proyectos
+                        .Where(p => p.ResponsableId == usuarioActualId && p.Estado != EstadoProyecto.Finalizado)
+                        .OrderBy(p => p.Nombre)
+                        .ToListAsync();
+                }
+            }
+
+            // Cargar todos los materiales disponibles
+            materiales = await DbContext.Materiales
+                .AsNoTracking()
+                .OrderBy(m => m.Nombre)
+                .ToListAsync();
+                
+            Console.WriteLine($"Materiales cargados: {materiales.Count}");
+        }
+        catch (Exception ex)
+        {
+            mensaje = $"Error al cargar datos: {ex.Message}";
+            mensajeExito = false;
+        }
+        finally
+        {
+            cargando = false;
+            StateHasChanged();
+        }
+    }
+
+    private void AbrirModalSolicitud(Material material)
+    {
+        materialSeleccionado = material;
+        nuevaSolicitud = new SolicitudMaterial
+        {
+            MaterialId = material.Id,
+            ProyectoId = proyectoSeleccionadoId,
+            SolicitadoPorId = usuarioActualId,
+            FechaSolicitud = DateTime.Now,
+            Estado = EstadoSolicitudMaterial.Pendiente,
+            Prioridad = PrioridadSolicitud.Media,
+            CantidadSolicitada = 0
+        };
+        mostrarModal = true;
+    }
+
+    private void CerrarModal()
+    {
+        mostrarModal = false;
+        materialSeleccionado = null;
+        nuevaSolicitud = new();
+    }
+
+    private async Task GuardarSolicitud()
+    {
+        try
+        {
+            if (nuevaSolicitud.CantidadSolicitada <= 0)
+            {
+                mensaje = "La cantidad debe ser mayor que 0";
+                mensajeExito = false;
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(nuevaSolicitud.Justificacion))
+            {
+                mensaje = "Debe proporcionar una justificación";
+                mensajeExito = false;
+                return;
+            }
+
+            DbContext.SolicitudesMateriales.Add(nuevaSolicitud);
+            await DbContext.SaveChangesAsync();
+
+            mensaje = "Solicitud enviada correctamente. Quedará pendiente de aprobación por el administrador.";
+            mensajeExito = true;
+            CerrarModal();
+            
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            mensaje = $"Error al guardar la solicitud: {ex.Message}";
+            mensajeExito = false;
+        }
+    }
+
+    private void VerMisSolicitudes()
+    {
+        Navigation.NavigateTo("/jefe-obra/mis-solicitudes-materiales");
+    }
+}

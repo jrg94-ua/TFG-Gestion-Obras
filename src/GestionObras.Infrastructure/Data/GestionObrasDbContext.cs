@@ -22,6 +22,7 @@ public class GestionObrasDbContext : IdentityDbContext<UsuarioObra>
     public DbSet<FirmaTarea> FirmasTareas { get; set; }
     public DbSet<Empleado> Empleados { get; set; }
     public DbSet<Material> Materiales { get; set; }
+    public DbSet<SolicitudMaterial> SolicitudesMateriales { get; set; }
     public DbSet<Factura> Facturas { get; set; }
     public DbSet<Presupuesto> Presupuestos { get; set; }
     public DbSet<CarpetaLegal> CarpetasLegales { get; set; }
@@ -232,6 +233,43 @@ public class GestionObrasDbContext : IdentityDbContext<UsuarioObra>
         builder.Entity<CarpetaLegal>(entity =>
         {
             entity.HasKey(c => c.Id);
+        });
+
+        // SolicitudMaterial
+        builder.Entity<SolicitudMaterial>(entity =>
+        {
+            entity.HasKey(s => s.Id);
+            entity.Property(s => s.CantidadSolicitada).HasColumnType("decimal(18,2)");
+            entity.Property(s => s.Justificacion).HasMaxLength(1000).IsRequired();
+            entity.Property(s => s.ObservacionesAdmin).HasMaxLength(1000);
+            
+            // Relación con Material
+            entity.HasOne(s => s.Material)
+                  .WithMany()
+                  .HasForeignKey(s => s.MaterialId)
+                  .OnDelete(DeleteBehavior.Restrict);
+            
+            // Relación con Proyecto
+            entity.HasOne(s => s.Proyecto)
+                  .WithMany()
+                  .HasForeignKey(s => s.ProyectoId)
+                  .OnDelete(DeleteBehavior.Restrict);
+            
+            // Relación con Usuario solicitante (Jefe de Obra)
+            entity.HasOne(s => s.SolicitadoPor)
+                  .WithMany()
+                  .HasForeignKey(s => s.SolicitadoPorId)
+                  .OnDelete(DeleteBehavior.Restrict);
+            
+            // Relación con Usuario que revisa (Admin)
+            entity.HasOne(s => s.RevisadoPor)
+                  .WithMany()
+                  .HasForeignKey(s => s.RevisadoPorId)
+                  .OnDelete(DeleteBehavior.Restrict);
+            
+            // Índices para búsquedas
+            entity.HasIndex(s => s.Estado);
+            entity.HasIndex(s => s.FechaSolicitud);
         });
     }
 }

@@ -1,0 +1,673 @@
+@page "/admin/solicitudes-materiales"
+@using GestionObras.Core.Entities
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+@using GestionObras.Infrastructure.Data
+@inject GestionObrasDbContext DbContext
+@inject UserManager<UsuarioObra> UserManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@attribute [Authorize(Roles = "Administrador")]
+@rendermode InteractiveServer
+
+<PageTitle>Gestión de Solicitudes de Materiales - Gestión Obras</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">
+            <i class="bi bi-clipboard-check"></i> Solicitudes de Materiales
+        </h1>
+        <button class="btn btn-outline-secondary" @onclick="CargarDatos">
+            <i class="bi bi-arrow-clockwise"></i> Actualizar
+        </button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(mensaje))
+    {
+        <div class="alert @(mensajeExito ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+            <i class="bi @(mensajeExito ? "bi-check-circle" : "bi-exclamation-triangle")"></i>
+            @mensaje
+            <button type="button" class="btn-close" @onclick="() => mensaje = string.Empty"></button>
+        </div>
+    }
+
+    <!-- Estadísticas -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-warning bg-light">
+                <div class="card-body">
+                    <h6 class="text-muted mb-0">Pendientes de Revisar</h6>
+                    <h2 class="mb-0 text-warning">
+                        <i class="bi bi-exclamation-circle"></i>
+                        @solicitudesFiltradas.Count(s => s.Estado == EstadoSolicitudMaterial.Pendiente)
+                    </h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-success">
+                <div class="card-body">
+                    <h6 class="text-muted mb-0">Aprobadas</h6>
+                    <h2 class="mb-0 text-success">
+                        @solicitudesFiltradas.Count(s => s.Estado == EstadoSolicitudMaterial.Aprobada)
+                    </h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-danger">
+                <div class="card-body">
+                    <h6 class="text-muted mb-0">Rechazadas</h6>
+                    <h2 class="mb-0 text-danger">
+                        @solicitudesFiltradas.Count(s => s.Estado == EstadoSolicitudMaterial.Rechazada)
+                    </h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-info">
+                <div class="card-body">
+                    <h6 class="text-muted mb-0">Coste Pendiente</h6>
+                    <h2 class="mb-0 text-info">
+                        @(solicitudesFiltradas
+                            .Where(s => s.Estado == EstadoSolicitudMaterial.Pendiente)
+                            .Sum(s => s.CantidadSolicitada * s.Material.PrecioUnitario)
+                            .ToString("C"))
+                    </h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Estado</label>
+                    <select class="form-select" @bind="filtroEstado">
+                        <option value="">Todos</option>
+                        <option value="Pendiente">Pendiente</option>
+                        <option value="Aprobada">Aprobada</option>
+                        <option value="Rechazada">Rechazada</option>
+                        <option value="Cancelada">Cancelada</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Prioridad</label>
+                    <select class="form-select" @bind="filtroPrioridad">
+                        <option value="">Todas</option>
+                        <option value="Urgente">Urgente</option>
+                        <option value="Alta">Alta</option>
+                        <option value="Media">Media</option>
+                        <option value="Baja">Baja</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Proyecto</label>
+                    <select class="form-select" @bind="filtroProyectoId">
+                        <option value="0">Todos</option>
+                        @foreach (var proyecto in proyectos)
+                        {
+                            <option value="@proyecto.Id">@proyecto.Nombre</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Solicitante</label>
+                    <input type="text" class="form-control" placeholder="Buscar..."
+                           @bind="filtroSolicitante" @bind:event="oninput" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de solicitudes -->
+    <div class="card">
+        <div class="card-body">
+            @if (cargando)
+            {
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary"></div>
+                    <p class="mt-2 text-muted">Cargando solicitudes...</p>
+                </div>
+            }
+            else if (!solicitudesFiltradas.Any())
+            {
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> No hay solicitudes para mostrar
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Solicitante</th>
+                                <th>Material</th>
+                                <th>Proyecto</th>
+                                <th>Cantidad</th>
+                                <th>Coste</th>
+                                <th>Prioridad</th>
+                                <th>Estado</th>
+                                <th class="text-end">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var solicitud in solicitudesFiltradas.OrderByDescending(s => s.FechaSolicitud))
+                            {
+                                <tr class="@(solicitud.Prioridad == PrioridadSolicitud.Urgente ? "table-warning" : "")">
+                                    <td>
+                                        <small>@solicitud.FechaSolicitud.ToString("dd/MM/yyyy")</small>
+                                        <br /><small class="text-muted">@solicitud.FechaSolicitud.ToString("HH:mm")</small>
+                                    </td>
+                                    <td>
+                                        <strong>@solicitud.SolicitadoPor.NombreCompleto</strong>
+                                        <br /><small class="text-muted">Jefe de Obra</small>
+                                    </td>
+                                    <td>
+                                        <strong>@solicitud.Material.Nombre</strong>
+                                        <br /><small class="text-muted">@solicitud.Material.Codigo</small>
+                                    </td>
+                                    <td>@solicitud.Proyecto.Nombre</td>
+                                    <td>
+                                        <strong>@solicitud.CantidadSolicitada</strong>
+                                        <small>@solicitud.Material.UnidadMedida</small>
+                                    </td>
+                                    <td>
+                                        <strong>@((solicitud.CantidadSolicitada * solicitud.Material.PrecioUnitario).ToString("C"))</strong>
+                                    </td>
+                                    <td>
+                                        @switch (solicitud.Prioridad)
+                                        {
+                                            case PrioridadSolicitud.Urgente:
+                                                <span class="badge bg-danger">
+                                                    <i class="bi bi-exclamation-triangle-fill"></i> Urgente
+                                                </span>
+                                                break;
+                                            case PrioridadSolicitud.Alta:
+                                                <span class="badge bg-warning text-dark">Alta</span>
+                                                break;
+                                            case PrioridadSolicitud.Media:
+                                                <span class="badge bg-info">Media</span>
+                                                break;
+                                            case PrioridadSolicitud.Baja:
+                                                <span class="badge bg-secondary">Baja</span>
+                                                break;
+                                        }
+                                    </td>
+                                    <td>
+                                        @switch (solicitud.Estado)
+                                        {
+                                            case EstadoSolicitudMaterial.Pendiente:
+                                                <span class="badge bg-warning text-dark">
+                                                    <i class="bi bi-clock"></i> Pendiente
+                                                </span>
+                                                break;
+                                            case EstadoSolicitudMaterial.Aprobada:
+                                                <span class="badge bg-success">
+                                                    <i class="bi bi-check-circle"></i> Aprobada
+                                                </span>
+                                                break;
+                                            case EstadoSolicitudMaterial.Rechazada:
+                                                <span class="badge bg-danger">
+                                                    <i class="bi bi-x-circle"></i> Rechazada
+                                                </span>
+                                                break;
+                                            case EstadoSolicitudMaterial.Cancelada:
+                                                <span class="badge bg-secondary">Cancelada</span>
+                                                break;
+                                        }
+                                    </td>
+                                    <td class="text-end">
+                                        <button class="btn btn-sm btn-outline-primary" @onclick="() => VerDetalle(solicitud)">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                        @if (solicitud.Estado == EstadoSolicitudMaterial.Pendiente)
+                                        {
+                                            var stockSuficiente = solicitud.Material.StockDisponible >= solicitud.CantidadSolicitada;
+                                            
+                                            <button class="btn btn-sm btn-success ms-1" 
+                                                    @onclick="() => AbrirModalAprobar(solicitud)"
+                                                    disabled="@(!stockSuficiente)"
+                                                    title="@(stockSuficiente ? "Aprobar solicitud" : "Stock insuficiente")">
+                                                <i class="bi bi-check"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-danger ms-1" @onclick="() => AbrirModalRechazar(solicitud)">
+                                                <i class="bi bi-x"></i>
+                                            </button>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Modal Ver Detalle -->
+@if (mostrarModalDetalle && solicitudSeleccionada != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-file-text"></i> Detalle de Solicitud #@solicitudSeleccionada.Id
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModales"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Estado:</strong>
+                            @switch (solicitudSeleccionada.Estado)
+                            {
+                                case EstadoSolicitudMaterial.Pendiente:
+                                    <span class="badge bg-warning text-dark">Pendiente</span>
+                                    break;
+                                case EstadoSolicitudMaterial.Aprobada:
+                                    <span class="badge bg-success">Aprobada</span>
+                                    break;
+                                case EstadoSolicitudMaterial.Rechazada:
+                                    <span class="badge bg-danger">Rechazada</span>
+                                    break;
+                                case EstadoSolicitudMaterial.Cancelada:
+                                    <span class="badge bg-secondary">Cancelada</span>
+                                    break;
+                            }
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Fecha Solicitud:</strong>
+                            <p>@solicitudSeleccionada.FechaSolicitud.ToString("dd/MM/yyyy HH:mm")</p>
+                        </div>
+                    </div>
+
+                    <hr />
+
+                    <h6>Información del Material</h6>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Material:</strong>
+                            <p>@solicitudSeleccionada.Material.Nombre</p>
+                            <small class="text-muted">@solicitudSeleccionada.Material.Codigo</small>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Categoría:</strong>
+                            <p>@solicitudSeleccionada.Material.Categoria</p>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <strong>Cantidad Solicitada:</strong>
+                            <p class="h4 text-primary">@solicitudSeleccionada.CantidadSolicitada @solicitudSeleccionada.Material.UnidadMedida</p>
+                        </div>
+                        <div class="col-md-4">
+                            <strong>Precio Unitario:</strong>
+                            <p>@solicitudSeleccionada.Material.PrecioUnitario.ToString("C")</p>
+                        </div>
+                        <div class="col-md-4">
+                            <strong>Coste Total:</strong>
+                            <p class="h4 text-success">@((solicitudSeleccionada.CantidadSolicitada * solicitudSeleccionada.Material.PrecioUnitario).ToString("C"))</p>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Stock Disponible:</strong>
+                            <p>@solicitudSeleccionada.Material.StockDisponible @solicitudSeleccionada.Material.UnidadMedida</p>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>¿Stock Suficiente?</strong>
+                            @if (solicitudSeleccionada.Material.StockDisponible >= solicitudSeleccionada.CantidadSolicitada)
+                            {
+                                <p class="text-success"><i class="bi bi-check-circle-fill"></i> Sí</p>
+                            }
+                            else
+                            {
+                                <p class="text-danger">
+                                    <i class="bi bi-exclamation-triangle-fill"></i> No 
+                                    (Faltan @(solicitudSeleccionada.CantidadSolicitada - solicitudSeleccionada.Material.StockDisponible) @solicitudSeleccionada.Material.UnidadMedida)
+                                </p>
+                            }
+                        </div>
+                    </div>
+
+                    <hr />
+
+                    <h6>Información del Proyecto</h6>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Proyecto:</strong>
+                            <p>@solicitudSeleccionada.Proyecto.Nombre</p>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Solicitante:</strong>
+                            <p>@solicitudSeleccionada.SolicitadoPor.NombreCompleto</p>
+                            <small class="text-muted">@solicitudSeleccionada.SolicitadoPor.Email</small>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Prioridad:</strong>
+                            <p>@solicitudSeleccionada.Prioridad</p>
+                        </div>
+                        @if (solicitudSeleccionada.FechaNecesaria.HasValue)
+                        {
+                            <div class="col-md-6">
+                                <strong>Fecha Necesaria:</strong>
+                                <p>@solicitudSeleccionada.FechaNecesaria.Value.ToString("dd/MM/yyyy")</p>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="mb-3">
+                        <strong>Justificación:</strong>
+                        <div class="border p-3 rounded bg-light">
+                            @solicitudSeleccionada.Justificacion
+                        </div>
+                    </div>
+
+                    @if (solicitudSeleccionada.Estado != EstadoSolicitudMaterial.Pendiente && solicitudSeleccionada.FechaRespuesta.HasValue)
+                    {
+                        <hr />
+                        <h6>Respuesta de Administración</h6>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <strong>Revisado por:</strong>
+                                <p>@solicitudSeleccionada.RevisadoPor?.NombreCompleto</p>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Fecha Respuesta:</strong>
+                                <p>@solicitudSeleccionada.FechaRespuesta.Value.ToString("dd/MM/yyyy HH:mm")</p>
+                            </div>
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(solicitudSeleccionada.ObservacionesAdmin))
+                        {
+                            <div class="mb-3">
+                                <strong>Observaciones:</strong>
+                                <div class="border p-3 rounded bg-warning bg-opacity-10">
+                                    @solicitudSeleccionada.ObservacionesAdmin
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+                <div class="modal-footer">
+                    @if (solicitudSeleccionada.Estado == EstadoSolicitudMaterial.Pendiente)
+                    {
+                        var stockSuficiente = solicitudSeleccionada.Material.StockDisponible >= solicitudSeleccionada.CantidadSolicitada;
+                        
+                        <button type="button" 
+                                class="btn btn-success" 
+                                @onclick="() => AbrirModalAprobar(solicitudSeleccionada)"
+                                disabled="@(!stockSuficiente)"
+                                title="@(stockSuficiente ? "" : "No hay stock suficiente para aprobar esta solicitud")">
+                            <i class="bi bi-check-circle"></i> Aprobar
+                        </button>
+                        <button type="button" class="btn btn-danger" @onclick="() => AbrirModalRechazar(solicitudSeleccionada)">
+                            <i class="bi bi-x-circle"></i> Rechazar
+                        </button>
+                    }
+                    <button type="button" class="btn btn-secondary" @onclick="CerrarModales">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal Aprobar -->
+@if (mostrarModalAprobar && solicitudSeleccionada != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-check-circle"></i> Aprobar Solicitud
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarModales"></button>
+                </div>
+                <div class="modal-body">
+                    <p>¿Está seguro que desea <strong>aprobar</strong> esta solicitud?</p>
+                    <ul>
+                        <li><strong>Material:</strong> @solicitudSeleccionada.Material.Nombre</li>
+                        <li><strong>Cantidad:</strong> @solicitudSeleccionada.CantidadSolicitada @solicitudSeleccionada.Material.UnidadMedida</li>
+                        <li><strong>Coste:</strong> @((solicitudSeleccionada.CantidadSolicitada * solicitudSeleccionada.Material.PrecioUnitario).ToString("C"))</li>
+                        <li><strong>Proyecto:</strong> @solicitudSeleccionada.Proyecto.Nombre</li>
+                    </ul>
+
+                    <div class="mb-3">
+                        <label class="form-label">Observaciones (opcional):</label>
+                        <textarea class="form-control" rows="3" @bind="observacionesAdmin"
+                                  placeholder="Agregue observaciones o comentarios..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CerrarModales">Cancelar</button>
+                    <button type="button" class="btn btn-success" @onclick="AprobarSolicitud">
+                        <i class="bi bi-check-circle"></i> Confirmar Aprobación
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal Rechazar -->
+@if (mostrarModalRechazar && solicitudSeleccionada != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-x-circle"></i> Rechazar Solicitud
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarModales"></button>
+                </div>
+                <div class="modal-body">
+                    <p>¿Está seguro que desea <strong>rechazar</strong> esta solicitud?</p>
+                    <ul>
+                        <li><strong>Material:</strong> @solicitudSeleccionada.Material.Nombre</li>
+                        <li><strong>Cantidad:</strong> @solicitudSeleccionada.CantidadSolicitada @solicitudSeleccionada.Material.UnidadMedida</li>
+                        <li><strong>Proyecto:</strong> @solicitudSeleccionada.Proyecto.Nombre</li>
+                    </ul>
+
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <strong>Motivo del rechazo:</strong> <span class="text-danger">*</span>
+                        </label>
+                        <textarea class="form-control" rows="3" @bind="observacionesAdmin"
+                                  placeholder="Indique el motivo del rechazo..." required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CerrarModales">Cancelar</button>
+                    <button type="button" class="btn btn-danger" @onclick="RechazarSolicitud"
+                            disabled="@string.IsNullOrWhiteSpace(observacionesAdmin)">
+                        <i class="bi bi-x-circle"></i> Confirmar Rechazo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool cargando = true;
+    private List<SolicitudMaterial> solicitudes = new();
+    private List<Proyecto> proyectos = new();
+    private string filtroEstado = "";
+    private string filtroPrioridad = "";
+    private int filtroProyectoId = 0;
+    private string filtroSolicitante = string.Empty;
+    private string mensaje = string.Empty;
+    private bool mensajeExito = false;
+    private string usuarioActualId = string.Empty;
+
+    private bool mostrarModalDetalle = false;
+    private bool mostrarModalAprobar = false;
+    private bool mostrarModalRechazar = false;
+    private SolicitudMaterial? solicitudSeleccionada;
+    private string observacionesAdmin = string.Empty;
+
+    private IEnumerable<SolicitudMaterial> solicitudesFiltradas =>
+        solicitudes.Where(s =>
+            (string.IsNullOrEmpty(filtroEstado) || s.Estado.ToString() == filtroEstado) &&
+            (string.IsNullOrEmpty(filtroPrioridad) || s.Prioridad.ToString() == filtroPrioridad) &&
+            (filtroProyectoId == 0 || s.ProyectoId == filtroProyectoId) &&
+            (string.IsNullOrEmpty(filtroSolicitante) || 
+             s.SolicitadoPor.NombreCompleto.Contains(filtroSolicitante, StringComparison.OrdinalIgnoreCase))
+        );
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        cargando = true;
+        try
+        {
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                var usuario = await UserManager.GetUserAsync(user);
+                if (usuario != null)
+                {
+                    usuarioActualId = usuario.Id;
+                }
+            }
+
+            solicitudes = await DbContext.SolicitudesMateriales
+                .Include(s => s.Material)
+                .Include(s => s.Proyecto)
+                .Include(s => s.SolicitadoPor)
+                .Include(s => s.RevisadoPor)
+                .ToListAsync();
+
+            proyectos = await DbContext.Proyectos
+                .OrderBy(p => p.Nombre)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            mensaje = $"Error al cargar datos: {ex.Message}";
+            mensajeExito = false;
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private void VerDetalle(SolicitudMaterial solicitud)
+    {
+        solicitudSeleccionada = solicitud;
+        mostrarModalDetalle = true;
+    }
+
+    private void AbrirModalAprobar(SolicitudMaterial solicitud)
+    {
+        solicitudSeleccionada = solicitud;
+        observacionesAdmin = string.Empty;
+        mostrarModalDetalle = false;
+        mostrarModalAprobar = true;
+    }
+
+    private void AbrirModalRechazar(SolicitudMaterial solicitud)
+    {
+        solicitudSeleccionada = solicitud;
+        observacionesAdmin = string.Empty;
+        mostrarModalDetalle = false;
+        mostrarModalRechazar = true;
+    }
+
+    private void CerrarModales()
+    {
+        mostrarModalDetalle = false;
+        mostrarModalAprobar = false;
+        mostrarModalRechazar = false;
+        solicitudSeleccionada = null;
+        observacionesAdmin = string.Empty;
+    }
+
+    private async Task AprobarSolicitud()
+    {
+        try
+        {
+            if (solicitudSeleccionada == null) return;
+
+            solicitudSeleccionada.Estado = EstadoSolicitudMaterial.Aprobada;
+            solicitudSeleccionada.RevisadoPorId = usuarioActualId;
+            solicitudSeleccionada.FechaRespuesta = DateTime.Now;
+            solicitudSeleccionada.ObservacionesAdmin = observacionesAdmin;
+
+            // Actualizar stock del material
+            var material = await DbContext.Materiales.FindAsync(solicitudSeleccionada.MaterialId);
+            if (material != null)
+            {
+                material.StockDisponible -= (int)solicitudSeleccionada.CantidadSolicitada;
+            }
+
+            await DbContext.SaveChangesAsync();
+            
+            mensaje = "Solicitud aprobada correctamente. El material ha sido asignado al proyecto.";
+            mensajeExito = true;
+            
+            CerrarModales();
+            await CargarDatos();
+        }
+        catch (Exception ex)
+        {
+            mensaje = $"Error al aprobar la solicitud: {ex.Message}";
+            mensajeExito = false;
+        }
+    }
+
+    private async Task RechazarSolicitud()
+    {
+        try
+        {
+            if (solicitudSeleccionada == null) return;
+
+            if (string.IsNullOrWhiteSpace(observacionesAdmin))
+            {
+                mensaje = "Debe proporcionar un motivo para el rechazo";
+                mensajeExito = false;
+                return;
+            }
+
+            solicitudSeleccionada.Estado = EstadoSolicitudMaterial.Rechazada;
+            solicitudSeleccionada.RevisadoPorId = usuarioActualId;
+            solicitudSeleccionada.FechaRespuesta = DateTime.Now;
+            solicitudSeleccionada.ObservacionesAdmin = observacionesAdmin;
+
+            await DbContext.SaveChangesAsync();
+            
+            mensaje = "Solicitud rechazada. El solicitante ha sido notificado.";
+            mensajeExito = true;
+            
+            CerrarModales();
+            await CargarDatos();
+        }
+        catch (Exception ex)
+        {
+            mensaje = $"Error al rechazar la solicitud: {ex.Message}";
+            mensajeExito = false;
+        }
+    }
+}

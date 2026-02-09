@@ -57,6 +57,29 @@
             </NavLink>
         </div>
 
+        <!-- Solicitar Materiales - Solo JefeObra -->
+        <AuthorizeView Roles="JefeObra">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="jefe-obra/solicitar-materiales">
+                    <span class="bi bi-cart-plus-nav-menu" aria-hidden="true"></span> Solicitar Materiales
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="jefe-obra/mis-solicitudes-materiales">
+                    <span class="bi bi-list-check-nav-menu" aria-hidden="true"></span> Mis Solicitudes
+                </NavLink>
+            </div>
+        </AuthorizeView>
+
+        <!-- Gestión Solicitudes - Solo Admin -->
+        <AuthorizeView Roles="Administrador">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="admin/solicitudes-materiales">
+                    <span class="bi bi-clipboard-check-nav-menu" aria-hidden="true"></span> Solicitudes Materiales
+                </NavLink>
+            </div>
+        </AuthorizeView>
+
         <!-- Facturas - Admin y OficinaTecnica -->
         <AuthorizeView Roles="Administrador,OficinaTecnica">
             <div class="nav-item px-3">

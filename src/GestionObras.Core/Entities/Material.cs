@@ -25,8 +25,6 @@ namespace GestionObras.Core.Entities
         
         // Propiedades adicionales para gestión
         public string Categoria { get; set; } = string.Empty;
-        public string Unidad { get; set; } = string.Empty; // Alias de UnidadMedida
-        public decimal Stock { get; set; } // Alias de StockDisponible
         public decimal StockMinimo { get; set; } = 10;
         
         // Proveedor

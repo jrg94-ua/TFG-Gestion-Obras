@@ -1,0 +1,515 @@
+@page "/proyectos/{ProyectoId:int}/gantt"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using GestionObras.Core.Entities
+@using GestionObras.Infrastructure.Data
+@using Microsoft.EntityFrameworkCore
+@using System.Text.Json
+@inject GestionObrasDbContext DbContext
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+
+<PageTitle>Diagrama de Gantt - @proyecto?.Nombre</PageTitle>
+
+<div class="container-fluid">
+    @if (proyecto == null)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="page-header">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1><i class="bi bi-bar-chart-steps"></i> Diagrama de Gantt</h1>
+                    <h4 class="text-muted">Proyecto: @proyecto.Nombre</h4>
+                </div>
+                <button class="btn btn-secondary" @onclick="Volver">
+                    <i class="bi bi-arrow-left"></i> Volver a Proyectos
+                </button>
+            </div>
+        </div>
+
+        <!-- Barra de herramientas -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label">Vista:</label>
+                        <select class="form-select" @bind="vistaSeleccionada" @bind:after="CambiarVista">
+                            <option value="dia">Día</option>
+                            <option value="semana">Semana</option>
+                            <option value="mes">Mes</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Mostrar:</label>
+                        <select class="form-select" @bind="filtroEstado" @bind:after="AplicarFiltros">
+                            <option value="">Todas las tareas</option>
+                            <option value="Pendiente">Pendientes</option>
+                            <option value="EnCurso">En Curso</option>
+                            <option value="Finalizado">Finalizadas</option>
+                            <option value="Bloqueado">Bloqueadas</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <div class="btn-group">
+                            <button class="btn btn-outline-primary" @onclick="ZoomIn">
+                                <i class="bi bi-zoom-in"></i> Acercar
+                            </button>
+                            <button class="btn btn-outline-primary" @onclick="ZoomOut">
+                                <i class="bi bi-zoom-out"></i> Alejar
+                            </button>
+                            <button class="btn btn-outline-secondary" @onclick="HoyButton">
+                                <i class="bi bi-calendar-day"></i> Hoy
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Leyenda -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="d-flex gap-4">
+                    <div><span class="badge" style="background-color: #4CAF50;">■</span> Finalizado</div>
+                    <div><span class="badge" style="background-color: #2196F3;">■</span> En Curso</div>
+                    <div><span class="badge" style="background-color: #FFC107;">■</span> Pendiente</div>
+                    <div><span class="badge" style="background-color: #F44336;">■</span> Bloqueado</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contenedor del diagrama de Gantt -->
+        <div class="card">
+            <div class="card-body p-0">
+                <div id="gantt-container" style="min-height: 500px; overflow: auto;">
+                    @if (!tareasFiltradas.Any())
+                    {
+                        <div class="text-center p-5">
+                            <i class="bi bi-info-circle fs-1 text-muted"></i>
+                            <p class="text-muted mt-3">No hay tareas para mostrar en el diagrama</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="gantt-chart">
+                            <!-- Encabezado de fechas -->
+                            <div class="gantt-timeline">
+                                <div class="gantt-header">
+                                    <div class="gantt-task-names">
+                                        <div class="gantt-header-cell" style="width: 250px; font-weight: bold; border-right: 2px solid #dee2e6;">
+                                            Tarea
+                                        </div>
+                                    </div>
+                                    <div class="gantt-timeline-dates">
+                                        @foreach (var fecha in GenerarFechas())
+                                        {
+                                            <div class="gantt-date-cell" style="min-width: @anchoColumna; text-align: center; border-right: 1px solid #e0e0e0; padding: 8px 4px; font-size: 0.85rem;">
+                                                @FormatearFecha(fecha)
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Filas de tareas -->
+                            <div class="gantt-rows">
+                                @foreach (var tarea in tareasFiltradas.OrderBy(t => t.FechaInicio))
+                                {
+                                    <div class="gantt-row">
+                                        <div class="gantt-task-name" style="width: 250px; padding: 12px; border-right: 2px solid #dee2e6; border-bottom: 1px solid #e0e0e0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                            <strong title="@tarea.Nombre">@tarea.Nombre</strong>
+                                            <br />
+                                            <small class="text-muted">@GetEstadoTexto(tarea.Estado)</small>
+                                        </div>
+                                        <div class="gantt-timeline-row" style="position: relative; border-bottom: 1px solid #e0e0e0; min-height: 60px;">
+                                            @{
+                                                var barra = CalcularPosicionBarra(tarea);
+                                            }
+                                            <div class="gantt-bar" 
+                                                 style="position: absolute; 
+                                                        left: @(barra.Left)px; 
+                                                        width: @(barra.Width)px; 
+                                                        top: 15px; 
+                                                        height: 30px; 
+                                                        background-color: @GetColorEstado(tarea.Estado); 
+                                                        border-radius: 4px; 
+                                                        padding: 5px 10px;
+                                                        color: white;
+                                                        font-size: 0.75rem;
+                                                        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                                                        cursor: pointer;
+                                                        display: flex;
+                                                        align-items: center;
+                                                        overflow: hidden;"
+                                                 @onclick="() => MostrarDetallesTarea(tarea)"
+                                                 title="@tarea.Nombre&#10;Inicio: @tarea.FechaInicio.ToString("dd/MM/yyyy")&#10;Fin: @(tarea.FechaFin?.ToString("dd/MM/yyyy") ?? "Sin definir")">
+                                                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                                    @Math.Round((tarea.FechaFin.HasValue ? (tarea.FechaFin.Value - tarea.FechaInicio).TotalDays : 0), 0) días
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Resumen estadístico -->
+        <div class="row mt-4">
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h6 class="text-muted">Total Tareas</h6>
+                        <h3>@tareasFiltradas.Count</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h6 class="text-muted">Duración Total</h6>
+                        <h3>@CalcularDuracionTotal() días</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h6 class="text-muted">Progreso</h6>
+                        <h3>@CalcularProgreso()%</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h6 class="text-muted">Fecha Fin Estimada</h6>
+                        <h3>@ObtenerFechaFinEstimada()</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .page-header {
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #dee2e6;
+        margin-bottom: 2rem;
+    }
+
+    .gantt-chart {
+        display: flex;
+        flex-direction: column;
+        background: white;
+    }
+
+    .gantt-timeline {
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .gantt-header {
+        display: flex;
+        background: #f8f9fa;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .gantt-timeline-dates {
+        display: flex;
+        flex: 1;
+    }
+
+    .gantt-rows {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .gantt-row {
+        display: flex;
+        min-height: 60px;
+    }
+
+    .gantt-row:hover {
+        background-color: #f8f9fa;
+    }
+
+    .gantt-timeline-row {
+        flex: 1;
+        display: flex;
+        position: relative;
+    }
+
+    .gantt-date-cell {
+        border-right: 1px solid #e0e0e0;
+    }
+
+    .gantt-bar:hover {
+        opacity: 0.9;
+        transform: translateY(-2px);
+        transition: all 0.2s;
+    }
+
+    .card {
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        border: none;
+        border-radius: 8px;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public int ProyectoId { get; set; }
+
+    private Proyecto? proyecto;
+    private List<Tarea> tareas = new();
+    private List<Tarea> tareasFiltradas = new();
+    
+    private string vistaSeleccionada = "semana";
+    private string filtroEstado = "";
+    private int zoomLevel = 1;
+    private string anchoColumna = "80px";
+
+    private DateTime fechaInicio;
+    private DateTime fechaFin;
+    private List<DateTime> fechasTimeline = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        proyecto = await DbContext.Proyectos
+            .FirstOrDefaultAsync(p => p.Id == ProyectoId);
+
+        if (proyecto != null)
+        {
+            tareas = await DbContext.Tareas
+                .Where(t => t.ProyectoId == ProyectoId)
+                .OrderBy(t => t.FechaInicio)
+                .ToListAsync();
+
+            AplicarFiltros();
+            CalcularRangoFechas();
+        }
+    }
+
+    private void AplicarFiltros()
+    {
+        tareasFiltradas = tareas;
+
+        if (!string.IsNullOrEmpty(filtroEstado) && Enum.TryParse<EstadoTarea>(filtroEstado, out var estado))
+        {
+            tareasFiltradas = tareasFiltradas.Where(t => t.Estado == estado).ToList();
+        }
+    }
+
+    private void CalcularRangoFechas()
+    {
+        if (!tareas.Any()) return;
+
+        fechaInicio = tareas.Min(t => t.FechaInicio).AddDays(-7);
+        fechaFin = tareas.Where(t => t.FechaFin.HasValue).Any() 
+            ? tareas.Where(t => t.FechaFin.HasValue).Max(t => t.FechaFin!.Value).AddDays(7)
+            : DateTime.Now.AddDays(30);
+
+        // Asegurar que incluya hoy si es relevante
+        if (DateTime.Today >= fechaInicio && DateTime.Today <= fechaFin)
+        {
+            // Ya está incluido
+        }
+    }
+
+    private List<DateTime> GenerarFechas()
+    {
+        fechasTimeline.Clear();
+        var fecha = fechaInicio;
+
+        while (fecha <= fechaFin)
+        {
+            fechasTimeline.Add(fecha);
+            fecha = vistaSeleccionada switch
+            {
+                "dia" => fecha.AddDays(1),
+                "semana" => fecha.AddDays(7),
+                "mes" => fecha.AddMonths(1),
+                _ => fecha.AddDays(7)
+            };
+        }
+
+        return fechasTimeline;
+    }
+
+    private string FormatearFecha(DateTime fecha)
+    {
+        return vistaSeleccionada switch
+        {
+            "dia" => fecha.ToString("dd/MM"),
+            "semana" => $"S{GetWeekOfYear(fecha)} {fecha.ToString("MMM")}",
+            "mes" => fecha.ToString("MMM yyyy"),
+            _ => fecha.ToString("dd/MM")
+        };
+    }
+
+    private int GetWeekOfYear(DateTime date)
+    {
+        var culture = System.Globalization.CultureInfo.CurrentCulture;
+        return culture.Calendar.GetWeekOfYear(date, System.Globalization.CalendarWeekRule.FirstDay, DayOfWeek.Monday);
+    }
+
+    private (double Left, double Width) CalcularPosicionBarra(Tarea tarea)
+    {
+        var anchoCelda = vistaSeleccionada switch
+        {
+            "dia" => 80,
+            "semana" => 80,
+            "mes" => 80,
+            _ => 80
+        };
+
+        var diasDesdeInicio = (tarea.FechaInicio - fechaInicio).TotalDays;
+        var diasPorCelda = vistaSeleccionada switch
+        {
+            "dia" => 1,
+            "semana" => 7,
+            "mes" => 30,
+            _ => 7
+        };
+
+        var left = (diasDesdeInicio / diasPorCelda) * anchoCelda;
+        
+        var duracion = tarea.FechaFin.HasValue 
+            ? (tarea.FechaFin.Value - tarea.FechaInicio).TotalDays 
+            : 1;
+        
+        var width = (duracion / diasPorCelda) * anchoCelda;
+        
+        // Ancho mínimo de 30px para barras muy cortas
+        if (width < 30) width = 30;
+
+        return (left, width);
+    }
+
+    private string GetColorEstado(EstadoTarea estado)
+    {
+        return estado switch
+        {
+            EstadoTarea.Finalizado => "#4CAF50",
+            EstadoTarea.EnCurso => "#2196F3",
+            EstadoTarea.Pendiente => "#FFC107",
+            EstadoTarea.Bloqueado => "#F44336",
+            _ => "#9E9E9E"
+        };
+    }
+
+    private string GetEstadoTexto(EstadoTarea estado)
+    {
+        return estado switch
+        {
+            EstadoTarea.Finalizado => "Finalizado",
+            EstadoTarea.EnCurso => "En Curso",
+            EstadoTarea.Pendiente => "Pendiente",
+            EstadoTarea.Bloqueado => "Bloqueado",
+            _ => estado.ToString()
+        };
+    }
+
+    private void CambiarVista()
+    {
+        anchoColumna = vistaSeleccionada switch
+        {
+            "dia" => "80px",
+            "semana" => "80px",
+            "mes" => "100px",
+            _ => "80px"
+        };
+    }
+
+    private void ZoomIn()
+    {
+        if (zoomLevel < 3)
+        {
+            zoomLevel++;
+            ActualizarZoom();
+        }
+    }
+
+    private void ZoomOut()
+    {
+        if (zoomLevel > 1)
+        {
+            zoomLevel--;
+            ActualizarZoom();
+        }
+    }
+
+    private void ActualizarZoom()
+    {
+        var baseWidth = vistaSeleccionada switch
+        {
+            "dia" => 80,
+            "semana" => 80,
+            "mes" => 100,
+            _ => 80
+        };
+        anchoColumna = $"{baseWidth * zoomLevel}px";
+    }
+
+    private void HoyButton()
+    {
+        // Scroll hasta hoy (esto requeriría JS interop, por ahora solo recalculamos)
+        CalcularRangoFechas();
+    }
+
+    private void MostrarDetallesTarea(Tarea tarea)
+    {
+        // Navegar a los detalles de la tarea o mostrar modal
+        Navigation.NavigateTo($"/proyectos/{ProyectoId}/kanban");
+    }
+
+    private int CalcularDuracionTotal()
+    {
+        if (!tareas.Any()) return 0;
+        
+        var inicio = tareas.Min(t => t.FechaInicio);
+        var fin = tareas.Where(t => t.FechaFin.HasValue).Any()
+            ? tareas.Where(t => t.FechaFin.HasValue).Max(t => t.FechaFin!.Value)
+            : DateTime.Now;
+        
+        return (int)(fin - inicio).TotalDays;
+    }
+
+    private int CalcularProgreso()
+    {
+        if (!tareas.Any()) return 0;
+        
+        var completadas = tareas.Count(t => t.Estado == EstadoTarea.Finalizado);
+        return (int)((double)completadas / tareas.Count * 100);
+    }
+
+    private string ObtenerFechaFinEstimada()
+    {
+        var tareasConFin = tareas.Where(t => t.FechaFin.HasValue).ToList();
+        if (!tareasConFin.Any()) return "N/A";
+        
+        return tareasConFin.Max(t => t.FechaFin!.Value).ToString("dd/MM/yyyy");
+    }
+
+    private void Volver()
+    {
+        Navigation.NavigateTo("/proyectos");
+    }
+}

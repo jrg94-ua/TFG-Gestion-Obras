@@ -52,8 +52,8 @@ else
                 </button>
                 <h1 class="d-inline-block ms-3">📋 Tablero Kanban: @proyecto.Nombre</h1>
             </div>
-            <button class="btn btn-primary" @onclick="AbrirModalNuevaTarea">
-                <i class="bi bi-plus-circle"></i> Nueva Tarea
+            <button type="button" class="btn btn-success" @onclick="AbrirModalNuevaTarea">
+                <i class="bi bi-plus-lg"></i> Crear Tarea
             </button>
         </div>
 
@@ -68,6 +68,7 @@ else
                     Mostrar subtareas expandidas
                 </label>
             </div>
+
         </div>
 
         <!-- Tablero Kanban -->
@@ -174,13 +175,15 @@ else
     <!-- Modal de Tarea -->
     @if (mostrarModalTarea)
     {
-        <div class="modal fade show d-block" tabindex="-1" @key="@Guid.NewGuid()">
+        <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
             <div class="modal-dialog modal-lg">
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title">@(tareaEditando?.Id == 0 ? "Nueva Tarea" : "Editar Tarea")</h5>
                         <button type="button" class="btn-close" @onclick="CerrarModal" aria-label="Close"></button>
                     </div>
+                    @if (tareaEditando != null)
+                    {
                     <div class="modal-body">
                         <EditForm Model="@tareaEditando" OnValidSubmit="GuardarTarea">
                             <DataAnnotationsValidator />
@@ -264,7 +267,7 @@ else
                             <div class="mb-3">
                                 <label class="form-label">Responsables *</label>
                                 <select class="form-select" multiple @onchange="AsignarResponsables" size="5">
-                                    @foreach (var empleado in ObtenerEmpleadosDisponiblesSegunTipo())
+                                    @foreach (var empleado in empleadosDisponiblesParaModal)
                                     {
                                         var seleccionado = responsablesSeleccionados.Contains(empleado.Id);
                                         <option value="@empleado.Id" selected="@seleccionado">
@@ -308,16 +311,16 @@ else
                             </div>
                         </EditForm>
                     </div>
+                    }
                 </div>
             </div>
         </div>
-        <div class="modal-backdrop fade show" @onclick="CerrarModal"></div>
     }
 
     <!-- Modal de Bloqueo (RF-07) -->
     @if (mostrarModalBloqueo)
     {
-        <div class="modal fade show d-block" tabindex="-1">
+        <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
             <div class="modal-dialog">
                 <div class="modal-content">
                     <div class="modal-header bg-warning">
@@ -364,7 +367,7 @@ else
     <!-- Modal de Desbloqueo -->
     @if (mostrarModalDesbloqueo)
     {
-        <div class="modal fade show d-block" tabindex="-1">
+        <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
             <div class="modal-dialog">
                 <div class="modal-content">
                     <div class="modal-header bg-success text-white">
@@ -405,7 +408,7 @@ else
     <!-- Modal de Documentos -->
     @if (mostrarModalDocumentos)
     {
-        <div class="modal fade show d-block" tabindex="-1">
+        <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
             <div class="modal-dialog modal-lg">
                 <div class="modal-content">
                     <div class="modal-header bg-info text-white">
@@ -484,7 +487,7 @@ else
     <!-- Modal de Completar Tarea -->
     @if (mostrarModalCompletarTarea)
     {
-        <div class="modal fade show d-block" tabindex="-1">
+        <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
             <div class="modal-dialog">
                 <div class="modal-content">
                     <div class="modal-header bg-success text-white">
@@ -532,7 +535,7 @@ else
     <!-- Modal de Firmar Tarea -->
     @if (mostrarModalFirmar)
     {
-        <div class="modal fade show d-block" tabindex="-1">
+        <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
             <div class="modal-dialog">
                 <div class="modal-content">
                     <div class="modal-header bg-primary text-white">
@@ -639,6 +642,7 @@ else
     private List<Tarea> tareas = new();
     private List<Tarea> tareasFiltradas = new();
     private List<UsuarioObra> empleadosDisponibles = new();
+    private List<UsuarioObra> empleadosDisponiblesParaModal = new();
     private List<string> responsablesSeleccionados = new();
     private string busqueda = "";
     private bool mostrarSubtareas = true;
@@ -770,7 +774,7 @@ else
     }
 
     // Gestión de Tareas
-    private void AbrirModalNuevaTarea()
+    private async Task AbrirModalNuevaTarea()
     {
         tareaEditando = new Tarea
         {
@@ -782,10 +786,11 @@ else
         };
         tareaPadreTemp = null;
         responsablesSeleccionados = new();
+        await CargarEmpleadosDisponiblesParaModal();
         mostrarModalTarea = true;
     }
 
-    private void AbrirModalNuevaSubtarea(Tarea tareaPadre)
+    private async Task AbrirModalNuevaSubtarea(Tarea tareaPadre)
     {
         tareaEditando = new Tarea
         {
@@ -798,14 +803,16 @@ else
         };
         tareaPadreTemp = tareaPadre;
         responsablesSeleccionados = new();
+        await CargarEmpleadosDisponiblesParaModal();
         mostrarModalTarea = true;
     }
 
-    private void AbrirModalEditarTarea(Tarea tarea)
+    private async Task AbrirModalEditarTarea(Tarea tarea)
     {
         tareaEditando = tarea;
         tareaPadreTemp = null;
         responsablesSeleccionados = tarea.UsuariosAsignados?.Select(r => r.Id ?? "").Where(id => !string.IsNullOrEmpty(id)).ToList() ?? new();
+        await CargarEmpleadosDisponiblesParaModal();
         mostrarModalTarea = true;
     }
 
@@ -817,22 +824,29 @@ else
         }
     }
 
-    private List<UsuarioObra> ObtenerEmpleadosDisponiblesSegunTipo()
+    private async Task CargarEmpleadosDisponiblesParaModal()
     {
         // Si es una subtarea (tiene tarea padre), mostrar todos los usuarios activos
         if (tareaPadreTemp != null || tareaEditando.TareaPadreId != null)
         {
-            return empleadosDisponibles;
+            empleadosDisponiblesParaModal = empleadosDisponibles.ToList();
+            return;
         }
         
         // Si es una tarea principal, solo mostrar Admin, JefeObra y OficinaTecnica
-        return empleadosDisponibles.Where(e => 
+        var filtrados = new List<UsuarioObra>();
+        foreach (var empleado in empleadosDisponibles)
         {
-            var roles = UserManager.GetRolesAsync(e).Result;
-            return roles.Contains("Administrador") || 
-                   roles.Contains("JefeObra") || 
-                   roles.Contains("OficinaTecnica");
-        }).ToList();
+            var roles = await UserManager.GetRolesAsync(empleado);
+            if (roles.Contains("Administrador") ||
+                roles.Contains("JefeObra") ||
+                roles.Contains("OficinaTecnica"))
+            {
+                filtrados.Add(empleado);
+            }
+        }
+
+        empleadosDisponiblesParaModal = filtrados;
     }
 
     private async Task GuardarTarea()
@@ -929,6 +943,7 @@ else
     {
         tareaParaDesbloquear = tarea;
         mostrarModalDesbloqueo = true;
+        StateHasChanged();
     }
 
     private async Task DesbloquearTarea()
@@ -963,6 +978,7 @@ else
         tareaParaDocumentos = tarea;
         CargarDocumentosTarea(tarea.Id);
         mostrarModalDocumentos = true;
+        StateHasChanged();
     }
     
     private async void CargarDocumentosTarea(int tareaId)
@@ -997,6 +1013,7 @@ else
         tareaParaCompletar = tarea;
         observacionesFinalizacion = "";
         mostrarModalCompletarTarea = true;
+        StateHasChanged();
     }
     
     private async Task CompletarTarea()
@@ -1048,6 +1065,7 @@ else
         tareaParaFirmar = tarea;
         observacionesFirma = "";
         mostrarModalFirmar = true;
+        StateHasChanged();
     }
     
     private async Task FirmarTarea(bool aprobada)
