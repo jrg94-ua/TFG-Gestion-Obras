@@ -12,7 +12,7 @@
 
 <PageTitle>Diagrama de Gantt - @proyecto?.Nombre</PageTitle>
 
-<div class="container-fluid">
+<div class="container-fluid gantt-page">
     @if (proyecto == null)
     {
         <div class="text-center p-5">
@@ -88,8 +88,11 @@
 
         <!-- Contenedor del diagrama de Gantt -->
         <div class="card">
-            <div class="card-body p-0">
-                <div id="gantt-container" style="min-height: 500px; overflow: auto;">
+            <div class="card-body p-0 gantt-block">
+                <div id="gantt-top-scroll" class="gantt-top-scroll">
+                    <div class="gantt-top-scroll-content" style="width: @(280 + AnchoTimelinePx())px;"></div>
+                </div>
+                <div id="gantt-container" class="gantt-container-scroll">
                     @if (!tareasFiltradas.Any())
                     {
                         <div class="text-center p-5">
@@ -100,18 +103,23 @@
                     else
                     {
                         <div class="gantt-chart">
-                            <!-- Encabezado de fechas -->
-                            <div class="gantt-timeline">
-                                <div class="gantt-header">
-                                    <div class="gantt-task-names">
-                                        <div class="gantt-header-cell" style="width: 250px; font-weight: bold; border-right: 2px solid #dee2e6;">
-                                            Tarea
-                                        </div>
-                                    </div>
-                                    <div class="gantt-timeline-dates">
-                                        @foreach (var fecha in GenerarFechas())
+                            <div class="gantt-header sticky-top">
+                                <div class="gantt-header-left">
+                                    <div class="gantt-header-title">Tarea / Estado</div>
+                                </div>
+                                <div class="gantt-header-right" style="min-width: @(AnchoTimelinePx())px;">
+                                    <div class="gantt-header-primary">
+                                        @foreach (var grupo in cabeceraPrimaria)
                                         {
-                                            <div class="gantt-date-cell" style="min-width: @anchoColumna; text-align: center; border-right: 1px solid #e0e0e0; padding: 8px 4px; font-size: 0.85rem;">
+                                            <div class="gantt-header-group" style="width: @(grupo.Span * anchoColumnaPx)px;">
+                                                @grupo.Label
+                                            </div>
+                                        }
+                                    </div>
+                                    <div class="gantt-header-secondary">
+                                        @foreach (var fecha in fechasTimeline)
+                                        {
+                                            <div class="gantt-date-cell @(EsFinDeSemana(fecha) ? "weekend" : "")" style="width: @(anchoColumnaPx)px;">
                                                 @FormatearFecha(fecha)
                                             </div>
                                         }
@@ -119,41 +127,42 @@
                                 </div>
                             </div>
 
-                            <!-- Filas de tareas -->
                             <div class="gantt-rows">
-                                @foreach (var tarea in tareasFiltradas.OrderBy(t => t.FechaInicio))
+                                @foreach (var tarea in tareasFiltradas.OrderBy(t => t.FechaInicio).ThenBy(t => t.Nivel))
                                 {
+                                    var barra = CalcularPosicionBarra(tarea);
+                                    var porcentaje = ObtenerProgresoTarea(tarea);
                                     <div class="gantt-row">
-                                        <div class="gantt-task-name" style="width: 250px; padding: 12px; border-right: 2px solid #dee2e6; border-bottom: 1px solid #e0e0e0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                            <strong title="@tarea.Nombre">@tarea.Nombre</strong>
-                                            <br />
-                                            <small class="text-muted">@GetEstadoTexto(tarea.Estado)</small>
+                                        <div class="gantt-task-name">
+                                            <div class="task-name-content" style="padding-left: @(8 + (tarea.Nivel * 18))px;">
+                                                <span class="task-level-icon">@(tarea.Nivel > 0 ? "↳" : "•")</span>
+                                                <strong title="@tarea.Nombre">@tarea.Nombre</strong>
+                                            </div>
+                                            <div class="task-meta">
+                                                <span class="badge bg-light text-dark border">@GetEstadoTexto(tarea.Estado)</span>
+                                                <span class="text-muted">@ObtenerDuracionDias(tarea) días</span>
+                                            </div>
                                         </div>
-                                        <div class="gantt-timeline-row" style="position: relative; border-bottom: 1px solid #e0e0e0; min-height: 60px;">
-                                            @{
-                                                var barra = CalcularPosicionBarra(tarea);
+
+                                        <div class="gantt-timeline-row" style="min-width: @(AnchoTimelinePx())px;">
+                                            <div class="gantt-grid-track">
+                                                @foreach (var fecha in fechasTimeline)
+                                                {
+                                                    <div class="gantt-grid-cell @(EsFinDeSemana(fecha) ? "weekend" : "")" style="width: @(anchoColumnaPx)px;"></div>
+                                                }
+                                            </div>
+
+                                            @if (EsHoyVisible())
+                                            {
+                                                <div class="today-line" style="left: @(ObtenerLeftHoy())px;"></div>
                                             }
-                                            <div class="gantt-bar" 
-                                                 style="position: absolute; 
-                                                        left: @(barra.Left)px; 
-                                                        width: @(barra.Width)px; 
-                                                        top: 15px; 
-                                                        height: 30px; 
-                                                        background-color: @GetColorEstado(tarea.Estado); 
-                                                        border-radius: 4px; 
-                                                        padding: 5px 10px;
-                                                        color: white;
-                                                        font-size: 0.75rem;
-                                                        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-                                                        cursor: pointer;
-                                                        display: flex;
-                                                        align-items: center;
-                                                        overflow: hidden;"
+
+                                            <div class="gantt-bar @ObtenerClaseBarra(tarea.Estado) @(tarea.Prioridad == PrioridadTarea.Critica ? "bar-critical" : "")"
+                                                 style="left: @(barra.Left)px; width: @(barra.Width)px;"
                                                  @onclick="() => MostrarDetallesTarea(tarea)"
-                                                 title="@tarea.Nombre&#10;Inicio: @tarea.FechaInicio.ToString("dd/MM/yyyy")&#10;Fin: @(tarea.FechaFin?.ToString("dd/MM/yyyy") ?? "Sin definir")">
-                                                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                                    @Math.Round((tarea.FechaFin.HasValue ? (tarea.FechaFin.Value - tarea.FechaInicio).TotalDays : 0), 0) días
-                                                </span>
+                                                 title="@tarea.Nombre&#10;Inicio: @tarea.FechaInicio.ToString("dd/MM/yyyy")&#10;Fin: @(tarea.FechaFin?.ToString("dd/MM/yyyy") ?? "Sin definir")&#10;Progreso: @porcentaje%">
+                                                <div class="gantt-bar-progress" style="width: @porcentaje%;"></div>
+                                                <span class="gantt-bar-label">@porcentaje%</span>
                                             </div>
                                         </div>
                                     </div>
@@ -210,25 +219,89 @@
         margin-bottom: 2rem;
     }
 
+    .gantt-page {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: clip;
+    }
+
+    .gantt-block {
+        position: relative;
+        width: 100%;
+        max-width: 100%;
+        overflow: hidden;
+    }
+
     .gantt-chart {
         display: flex;
         flex-direction: column;
-        background: white;
+        background: var(--bs-body-bg);
     }
 
-    .gantt-timeline {
-        border-bottom: 2px solid #dee2e6;
+    .gantt-top-scroll {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
+        overscroll-behavior-x: contain;
+        height: 16px;
+        border-bottom: 1px solid var(--bs-border-color-translucent);
+    }
+
+    .gantt-top-scroll-content {
+        height: 1px;
+    }
+
+    .gantt-container-scroll {
+        width: 100%;
+        max-width: 100%;
+        height: 70vh;
+        min-height: 500px;
+        max-height: 760px;
+        overflow: auto;
+        overscroll-behavior: contain;
     }
 
     .gantt-header {
         display: flex;
-        background: #f8f9fa;
-        border-bottom: 2px solid #dee2e6;
+        z-index: 5;
+        background: var(--bs-light);
+        border-bottom: 2px solid var(--bs-border-color);
     }
 
-    .gantt-timeline-dates {
+    .gantt-header-left {
+        width: 280px;
+        min-width: 280px;
+        border-right: 2px solid var(--bs-border-color);
+        background: var(--bs-light);
+        position: sticky;
+        left: 0;
+        z-index: 6;
+    }
+
+    .gantt-header-title {
+        padding: 0.9rem;
+        font-weight: 700;
+        font-size: 0.9rem;
+    }
+
+    .gantt-header-right {
         display: flex;
-        flex: 1;
+        flex-direction: column;
+    }
+
+    .gantt-header-primary,
+    .gantt-header-secondary {
+        display: flex;
+    }
+
+    .gantt-header-group {
+        text-align: center;
+        font-weight: 600;
+        font-size: 0.8rem;
+        border-right: 1px solid var(--bs-border-color);
+        padding: 0.4rem 0.2rem;
+        background: #eef3f8;
     }
 
     .gantt-rows {
@@ -238,21 +311,124 @@
 
     .gantt-row {
         display: flex;
-        min-height: 60px;
+        min-height: 62px;
     }
 
     .gantt-row:hover {
         background-color: #f8f9fa;
     }
 
-    .gantt-timeline-row {
-        flex: 1;
+    .gantt-task-name {
+        width: 280px;
+        min-width: 280px;
+        border-right: 2px solid var(--bs-border-color);
+        border-bottom: 1px solid var(--bs-border-color-translucent);
+        background: white;
+        padding: 0.5rem 0.65rem;
+        position: sticky;
+        left: 0;
+        z-index: 3;
+    }
+
+    .task-name-content {
         display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .task-level-icon {
+        color: var(--bs-secondary);
+        font-size: 0.85rem;
+    }
+
+    .task-meta {
+        margin-top: 0.35rem;
+        display: flex;
+        gap: 0.45rem;
+        align-items: center;
+        font-size: 0.75rem;
+    }
+
+    .gantt-timeline-row {
         position: relative;
+        border-bottom: 1px solid var(--bs-border-color-translucent);
+        background: white;
     }
 
     .gantt-date-cell {
-        border-right: 1px solid #e0e0e0;
+        border-right: 1px solid var(--bs-border-color-translucent);
+        text-align: center;
+        padding: 0.45rem 0.2rem;
+        font-size: 0.76rem;
+        font-weight: 600;
+        background: white;
+    }
+
+    .gantt-grid-track {
+        display: flex;
+        height: 100%;
+        min-height: 62px;
+    }
+
+    .gantt-grid-cell {
+        border-right: 1px solid var(--bs-border-color-translucent);
+    }
+
+    .weekend {
+        background: rgba(108, 117, 125, 0.07);
+    }
+
+    .today-line {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: var(--bs-danger);
+        opacity: 0.8;
+        z-index: 2;
+    }
+
+    .gantt-bar {
+        position: absolute;
+        top: 15px;
+        height: 30px;
+        border-radius: 6px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        overflow: hidden;
+        z-index: 3;
+        color: #fff;
+        font-size: 0.76rem;
+        font-weight: 600;
+    }
+
+    .gantt-bar-progress {
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.2);
+    }
+
+    .gantt-bar-label {
+        position: relative;
+        z-index: 1;
+        width: 100%;
+        text-align: center;
+    }
+
+    .bar-pendiente { background-color: #f0ad4e; }
+    .bar-encurso { background-color: #0d6efd; }
+    .bar-finalizado { background-color: #198754; }
+    .bar-bloqueado { background-color: #dc3545; }
+
+    .bar-critical {
+        outline: 2px solid rgba(33, 37, 41, 0.45);
     }
 
     .gantt-bar:hover {
@@ -279,15 +455,24 @@
     private string vistaSeleccionada = "semana";
     private string filtroEstado = "";
     private int zoomLevel = 1;
-    private string anchoColumna = "80px";
+    private int anchoColumnaPx = 90;
 
     private DateTime fechaInicio;
     private DateTime fechaFin;
     private List<DateTime> fechasTimeline = new();
+    private List<TimelineHeaderGroup> cabeceraPrimaria = new();
 
     protected override async Task OnInitializedAsync()
     {
         await CargarDatos();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (proyecto != null)
+        {
+            await JS.InvokeVoidAsync("gestionObrasGanttScroll.init", "gantt-top-scroll", "gantt-container");
+        }
     }
 
     private async Task CargarDatos()
@@ -304,36 +489,48 @@
 
             AplicarFiltros();
             CalcularRangoFechas();
+            RecalcularTimeline();
         }
     }
 
     private void AplicarFiltros()
     {
-        tareasFiltradas = tareas;
+        tareasFiltradas = tareas.ToList();
 
         if (!string.IsNullOrEmpty(filtroEstado) && Enum.TryParse<EstadoTarea>(filtroEstado, out var estado))
         {
             tareasFiltradas = tareasFiltradas.Where(t => t.Estado == estado).ToList();
         }
+
+        CalcularRangoFechas();
+        RecalcularTimeline();
     }
 
     private void CalcularRangoFechas()
     {
-        if (!tareas.Any()) return;
-
-        fechaInicio = tareas.Min(t => t.FechaInicio).AddDays(-7);
-        fechaFin = tareas.Where(t => t.FechaFin.HasValue).Any() 
-            ? tareas.Where(t => t.FechaFin.HasValue).Max(t => t.FechaFin!.Value).AddDays(7)
-            : DateTime.Now.AddDays(30);
-
-        // Asegurar que incluya hoy si es relevante
-        if (DateTime.Today >= fechaInicio && DateTime.Today <= fechaFin)
+        if (!tareasFiltradas.Any())
         {
-            // Ya está incluido
+            fechaInicio = DateTime.Today.AddDays(-14);
+            fechaFin = DateTime.Today.AddDays(30);
+            return;
+        }
+
+        fechaInicio = tareasFiltradas.Min(t => t.FechaInicio).AddDays(-7);
+        fechaFin = tareasFiltradas.Where(t => t.FechaFin.HasValue).Any() 
+            ? tareasFiltradas.Where(t => t.FechaFin.HasValue).Max(t => t.FechaFin!.Value).AddDays(7)
+            : DateTime.Today.AddDays(30);
+
+        if (DateTime.Today < fechaInicio)
+        {
+            fechaInicio = DateTime.Today.AddDays(-7);
+        }
+        if (DateTime.Today > fechaFin)
+        {
+            fechaFin = DateTime.Today.AddDays(14);
         }
     }
 
-    private List<DateTime> GenerarFechas()
+    private void RecalcularTimeline()
     {
         fechasTimeline.Clear();
         var fecha = fechaInicio;
@@ -350,16 +547,57 @@
             };
         }
 
-        return fechasTimeline;
+        ConstruirCabeceraPrimaria();
+    }
+
+    private void ConstruirCabeceraPrimaria()
+    {
+        cabeceraPrimaria = new();
+        if (!fechasTimeline.Any())
+        {
+            return;
+        }
+
+        string GetKey(DateTime f) => vistaSeleccionada switch
+        {
+            "mes" => f.ToString("yyyy"),
+            _ => f.ToString("yyyy-MM")
+        };
+
+        string GetLabel(DateTime f) => vistaSeleccionada switch
+        {
+            "mes" => f.ToString("yyyy"),
+            _ => f.ToString("MMMM yyyy")
+        };
+
+        var actual = fechasTimeline[0];
+        var keyActual = GetKey(actual);
+        var span = 0;
+
+        foreach (var fecha in fechasTimeline)
+        {
+            var key = GetKey(fecha);
+            if (key != keyActual)
+            {
+                cabeceraPrimaria.Add(new TimelineHeaderGroup(GetLabel(actual), span));
+                actual = fecha;
+                keyActual = key;
+                span = 0;
+            }
+
+            span++;
+        }
+
+        cabeceraPrimaria.Add(new TimelineHeaderGroup(GetLabel(actual), span));
     }
 
     private string FormatearFecha(DateTime fecha)
     {
         return vistaSeleccionada switch
         {
-            "dia" => fecha.ToString("dd/MM"),
+            "dia" => fecha.ToString("dd MMM"),
             "semana" => $"S{GetWeekOfYear(fecha)} {fecha.ToString("MMM")}",
-            "mes" => fecha.ToString("MMM yyyy"),
+            "mes" => fecha.ToString("MMM"),
             _ => fecha.ToString("dd/MM")
         };
     }
@@ -370,24 +608,12 @@
         return culture.Calendar.GetWeekOfYear(date, System.Globalization.CalendarWeekRule.FirstDay, DayOfWeek.Monday);
     }
 
-    private (double Left, double Width) CalcularPosicionBarra(Tarea tarea)
+    private (int Left, int Width) CalcularPosicionBarra(Tarea tarea)
     {
-        var anchoCelda = vistaSeleccionada switch
-        {
-            "dia" => 80,
-            "semana" => 80,
-            "mes" => 80,
-            _ => 80
-        };
+        var anchoCelda = anchoColumnaPx;
+        var diasPorCelda = DiasPorCelda();
 
         var diasDesdeInicio = (tarea.FechaInicio - fechaInicio).TotalDays;
-        var diasPorCelda = vistaSeleccionada switch
-        {
-            "dia" => 1,
-            "semana" => 7,
-            "mes" => 30,
-            _ => 7
-        };
 
         var left = (diasDesdeInicio / diasPorCelda) * anchoCelda;
         
@@ -397,10 +623,20 @@
         
         var width = (duracion / diasPorCelda) * anchoCelda;
         
-        // Ancho mínimo de 30px para barras muy cortas
-        if (width < 30) width = 30;
+        if (width < 24) width = 24;
 
-        return (left, width);
+        return ((int)Math.Round(left), (int)Math.Round(width));
+    }
+
+    private int DiasPorCelda()
+    {
+        return vistaSeleccionada switch
+        {
+            "dia" => 1,
+            "semana" => 7,
+            "mes" => 30,
+            _ => 7
+        };
     }
 
     private string GetColorEstado(EstadoTarea estado)
@@ -429,13 +665,7 @@
 
     private void CambiarVista()
     {
-        anchoColumna = vistaSeleccionada switch
-        {
-            "dia" => "80px",
-            "semana" => "80px",
-            "mes" => "100px",
-            _ => "80px"
-        };
+        ActualizarZoom();
     }
 
     private void ZoomIn()
@@ -460,18 +690,20 @@
     {
         var baseWidth = vistaSeleccionada switch
         {
-            "dia" => 80,
-            "semana" => 80,
-            "mes" => 100,
-            _ => 80
+            "dia" => 44,
+            "semana" => 70,
+            "mes" => 92,
+            _ => 70
         };
-        anchoColumna = $"{baseWidth * zoomLevel}px";
+
+        anchoColumnaPx = baseWidth * zoomLevel;
+        RecalcularTimeline();
     }
 
     private void HoyButton()
     {
-        // Scroll hasta hoy (esto requeriría JS interop, por ahora solo recalculamos)
         CalcularRangoFechas();
+        RecalcularTimeline();
     }
 
     private void MostrarDetallesTarea(Tarea tarea)
@@ -512,4 +744,62 @@
     {
         Navigation.NavigateTo("/proyectos");
     }
+
+    private int ObtenerDuracionDias(Tarea tarea)
+    {
+        if (!tarea.FechaFin.HasValue)
+        {
+            return 1;
+        }
+
+        var dias = (int)Math.Ceiling((tarea.FechaFin.Value - tarea.FechaInicio).TotalDays);
+        return Math.Max(1, dias);
+    }
+
+    private int ObtenerProgresoTarea(Tarea tarea)
+    {
+        return tarea.Estado switch
+        {
+            EstadoTarea.Finalizado => 100,
+            EstadoTarea.EnCurso => 60,
+            EstadoTarea.Bloqueado => 25,
+            EstadoTarea.Pendiente => 0,
+            _ => 0
+        };
+    }
+
+    private string ObtenerClaseBarra(EstadoTarea estado)
+    {
+        return estado switch
+        {
+            EstadoTarea.Finalizado => "bar-finalizado",
+            EstadoTarea.EnCurso => "bar-encurso",
+            EstadoTarea.Pendiente => "bar-pendiente",
+            EstadoTarea.Bloqueado => "bar-bloqueado",
+            _ => "bar-pendiente"
+        };
+    }
+
+    private bool EsFinDeSemana(DateTime fecha)
+    {
+        return vistaSeleccionada == "dia" && (fecha.DayOfWeek == DayOfWeek.Saturday || fecha.DayOfWeek == DayOfWeek.Sunday);
+    }
+
+    private bool EsHoyVisible()
+    {
+        return DateTime.Today >= fechaInicio && DateTime.Today <= fechaFin;
+    }
+
+    private int ObtenerLeftHoy()
+    {
+        var dias = (DateTime.Today - fechaInicio).TotalDays;
+        return (int)Math.Round((dias / DiasPorCelda()) * anchoColumnaPx);
+    }
+
+    private int AnchoTimelinePx()
+    {
+        return fechasTimeline.Count * anchoColumnaPx;
+    }
+
+    private record TimelineHeaderGroup(string Label, int Span);
 }

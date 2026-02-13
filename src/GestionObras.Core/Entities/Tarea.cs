@@ -27,6 +27,8 @@ namespace GestionObras.Core.Entities
         public int? TareaPadreId { get; set; }
         public Tarea? TareaPadre { get; set; }
         public List<Tarea> SubTareas { get; set; } = new();
+        public List<Tarea> Predecesoras { get; set; } = new();
+        public List<Tarea> Dependientes { get; set; } = new();
         public int Nivel { get; set; } = 0; // 0 = tarea raíz, 1+ = subtarea
         public PrioridadTarea Prioridad { get; set; } = PrioridadTarea.Media;
         
@@ -86,7 +88,7 @@ namespace GestionObras.Core.Entities
         /// </summary>
         public bool UsuarioHaFirmado(string usuarioId)
         {
-            return Firmas.Any(f => f.UsuarioId == usuarioId && f.Aprobada);
+            return Firmas.Any(f => f.UsuarioId == usuarioId);
         }
     }
     

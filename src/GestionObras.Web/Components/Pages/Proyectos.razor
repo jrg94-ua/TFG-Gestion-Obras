@@ -5,6 +5,7 @@
 @using GestionObras.Infrastructure.Repositories
 @using GestionObras.Infrastructure.Data
 @using Microsoft.EntityFrameworkCore
+@using System.Globalization
 @inject IProyectoRepository ProyectoRepository
 @inject GestionObrasDbContext DbContext
 @inject NavigationManager Navigation
@@ -65,80 +66,284 @@
         }
         else
         {
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>Nombre</th>
-                            <th>Responsable</th>
-                            <th>Ubicación</th>
-                            <th>Estado</th>
-                            <th>Fecha Inicio</th>
-                            <th>Tareas</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var proyecto in proyectosFiltrados)
-                        {
-                            <tr>
-                                <td>
-                                    <strong>@proyecto.Nombre</strong>
-                                </td>
-                                <td>
-                                    @if (proyecto.Responsable != null)
-                                    {
-                                        <span class="badge bg-primary">
-                                            <i class="bi bi-person-badge"></i> @proyecto.Responsable.NombreCompleto
-                                        </span>
-                                    }
-                                    else
-                                    {
-                                        <span class="text-muted"><i class="bi bi-dash"></i> Sin asignar</span>
-                                    }
-                                </td>
-                                <td>
-                                    <i class="bi bi-geo-alt"></i> @proyecto.Municipio, @proyecto.Provincia
-                                </td>
-                                <td>
-                                    <span class="badge @GetEstadoBadgeClass(proyecto.Estado)">
-                                        @GetEstadoTexto(proyecto.Estado)
-                                    </span>
-                                </td>
-                                <td>@proyecto.FechaInicio.ToString("dd/MM/yyyy")</td>
-                                <td>
-                                    <span class="badge bg-info">@proyecto.Tareas.Count tareas</span>
-                                </td>
-                                <td>
-                                    <div class="btn-group" role="group">
-                                        <button class="btn btn-sm btn-outline-success" @onclick="() => AbrirKanban(proyecto.Id)" title="Tablero Kanban">
-                                            <i class="bi bi-kanban"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => VerGantt(proyecto.Id)" title="Diagrama de Gantt">
-                                            <i class="bi bi-bar-chart-steps"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-info" @onclick="() => VerHistorialMateriales(proyecto.Id)" title="Historial de Materiales">
-                                            <i class="bi bi-box-seam"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-primary" @onclick="() => VerDetalle(proyecto.Id)">
-                                            <i class="bi bi-eye"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-warning" @onclick="() => AbrirModalEditar(proyecto)">
-                                            <i class="bi bi-pencil"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmarEliminar(proyecto)">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0">Vista</h5>
+                <div class="btn-group" role="group" aria-label="Selector de vista">
+                    <button type="button" class="btn @(vistaGanttProyectos ? "btn-outline-primary" : "btn-primary")" @onclick='() => CambiarVistaProyectos(false)'>
+                        <i class="bi bi-table"></i> Tabla
+                    </button>
+                    <button type="button" class="btn @(vistaGanttProyectos ? "btn-primary" : "btn-outline-primary")" @onclick='() => CambiarVistaProyectos(true)'>
+                        <i class="bi bi-bar-chart-steps"></i> Gantt Proyectos
+                    </button>
+                </div>
             </div>
+
+            @if (!vistaGanttProyectos)
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Responsable</th>
+                                <th>Ubicación</th>
+                                <th>Estado</th>
+                                <th>Fecha Inicio</th>
+                                <th>Tareas</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var proyecto in proyectosFiltrados)
+                            {
+                                <tr>
+                                    <td>
+                                        <strong>@proyecto.Nombre</strong>
+                                    </td>
+                                    <td>
+                                        @if (proyecto.Responsable != null)
+                                        {
+                                            <span class="badge bg-primary">
+                                                <i class="bi bi-person-badge"></i> @proyecto.Responsable.NombreCompleto
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted"><i class="bi bi-dash"></i> Sin asignar</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <i class="bi bi-geo-alt"></i> @proyecto.Municipio, @proyecto.Provincia
+                                    </td>
+                                    <td>
+                                        <span class="badge @GetEstadoBadgeClass(proyecto.Estado)">
+                                            @GetEstadoTexto(proyecto.Estado)
+                                        </span>
+                                    </td>
+                                    <td>@proyecto.FechaInicio.ToString("dd/MM/yyyy")</td>
+                                    <td>
+                                        <span class="badge bg-info">@proyecto.Tareas.Count tareas</span>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <button class="btn btn-sm btn-outline-success" @onclick="() => AbrirKanban(proyecto.Id)" title="Tablero Kanban">
+                                                <i class="bi bi-kanban"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => VerGantt(proyecto.Id)" title="Diagrama de Gantt">
+                                                <i class="bi bi-bar-chart-steps"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-info" @onclick="() => VerHistorialMateriales(proyecto.Id)" title="Historial de Materiales">
+                                                <i class="bi bi-box-seam"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-primary" @onclick="() => VerDetalle(proyecto.Id)">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-warning" @onclick="() => AbrirModalEditar(proyecto)">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmarEliminar(proyecto)">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="proyectos-gantt card border-0 shadow-sm">
+                    <div class="card-body p-0">
+                        <div class="proyectos-gantt-legend">
+                            <span class="legend-title">Leyenda:</span>
+                            <span class="legend-item"><span class="legend-dot bar-planificacion"></span> Planificación</span>
+                            <span class="legend-item"><span class="legend-dot bar-encurso"></span> En Curso</span>
+                            <span class="legend-item"><span class="legend-dot bar-bloqueado"></span> Bloqueado</span>
+                            <span class="legend-item"><span class="legend-dot bar-finalizado"></span> Finalizado</span>
+                            <span class="legend-item"><span class="legend-dot bar-cancelado"></span> Cancelado</span>
+                            <span class="legend-item"><span class="legend-marker"></span> Inicio visual</span>
+                        </div>
+
+                        <div class="proyectos-gantt-scroll">
+                            <div class="proyectos-gantt-header" style="min-width: @(220 + AnchoTimelineProyectosPx())px;">
+                                <div class="proyectos-gantt-left">Proyecto</div>
+                                <div class="proyectos-gantt-right" style="width: @AnchoTimelineProyectosPx()px;">
+                                    @foreach (var mes in mesesTimeline)
+                                    {
+                                        <div class="proyectos-gantt-month" style="width:@($"{anchoMesPx}px");">
+                                            @mes.ToString("MMM yyyy", new CultureInfo("es-ES"))
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+
+                            @foreach (var proyecto in proyectosFiltrados.OrderBy(p => p.FechaInicio))
+                            {
+                                var barra = CalcularBarraProyecto(proyecto);
+                                var fechaFin = ObtenerFechaFinProyecto(proyecto);
+
+                                <div class="proyectos-gantt-row" style="min-width: @(220 + AnchoTimelineProyectosPx())px;">
+                                    <div class="proyectos-gantt-left">
+                                        <div class="fw-semibold text-truncate" title="@proyecto.Nombre">@proyecto.Nombre</div>
+                                        <small class="text-muted">@proyecto.FechaInicio.ToString("dd/MM/yyyy") - @fechaFin.ToString("dd/MM/yyyy")</small>
+                                    </div>
+                                    <div class="proyectos-gantt-right" style="width: @AnchoTimelineProyectosPx()px;">
+                                        <div class="proyectos-gantt-track"></div>
+                                        <div class="proyectos-gantt-start-marker" style="left: @(barra.Left)px;" title="Inicio: @proyecto.FechaInicio.ToString("dd/MM/yyyy")"></div>
+                                        <div class="proyectos-gantt-start-label" style="left: @(ObtenerLeftEtiquetaInicio(barra.Left))px;">@proyecto.FechaInicio.ToString("dd/MM")</div>
+                                        <div class="proyectos-gantt-bar @ObtenerClaseBarraProyecto(proyecto.Estado)"
+                                             style="left: @(barra.Left)px; width: @(barra.Width)px;"
+                                             title="@proyecto.Nombre&#10;Inicio: @proyecto.FechaInicio.ToString("dd/MM/yyyy")&#10;Fin: @fechaFin.ToString("dd/MM/yyyy")&#10;Estado: @GetEstadoTexto(proyecto.Estado)">
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
         }
     </div>
 </div>
+
+<style>
+    .proyectos-gantt-legend {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        flex-wrap: wrap;
+        padding: 12px 14px;
+        border-bottom: 1px solid #eef1f6;
+        background: #ffffff;
+    }
+
+    .legend-title {
+        font-weight: 600;
+        color: #495057;
+    }
+
+    .legend-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: #5c6470;
+    }
+
+    .legend-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+
+    .legend-marker {
+        width: 2px;
+        height: 14px;
+        background: #212529;
+        display: inline-block;
+        border-radius: 1px;
+    }
+
+    .proyectos-gantt-scroll {
+        overflow-x: auto;
+        overflow-y: hidden;
+    }
+
+    .proyectos-gantt-header,
+    .proyectos-gantt-row {
+        display: flex;
+        border-bottom: 1px solid #eef1f6;
+    }
+
+    .proyectos-gantt-header {
+        position: sticky;
+        top: 0;
+        background: #fff;
+        z-index: 2;
+    }
+
+    .proyectos-gantt-left {
+        width: 220px;
+        min-width: 220px;
+        padding: 12px;
+        border-right: 1px solid #eef1f6;
+        background: #fff;
+    }
+
+    .proyectos-gantt-right {
+        position: relative;
+        display: flex;
+        height: 72px;
+        min-height: 72px;
+    }
+
+    .proyectos-gantt-month {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 600;
+        color: #6c757d;
+        border-right: 1px solid #eef1f6;
+        text-transform: capitalize;
+    }
+
+    .proyectos-gantt-track {
+        position: absolute;
+        top: 58%;
+        left: 0;
+        width: 100%;
+        height: 8px;
+        transform: translateY(-50%);
+        background: #f1f4f9;
+        border-radius: 999px;
+    }
+
+    .proyectos-gantt-start-marker {
+        position: absolute;
+        top: 18px;
+        height: 38px;
+        width: 2px;
+        background: #212529;
+        border-radius: 2px;
+        z-index: 3;
+    }
+
+    .proyectos-gantt-start-label {
+        position: absolute;
+        top: 2px;
+        transform: translateX(-50%);
+        font-size: 11px;
+        font-weight: 600;
+        color: #212529;
+        background: #ffffff;
+        border: 1px solid #dee2e6;
+        border-radius: 999px;
+        padding: 1px 6px;
+        line-height: 1.2;
+        z-index: 4;
+        white-space: nowrap;
+    }
+
+    .proyectos-gantt-bar {
+        position: absolute;
+        top: 58%;
+        height: 20px;
+        transform: translateY(-50%);
+        border-radius: 999px;
+        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+        z-index: 2;
+    }
+
+    .bar-planificacion { background: #0dcaf0; }
+    .bar-encurso { background: #198754; }
+    .bar-bloqueado { background: #ffc107; }
+    .bar-finalizado { background: #6c757d; }
+    .bar-cancelado { background: #dc3545; }
+</style>
 
 <!-- Modal Crear/Editar Proyecto -->
 @if (mostrarModal)
@@ -265,6 +470,11 @@
     private bool guardando = false;
     private string busqueda = "";
     private string? estadoFiltro;
+    private bool vistaGanttProyectos = false;
+    private readonly int anchoMesPx = 120;
+    private DateTime ganttInicio = DateTime.Today;
+    private DateTime ganttFin = DateTime.Today;
+    private List<DateTime> mesesTimeline = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -310,12 +520,108 @@
                            p.Municipio.Contains(busqueda, StringComparison.OrdinalIgnoreCase))
                 .ToList();
         }
+
+        RecalcularTimelineProyectos();
     }
 
     private void FiltrarPorEstado(ChangeEventArgs e)
     {
         estadoFiltro = e.Value?.ToString();
         AplicarFiltros();
+    }
+
+    private void CambiarVistaProyectos(bool esGantt)
+    {
+        vistaGanttProyectos = esGantt;
+        if (esGantt)
+        {
+            RecalcularTimelineProyectos();
+        }
+    }
+
+    private void RecalcularTimelineProyectos()
+    {
+        mesesTimeline = new();
+
+        if (!proyectosFiltrados.Any())
+        {
+            ganttInicio = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+            ganttFin = ganttInicio.AddMonths(1).AddDays(-1);
+            mesesTimeline.Add(ganttInicio);
+            return;
+        }
+
+        var inicioMin = proyectosFiltrados.Min(p => p.FechaInicio);
+        var finMax = proyectosFiltrados.Max(p => ObtenerFechaFinProyecto(p));
+
+        ganttInicio = new DateTime(inicioMin.Year, inicioMin.Month, 1);
+        ganttFin = new DateTime(finMax.Year, finMax.Month, 1).AddMonths(1).AddDays(-1);
+
+        var cursor = ganttInicio;
+        while (cursor <= ganttFin)
+        {
+            mesesTimeline.Add(cursor);
+            cursor = cursor.AddMonths(1);
+        }
+    }
+
+    private int AnchoTimelineProyectosPx()
+    {
+        var meses = Math.Max(mesesTimeline.Count, 1);
+        return meses * anchoMesPx;
+    }
+
+    private DateTime ObtenerFechaFinProyecto(Proyecto proyecto)
+    {
+        if (proyecto.FechaFin.HasValue)
+        {
+            return proyecto.FechaFin.Value;
+        }
+
+        if (proyecto.Tareas != null && proyecto.Tareas.Any())
+        {
+            return proyecto.Tareas
+                .Select(t => t.FechaFin ?? t.FechaInicio)
+                .Max();
+        }
+
+        return proyecto.FechaInicio.AddDays(30);
+    }
+
+    private (int Left, int Width) CalcularBarraProyecto(Proyecto proyecto)
+    {
+        var inicio = proyecto.FechaInicio;
+        var fin = ObtenerFechaFinProyecto(proyecto);
+
+        var totalDias = Math.Max((ganttFin - ganttInicio).TotalDays + 1, 1);
+        var leftRatio = Math.Max((inicio - ganttInicio).TotalDays, 0) / totalDias;
+        var widthRatio = Math.Max((fin - inicio).TotalDays + 1, 1) / totalDias;
+
+        var left = (int)Math.Round(leftRatio * AnchoTimelineProyectosPx());
+        var width = (int)Math.Round(widthRatio * AnchoTimelineProyectosPx());
+
+        return (left, Math.Max(width, 10));
+    }
+
+    private int ObtenerLeftEtiquetaInicio(int leftBarra)
+    {
+        const int margenEtiqueta = 26;
+        var minimo = margenEtiqueta;
+        var maximo = Math.Max(AnchoTimelineProyectosPx() - margenEtiqueta, minimo);
+        return Math.Clamp(leftBarra, minimo, maximo);
+    }
+
+    private string ObtenerClaseBarraProyecto(EstadoProyecto estado)
+    {
+        return estado switch
+        {
+            EstadoProyecto.Planificacion => "bar-planificacion",
+            EstadoProyecto.EnCurso => "bar-encurso",
+            EstadoProyecto.Bloqueado => "bar-bloqueado",
+            EstadoProyecto.Finalizado => "bar-finalizado",
+            EstadoProyecto.Cancelado => "bar-cancelado",
+            _ => "bar-planificacion"
+        };
     }
 
     private void AbrirModalNuevo()

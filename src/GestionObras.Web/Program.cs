@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using GestionObras.Core.Entities;
 using Microsoft.AspNetCore.Components.Authorization;
 using System.Globalization;
+using GestionObras.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,7 +44,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("AdminPolicy", policy => policy.RequireRole("Administrador"));
     options.AddPolicy("JefeObraPolicy", policy => policy.RequireRole("JefeObra", "Administrador"));
     options.AddPolicy("OficinaTecnicaPolicy", policy => policy.RequireRole("OficinaTecnica", "Administrador"));
-    options.AddPolicy("OperarioPolicy", policy => policy.RequireRole("Operario", "JefeObra", "Administrador"));
+    options.AddPolicy("OperarioPolicy", policy => policy.RequireRole("Operario", "OperarioObra", "OperarioOficinaT", "JefeObra", "OficinaTecnica", "Administrador"));
 });
 
 // Agregar servicios de cascading authentication state para Blazor
@@ -85,10 +86,25 @@ using (var scope = app.Services.CreateScope())
         
         // Crear la base de datos con el esquema actual
         await dbContext.Database.EnsureCreatedAsync();
+        await AsegurarEsquemaDependenciasAsync(dbContext);
         
         var userManager = services.GetRequiredService<UserManager<UsuarioObra>>();
         var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+        var startupLogger = services.GetRequiredService<ILogger<Program>>();
         await InicializarRolesYUsuarios(roleManager, userManager);
+
+        var seedOnStartup = builder.Configuration.GetValue<bool?>("SeedDemoOnStartup")
+            ?? app.Environment.IsDevelopment();
+
+        if (seedOnStartup)
+        {
+            startupLogger.LogInformation("Seed demo activado en arranque de contenedor.");
+            await DemoDataSeeder.SeedAsync(dbContext, userManager, roleManager);
+        }
+        else
+        {
+            startupLogger.LogInformation("Seed demo desactivado por configuración (SeedDemoOnStartup=false).");
+        }
     }
     catch (Exception ex)
     {
@@ -124,7 +140,7 @@ app.Run();
 static async Task InicializarRolesYUsuarios(RoleManager<IdentityRole> roleManager, UserManager<UsuarioObra> userManager)
 {
     // Crear roles si no existen
-    string[] roles = { "Administrador", "JefeObra", "OficinaTecnica", "Operario" };
+    string[] roles = { "Administrador", "JefeObra", "OficinaTecnica", "Operario", "OperarioObra", "OperarioOficinaT" };
     
     foreach (var rol in roles)
     {
@@ -183,4 +199,27 @@ static async Task InicializarRolesYUsuarios(RoleManager<IdentityRole> roleManage
             await userManager.AddToRoleAsync(jefeUser, "JefeObra");
         }
     }
+}
+
+static async Task AsegurarEsquemaDependenciasAsync(GestionObrasDbContext dbContext)
+{
+    const string sql = @"
+IF OBJECT_ID(N'[dbo].[TareaDependencias]', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[TareaDependencias]
+    (
+        [TareaId] INT NOT NULL,
+        [PredecesoraId] INT NOT NULL,
+        CONSTRAINT [PK_TareaDependencias] PRIMARY KEY ([TareaId], [PredecesoraId]),
+        CONSTRAINT [FK_TareaDependencias_Tareas_TareaId]
+            FOREIGN KEY ([TareaId]) REFERENCES [dbo].[Tareas]([Id]) ON DELETE CASCADE,
+        CONSTRAINT [FK_TareaDependencias_Tareas_PredecesoraId]
+            FOREIGN KEY ([PredecesoraId]) REFERENCES [dbo].[Tareas]([Id])
+    );
+
+    CREATE INDEX [IX_TareaDependencias_PredecesoraId]
+        ON [dbo].[TareaDependencias]([PredecesoraId]);
+END";
+
+    await dbContext.Database.ExecuteSqlRawAsync(sql);
 }

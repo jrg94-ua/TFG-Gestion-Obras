@@ -124,13 +124,29 @@
     {
         <div class="firmas-estado mt-2 p-2 border rounded">
             <small>
-                <strong><i class="bi bi-pen"></i> Firmas (@Tarea.Firmas.Count(f => f.Aprobada)/@Tarea.UsuariosAsignados.Count):</strong><br/>
+                <strong><i class="bi bi-pen"></i> Firmas aprobadas (@ObtenerTotalFirmasAprobadasAsignados()/@ObtenerTotalAsignadosFirma()):</strong><br/>
                 @foreach (var usuario in Tarea.UsuariosAsignados)
                 {
-                    var haFirmado = Tarea.UsuarioHaFirmado(usuario.Id ?? "");
-                    <span class="badge @(haFirmado ? "bg-success" : "bg-warning") me-1">
-                        <i class="bi @(haFirmado ? "bi-check-circle-fill" : "bi-clock")"></i>
+                    var estadoFirma = ObtenerEstadoFirmaUsuario(usuario.Id ?? "");
+                    <span class="badge @(ObtenerClaseBadgeFirma(estadoFirma)) me-1">
+                        <i class="bi @(ObtenerIconoFirma(estadoFirma))"></i>
                         @usuario.NombreCompleto
+                    </span>
+                }
+
+                @if (ObtenerPendientesFirmaNombres().Any())
+                {
+                    <br />
+                    <span class="text-warning">
+                        <strong>Pendientes:</strong> @string.Join(", ", ObtenerPendientesFirmaNombres())
+                    </span>
+                }
+
+                @if (ObtenerRechazosFirmaNombres().Any())
+                {
+                    <br />
+                    <span class="text-danger">
+                        <strong>Rechazadas:</strong> @string.Join(", ", ObtenerRechazosFirmaNombres())
                     </span>
                 }
             </small>
@@ -245,5 +261,78 @@
             PrioridadTarea.Critica => "bg-danger",
             _ => "bg-secondary"
         };
+    }
+
+    private Dictionary<string, FirmaTarea> ObtenerFirmasPorUsuarioAsignado()
+    {
+        var idsAsignados = Tarea.UsuariosAsignados?
+            .Where(u => !string.IsNullOrWhiteSpace(u.Id))
+            .Select(u => u.Id!)
+            .ToHashSet() ?? new HashSet<string>();
+
+        return Tarea.Firmas
+            .Where(f => idsAsignados.Contains(f.UsuarioId))
+            .GroupBy(f => f.UsuarioId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(f => f.FechaFirma).First());
+    }
+
+    private int ObtenerTotalAsignadosFirma()
+    {
+        return Tarea.UsuariosAsignados?.Count(u => !string.IsNullOrWhiteSpace(u.Id)) ?? 0;
+    }
+
+    private int ObtenerTotalFirmasAprobadasAsignados()
+    {
+        var firmas = ObtenerFirmasPorUsuarioAsignado();
+        return firmas.Values.Count(f => f.Aprobada);
+    }
+
+    private string ObtenerEstadoFirmaUsuario(string usuarioId)
+    {
+        var firmas = ObtenerFirmasPorUsuarioAsignado();
+        if (!firmas.TryGetValue(usuarioId, out var firma))
+        {
+            return "Pendiente";
+        }
+
+        return firma.Aprobada ? "Aprobada" : "Rechazada";
+    }
+
+    private string ObtenerClaseBadgeFirma(string estado)
+    {
+        return estado switch
+        {
+            "Aprobada" => "bg-success",
+            "Rechazada" => "bg-danger",
+            _ => "bg-warning"
+        };
+    }
+
+    private string ObtenerIconoFirma(string estado)
+    {
+        return estado switch
+        {
+            "Aprobada" => "bi-check-circle-fill",
+            "Rechazada" => "bi-x-circle-fill",
+            _ => "bi-clock"
+        };
+    }
+
+    private List<string> ObtenerPendientesFirmaNombres()
+    {
+        var firmas = ObtenerFirmasPorUsuarioAsignado();
+        return Tarea.UsuariosAsignados
+            .Where(u => !string.IsNullOrWhiteSpace(u.Id) && !firmas.ContainsKey(u.Id!))
+            .Select(u => u.NombreCompleto)
+            .ToList();
+    }
+
+    private List<string> ObtenerRechazosFirmaNombres()
+    {
+        var firmas = ObtenerFirmasPorUsuarioAsignado();
+        return Tarea.UsuariosAsignados
+            .Where(u => !string.IsNullOrWhiteSpace(u.Id) && firmas.TryGetValue(u.Id!, out var firma) && !firma.Aprobada)
+            .Select(u => u.NombreCompleto)
+            .ToList();
     }
 }

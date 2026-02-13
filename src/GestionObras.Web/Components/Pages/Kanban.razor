@@ -7,12 +7,14 @@
 @using GestionObras.Infrastructure.Repositories
 @using GestionObras.Infrastructure.Data
 @using GestionObras.Web.Components.Shared
+@using GestionObras.Web.Services
 @using Microsoft.EntityFrameworkCore
 @inject GestionObrasDbContext DbContext
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 @inject AuthenticationStateProvider AuthStateProvider
 @inject UserManager<UsuarioObra> UserManager
+@inject DocumentoService DocumentoService
 @rendermode InteractiveServer
 
 <PageTitle>Tablero Kanban - @proyecto?.Nombre</PageTitle>
@@ -278,11 +280,11 @@ else
                                 <small class="form-text text-muted">
                                     @if (tareaPadreTemp != null || tareaEditando.TareaPadreId != null)
                                     {
-                                        <span>✅ <strong>Subtarea:</strong> Cualquier usuario puede ser responsable</span>
+                                        <span>✅ <strong>Subtarea:</strong> Operarios por rama (Operario-Obra u Operario-OficinaT) + coordinación Jefe de Obra / Oficina Técnica</span>
                                     }
                                     else
                                     {
-                                        <span>⚠️ <strong>Tarea Principal:</strong> Solo Administrador, Jefe de Obra u Oficina Técnica</span>
+                                        <span>⚠️ <strong>Tarea Principal:</strong> Administrador, Jefe de Obra y Oficina Técnica (interoperables para tareas conjuntas)</span>
                                     }
                                     <br />
                                     Mantenga presionada la tecla Ctrl (Windows) o Command (Mac) para seleccionar múltiples responsables
@@ -297,6 +299,36 @@ else
                                             if (emp != null)
                                             {
                                                 <span class="badge bg-primary me-1">@emp.NombreCompleto</span>
+                                            }
+                                        }
+                                    </div>
+                                }
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Dependencias (predecesoras)</label>
+                                <select class="form-select" multiple @onchange="AsignarDependencias" size="5">
+                                    @foreach (var candidata in ObtenerTareasCandidatasDependencia())
+                                    {
+                                        var seleccionada = dependenciasSeleccionadas.Contains(candidata.Id);
+                                        <option value="@candidata.Id" selected="@seleccionada">
+                                            @candidata.Nombre (@GetEstadoTexto(candidata.Estado))
+                                        </option>
+                                    }
+                                </select>
+                                <small class="form-text text-muted">
+                                    La tarea no podrá pasar a <strong>En Curso</strong> ni a <strong>Finalizado</strong> hasta que todas sus predecesoras estén finalizadas.
+                                </small>
+                                @if (dependenciasSeleccionadas.Any())
+                                {
+                                    <div class="mt-2">
+                                        <strong>Predecesoras seleccionadas:</strong>
+                                        @foreach (var dependenciaId in dependenciasSeleccionadas)
+                                        {
+                                            var dep = tareas.FirstOrDefault(t => t.Id == dependenciaId);
+                                            if (dep != null)
+                                            {
+                                                <span class="badge bg-secondary me-1">@dep.Nombre</span>
                                             }
                                         }
                                     </div>
@@ -425,11 +457,56 @@ else
                                 <strong><i class="bi bi-cloud-upload"></i> Adjuntar nuevo documento</strong>
                             </div>
                             <div class="card-body">
-                                <p class="text-info">
-                                    <i class="bi bi-info-circle"></i> 
-                                    Por favor, sube el documento desde tu ordenador. 
-                                    La funcionalidad de carga estará disponible próximamente.
-                                </p>
+                                <div class="mb-3">
+                                    <label class="form-label">Archivo *</label>
+                                    <InputFile OnChange="SeleccionarArchivo" class="form-control" />
+                                    <small class="form-text text-muted">
+                                        Tamaño máximo: 10 MB
+                                    </small>
+                                    @if (archivoSeleccionado != null)
+                                    {
+                                        <div class="mt-2">
+                                            <span class="badge bg-secondary">
+                                                @archivoSeleccionado.Name (@((archivoSeleccionado.Size / 1024.0).ToString("N2")) KB)
+                                            </span>
+                                        </div>
+                                    }
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Tipo de documento *</label>
+                                    <InputSelect class="form-select" @bind-Value="tipoDocumentoSeleccionado">
+                                        <option value="@TipoDocumento.Informe">Informe</option>
+                                        <option value="@TipoDocumento.Certificado">Certificado</option>
+                                        <option value="@TipoDocumento.Plano">Plano</option>
+                                        <option value="@TipoDocumento.Fotografia">Fotografía</option>
+                                        <option value="@TipoDocumento.ParteTrabajo">Parte de Trabajo</option>
+                                        <option value="@TipoDocumento.Presupuesto">Presupuesto</option>
+                                        <option value="@TipoDocumento.Factura">Factura</option>
+                                        <option value="@TipoDocumento.Otro">Otro</option>
+                                    </InputSelect>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Descripción (opcional)</label>
+                                    <InputTextArea class="form-control" rows="2" @bind-Value="descripcionDocumento"
+                                                   placeholder="Añade una descripción breve del documento..." />
+                                </div>
+
+                                <button type="button" class="btn btn-primary"
+                                        @onclick="SubirDocumento"
+                                        disabled="@(archivoSeleccionado == null || subiendoDocumento)">
+                                    @if (subiendoDocumento)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                        <span>Subiendo...</span>
+                                    }
+                                    else
+                                    {
+                                        <i class="bi bi-cloud-upload"></i>
+                                        <span> Subir documento</span>
+                                    }
+                                </button>
                             </div>
                         </div>
                         
@@ -644,10 +721,12 @@ else
     private List<UsuarioObra> empleadosDisponibles = new();
     private List<UsuarioObra> empleadosDisponiblesParaModal = new();
     private List<string> responsablesSeleccionados = new();
+    private List<int> dependenciasSeleccionadas = new();
     private string busqueda = "";
     private bool mostrarSubtareas = true;
     private bool esResponsable = false;
     private string? usuarioActualId;
+    private HashSet<string> rolesUsuarioActual = new();
 
     // Modal Tarea
     private bool mostrarModalTarea = false;
@@ -697,6 +776,10 @@ else
             .Include(p => p.Tareas)
                 .ThenInclude(t => t.UsuariosAsignados)
             .Include(p => p.Tareas)
+                .ThenInclude(t => t.Predecesoras)
+            .Include(p => p.Tareas)
+                .ThenInclude(t => t.Firmas)
+            .Include(p => p.Tareas)
                 .ThenInclude(t => t.Documentos)
             .Include(p => p.Tareas)
                 .ThenInclude(t => t.CompletadaPor)
@@ -705,8 +788,12 @@ else
         if (proyecto != null)
         {
             // Verificar si el usuario actual es el responsable del proyecto o es administrador
-            var roles = await UserManager.GetRolesAsync(await UserManager.FindByIdAsync(usuarioActualId ?? ""));
-            esResponsable = proyecto.ResponsableId == usuarioActualId || roles.Contains("Administrador");
+            var usuarioActual = await UserManager.FindByIdAsync(usuarioActualId ?? "");
+            var roles = usuarioActual != null
+                ? await UserManager.GetRolesAsync(usuarioActual)
+                : new List<string>();
+            rolesUsuarioActual = roles.ToHashSet();
+            esResponsable = proyecto.ResponsableId == usuarioActualId || rolesUsuarioActual.Contains("Administrador");
             
             tareas = proyecto.Tareas.ToList();
             AplicarFiltros();
@@ -747,6 +834,13 @@ else
     {
         if (tareaArrastrada == null) return;
 
+        if (!PuedeMoverSegunJerarquia(tareaArrastrada, nuevoEstado, out var mensajeJerarquia))
+        {
+            await JS.InvokeVoidAsync("alert", mensajeJerarquia);
+            tareaArrastrada = null;
+            return;
+        }
+
         // Si se intenta mover a Bloqueado, mostrar modal de justificación (RF-07)
         if (nuevoEstado == EstadoTarea.Bloqueado && tareaArrastrada.Estado != EstadoTarea.Bloqueado)
         {
@@ -786,6 +880,7 @@ else
         };
         tareaPadreTemp = null;
         responsablesSeleccionados = new();
+        dependenciasSeleccionadas = new();
         await CargarEmpleadosDisponiblesParaModal();
         mostrarModalTarea = true;
     }
@@ -803,6 +898,7 @@ else
         };
         tareaPadreTemp = tareaPadre;
         responsablesSeleccionados = new();
+        dependenciasSeleccionadas = new();
         await CargarEmpleadosDisponiblesParaModal();
         mostrarModalTarea = true;
     }
@@ -812,6 +908,7 @@ else
         tareaEditando = tarea;
         tareaPadreTemp = null;
         responsablesSeleccionados = tarea.UsuariosAsignados?.Select(r => r.Id ?? "").Where(id => !string.IsNullOrEmpty(id)).ToList() ?? new();
+        dependenciasSeleccionadas = tarea.Predecesoras?.Select(d => d.Id).ToList() ?? new();
         await CargarEmpleadosDisponiblesParaModal();
         mostrarModalTarea = true;
     }
@@ -821,6 +918,39 @@ else
         if (e.Value is string[] valores)
         {
             responsablesSeleccionados = valores.ToList();
+            return;
+        }
+
+        if (e.Value is string valor && !string.IsNullOrWhiteSpace(valor))
+        {
+            responsablesSeleccionados = valor
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToList();
+        }
+    }
+
+    private void AsignarDependencias(ChangeEventArgs e)
+    {
+        if (e.Value is string[] valores)
+        {
+            dependenciasSeleccionadas = valores
+                .Select(v => int.TryParse(v, out var id) ? id : (int?)null)
+                .Where(id => id.HasValue)
+                .Select(id => id!.Value)
+                .Distinct()
+                .ToList();
+            return;
+        }
+
+        if (e.Value is string valor && !string.IsNullOrWhiteSpace(valor))
+        {
+            dependenciasSeleccionadas = valor
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(v => int.TryParse(v, out var id) ? id : (int?)null)
+                .Where(id => id.HasValue)
+                .Select(id => id!.Value)
+                .Distinct()
+                .ToList();
         }
     }
 
@@ -829,7 +959,21 @@ else
         // Si es una subtarea (tiene tarea padre), mostrar todos los usuarios activos
         if (tareaPadreTemp != null || tareaEditando.TareaPadreId != null)
         {
-            empleadosDisponiblesParaModal = empleadosDisponibles.ToList();
+            var listaSubtarea = new List<UsuarioObra>();
+
+            foreach (var empleado in empleadosDisponibles)
+            {
+                var rolesEmpleado = await UserManager.GetRolesAsync(empleado);
+
+                if (!UsuarioEsAsignableEnSubtarea(rolesEmpleado))
+                {
+                    continue;
+                }
+
+                listaSubtarea.Add(empleado);
+            }
+
+            empleadosDisponiblesParaModal = listaSubtarea;
             return;
         }
         
@@ -838,6 +982,7 @@ else
         foreach (var empleado in empleadosDisponibles)
         {
             var roles = await UserManager.GetRolesAsync(empleado);
+
             if (roles.Contains("Administrador") ||
                 roles.Contains("JefeObra") ||
                 roles.Contains("OficinaTecnica"))
@@ -853,6 +998,21 @@ else
     {
         try
         {
+            if (!PuedeMoverSegunJerarquia(tareaEditando, tareaEditando.Estado, out var mensajeJerarquia))
+            {
+                await JS.InvokeVoidAsync("alert", mensajeJerarquia);
+                return;
+            }
+
+            var idsDependencias = dependenciasSeleccionadas
+                .Where(id => id != tareaEditando.Id)
+                .Distinct()
+                .ToList();
+
+            var dependencias = await DbContext.Tareas
+                .Where(t => idsDependencias.Contains(t.Id))
+                .ToListAsync();
+
             // Asignar usuarios responsables
             if (responsablesSeleccionados.Any())
             {
@@ -860,6 +1020,20 @@ else
                     .Where(u => responsablesSeleccionados.Contains(u.Id))
                     .ToListAsync();
                 tareaEditando.UsuariosAsignados = responsables;
+            }
+
+            if (tareaEditando.Id > 0)
+            {
+                await DbContext.Entry(tareaEditando).Collection(t => t.Predecesoras).LoadAsync();
+                tareaEditando.Predecesoras.Clear();
+                foreach (var dependencia in dependencias)
+                {
+                    tareaEditando.Predecesoras.Add(dependencia);
+                }
+            }
+            else
+            {
+                tareaEditando.Predecesoras = dependencias;
             }
 
             if (tareaEditando.Id == 0)
@@ -901,6 +1075,7 @@ else
         tareaEditando = new();
         tareaPadreTemp = null;
         responsablesSeleccionados = new();
+        dependenciasSeleccionadas = new();
         StateHasChanged();
     }
 
@@ -923,6 +1098,37 @@ else
 
         tareaParaBloquear.Estado = EstadoTarea.Bloqueado;
         tareaParaBloquear.Bloqueo = bloqueo;
+
+        // Si es tarea padre, aplicar bloqueo en cascada a subtareas descendientes no finalizadas
+        if (tareaParaBloquear.TareaPadreId == null)
+        {
+            var subtareasDescendientes = ObtenerSubtareasDescendientes(tareaParaBloquear.Id)
+                .Where(t => t.Estado != EstadoTarea.Finalizado)
+                .ToList();
+
+            foreach (var subtarea in subtareasDescendientes)
+            {
+                subtarea.Estado = EstadoTarea.Bloqueado;
+
+                if (subtarea.Bloqueo == null)
+                {
+                    subtarea.Bloqueo = new BloqueoTarea
+                    {
+                        TareaId = subtarea.Id,
+                        Tipo = tipoBloqueoSeleccionado,
+                        JustificacionTecnica = $"Bloqueo heredado de tarea padre '{tareaParaBloquear.Nombre}'. Motivo: {justificacionBloqueo}",
+                        FechaBloqueo = DateTime.Now
+                    };
+                }
+                else
+                {
+                    subtarea.Bloqueo.Tipo = tipoBloqueoSeleccionado;
+                    subtarea.Bloqueo.JustificacionTecnica = $"Bloqueo heredado de tarea padre '{tareaParaBloquear.Nombre}'. Motivo: {justificacionBloqueo}";
+                    subtarea.Bloqueo.FechaBloqueo = DateTime.Now;
+                    subtarea.Bloqueo.FechaResolucion = null;
+                }
+            }
+        }
 
         DbContext.Update(tareaParaBloquear);
         await DbContext.SaveChangesAsync();
@@ -972,23 +1178,88 @@ else
     private bool mostrarModalDocumentos = false;
     private Tarea? tareaParaDocumentos = null;
     private List<DocumentoTarea> documentosTarea = new();
+    private IBrowserFile? archivoSeleccionado;
+    private TipoDocumento tipoDocumentoSeleccionado = TipoDocumento.Otro;
+    private string descripcionDocumento = "";
+    private bool subiendoDocumento = false;
+    private const long MaxTamanoArchivoBytes = 10 * 1024 * 1024;
     
-    private void AbrirModalDocumentos(Tarea tarea)
+    private async Task AbrirModalDocumentos(Tarea tarea)
     {
         tareaParaDocumentos = tarea;
-        CargarDocumentosTarea(tarea.Id);
         mostrarModalDocumentos = true;
+        archivoSeleccionado = null;
+        descripcionDocumento = "";
+        tipoDocumentoSeleccionado = TipoDocumento.Otro;
+        await CargarDocumentosTarea(tarea.Id);
         StateHasChanged();
     }
     
-    private async void CargarDocumentosTarea(int tareaId)
+    private async Task CargarDocumentosTarea(int tareaId)
     {
         documentosTarea = await DbContext.DocumentosTareas
             .Include(d => d.UsuarioSubida)
             .Where(d => d.TareaId == tareaId)
             .OrderByDescending(d => d.FechaSubida)
             .ToListAsync();
-        StateHasChanged();
+    }
+
+    private void SeleccionarArchivo(InputFileChangeEventArgs e)
+    {
+        archivoSeleccionado = e.File;
+    }
+
+    private async Task SubirDocumento()
+    {
+        if (tareaParaDocumentos == null || archivoSeleccionado == null)
+        {
+            await JS.InvokeVoidAsync("alert", "Seleccione un archivo antes de subir");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(usuarioActualId))
+        {
+            await JS.InvokeVoidAsync("alert", "No se pudo identificar al usuario actual");
+            return;
+        }
+
+        if (archivoSeleccionado.Size > MaxTamanoArchivoBytes)
+        {
+            await JS.InvokeVoidAsync("alert", "El archivo supera el tamaño máximo permitido (10 MB)");
+            return;
+        }
+
+        try
+        {
+            subiendoDocumento = true;
+
+            await using var stream = archivoSeleccionado.OpenReadStream(MaxTamanoArchivoBytes);
+            await DocumentoService.SubirDocumentoAsync(
+                tareaParaDocumentos.Id,
+                usuarioActualId,
+                stream,
+                archivoSeleccionado.Name,
+                string.IsNullOrWhiteSpace(archivoSeleccionado.ContentType) ? "application/octet-stream" : archivoSeleccionado.ContentType,
+                archivoSeleccionado.Size,
+                tipoDocumentoSeleccionado,
+                string.IsNullOrWhiteSpace(descripcionDocumento) ? null : descripcionDocumento);
+
+            await CargarDocumentosTarea(tareaParaDocumentos.Id);
+            archivoSeleccionado = null;
+            descripcionDocumento = "";
+            tipoDocumentoSeleccionado = TipoDocumento.Otro;
+
+            await JS.InvokeVoidAsync("alert", "Documento subido correctamente");
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Error al subir documento: {ex.Message}");
+        }
+        finally
+        {
+            subiendoDocumento = false;
+            StateHasChanged();
+        }
     }
     
     private void CerrarModalDocumentos()
@@ -996,6 +1267,10 @@ else
         mostrarModalDocumentos = false;
         tareaParaDocumentos = null;
         documentosTarea = new();
+        archivoSeleccionado = null;
+        descripcionDocumento = "";
+        tipoDocumentoSeleccionado = TipoDocumento.Otro;
+        subiendoDocumento = false;
     }
     
     // Completar tarea con firma
@@ -1020,14 +1295,33 @@ else
     {
         if (tareaParaCompletar != null)
         {
+            if (!PuedeMoverSegunJerarquia(tareaParaCompletar, EstadoTarea.Finalizado, out var mensajeJerarquia))
+            {
+                await JS.InvokeVoidAsync("alert", mensajeJerarquia);
+                return;
+            }
+
             // Verificar si requiere firma conjunta
             if (tareaParaCompletar.RequiereFirmaConjunta)
             {
+                if (!UsuarioEstaAsignadoATarea(tareaParaCompletar, usuarioActualId))
+                {
+                    await JS.InvokeVoidAsync("alert", "Solo un usuario asignado a la tarea puede completarla cuando requiere firma conjunta");
+                    return;
+                }
+
                 if (!tareaParaCompletar.TodosHanFirmado())
                 {
+                    var pendientes = tareaParaCompletar.UsuariosAsignados
+                        .Where(u => !string.IsNullOrWhiteSpace(u.Id) &&
+                                    !tareaParaCompletar.Firmas.Any(f => f.UsuarioId == u.Id && f.Aprobada))
+                        .Select(u => u.NombreCompleto)
+                        .ToList();
+
                     await JS.InvokeVoidAsync("alert", 
                         $"Esta tarea requiere la firma de todos los usuarios asignados. " +
-                        $"Firmas: {tareaParaCompletar.Firmas.Count(f => f.Aprobada)}/{tareaParaCompletar.UsuariosAsignados.Count}");
+                        $"Firmas aprobadas: {tareaParaCompletar.Firmas.Count(f => f.Aprobada && tareaParaCompletar.UsuariosAsignados.Any(u => u.Id == f.UsuarioId))}/{tareaParaCompletar.UsuariosAsignados.Count}. " +
+                        $"Pendientes: {(pendientes.Any() ? string.Join(", ", pendientes) : "Ninguno")}");
                     return;
                 }
             }
@@ -1056,6 +1350,24 @@ else
     // Gestión de firmas
     private void AbrirModalFirmarTarea(Tarea tarea)
     {
+        if (!tarea.RequiereFirmaConjunta)
+        {
+            JS.InvokeVoidAsync("alert", "Esta tarea no requiere firma conjunta");
+            return;
+        }
+
+        if (tarea.Estado != EstadoTarea.EnCurso)
+        {
+            JS.InvokeVoidAsync("alert", "Solo se puede firmar una tarea que esté en estado En Curso");
+            return;
+        }
+
+        if (!UsuarioEstaAsignadoATarea(tarea, usuarioActualId))
+        {
+            JS.InvokeVoidAsync("alert", "Solo los usuarios asignados a la tarea pueden firmarla");
+            return;
+        }
+
         if (tarea.UsuarioHaFirmado(usuarioActualId ?? ""))
         {
             JS.InvokeVoidAsync("alert", "Ya has firmado esta tarea");
@@ -1072,6 +1384,39 @@ else
     {
         if (tareaParaFirmar != null && !string.IsNullOrWhiteSpace(usuarioActualId))
         {
+            if (!tareaParaFirmar.RequiereFirmaConjunta)
+            {
+                await JS.InvokeVoidAsync("alert", "Esta tarea no requiere firma conjunta");
+                CerrarModalFirmar();
+                return;
+            }
+
+            if (tareaParaFirmar.Estado != EstadoTarea.EnCurso)
+            {
+                await JS.InvokeVoidAsync("alert", "Solo se puede firmar una tarea que esté en estado En Curso");
+                CerrarModalFirmar();
+                return;
+            }
+
+            if (!UsuarioEstaAsignadoATarea(tareaParaFirmar, usuarioActualId))
+            {
+                await JS.InvokeVoidAsync("alert", "Solo los usuarios asignados a la tarea pueden firmarla");
+                CerrarModalFirmar();
+                return;
+            }
+
+            var firmaExistente = await DbContext.FirmasTareas
+                .AsNoTracking()
+                .FirstOrDefaultAsync(f => f.TareaId == tareaParaFirmar.Id && f.UsuarioId == usuarioActualId);
+
+            if (firmaExistente != null)
+            {
+                await JS.InvokeVoidAsync("alert", "Ya has firmado esta tarea anteriormente");
+                CerrarModalFirmar();
+                await CargarDatos();
+                return;
+            }
+
             var firma = new FirmaTarea
             {
                 TareaId = tareaParaFirmar.Id,
@@ -1082,29 +1427,38 @@ else
                 MotivoRechazo = null
             };
             
-            DbContext.FirmasTareas.Add(firma);
-            await DbContext.SaveChangesAsync();
-            await CargarDatos();
-            
-            CerrarModalFirmar();
-            
-            var mensaje = aprobada ? "Tarea firmada correctamente" : "Tarea rechazada";
-            await JS.InvokeVoidAsync("alert", mensaje);
-            
-            // Si se rechaza, bloquear la tarea
-            if (!aprobada && tareaParaFirmar != null)
+            try
             {
-                tareaParaFirmar.Estado = EstadoTarea.Bloqueado;
-                var bloqueo = new BloqueoTarea
-                {
-                    TareaId = tareaParaFirmar.Id,
-                    Tipo = TipoBloqueo.Otro,
-                    JustificacionTecnica = $"Rechazada por usuario {usuarioActualId}",
-                    FechaBloqueo = DateTime.Now
-                };
-                DbContext.BloqueosTareas.Add(bloqueo);
-                DbContext.Update(tareaParaFirmar);
+                DbContext.FirmasTareas.Add(firma);
                 await DbContext.SaveChangesAsync();
+                await CargarDatos();
+
+                CerrarModalFirmar();
+
+                var mensaje = aprobada ? "Tarea firmada correctamente" : "Tarea rechazada";
+                await JS.InvokeVoidAsync("alert", mensaje);
+
+                // Si se rechaza, bloquear la tarea
+                if (!aprobada && tareaParaFirmar != null)
+                {
+                    tareaParaFirmar.Estado = EstadoTarea.Bloqueado;
+                    var bloqueo = new BloqueoTarea
+                    {
+                        TareaId = tareaParaFirmar.Id,
+                        Tipo = TipoBloqueo.Otro,
+                        JustificacionTecnica = $"Rechazada por usuario {usuarioActualId}",
+                        FechaBloqueo = DateTime.Now
+                    };
+                    DbContext.BloqueosTareas.Add(bloqueo);
+                    DbContext.Update(tareaParaFirmar);
+                    await DbContext.SaveChangesAsync();
+                    await CargarDatos();
+                }
+            }
+            catch (DbUpdateException)
+            {
+                await JS.InvokeVoidAsync("alert", "Ya existe una firma registrada para esta tarea y usuario");
+                CerrarModalFirmar();
                 await CargarDatos();
             }
         }
@@ -1120,5 +1474,162 @@ else
     private void VolverProyectos()
     {
         Navigation.NavigateTo("/proyectos");
+    }
+
+    private bool UsuarioEsAsignableEnSubtarea(IList<string> rolesEmpleado)
+    {
+        // Administrador puede asignar cualquier rol activo
+        if (rolesUsuarioActual.Contains("Administrador"))
+        {
+            return true;
+        }
+
+        // JefeObra: OperarioObra + Operario legado + coordinación horizontal con OficinaTecnica/JefeObra
+        if (rolesUsuarioActual.Contains("JefeObra"))
+        {
+            return rolesEmpleado.Contains("OperarioObra") ||
+                   rolesEmpleado.Contains("Operario") ||
+                   rolesEmpleado.Contains("JefeObra") ||
+                   rolesEmpleado.Contains("OficinaTecnica") ||
+                   rolesEmpleado.Contains("Administrador");
+        }
+
+        // OficinaTecnica: OperarioOficinaT + Operario legado + coordinación horizontal con JefeObra/OficinaTecnica
+        if (rolesUsuarioActual.Contains("OficinaTecnica"))
+        {
+            return rolesEmpleado.Contains("OperarioOficinaT") ||
+                   rolesEmpleado.Contains("Operario") ||
+                   rolesEmpleado.Contains("OficinaTecnica") ||
+                   rolesEmpleado.Contains("JefeObra") ||
+                   rolesEmpleado.Contains("Administrador");
+        }
+
+        return true;
+    }
+
+    private bool UsuarioEstaAsignadoATarea(Tarea tarea, string? usuarioId)
+    {
+        if (string.IsNullOrWhiteSpace(usuarioId))
+        {
+            return false;
+        }
+
+        return tarea.UsuariosAsignados?.Any(u => u.Id == usuarioId) == true;
+    }
+
+    private bool TieneSubtareasNoFinalizadas(int tareaId)
+    {
+        return tareas.Any(t => t.TareaPadreId == tareaId && t.Estado != EstadoTarea.Finalizado);
+    }
+
+    private List<Tarea> ObtenerSubtareasDescendientes(int tareaId)
+    {
+        var resultado = new List<Tarea>();
+        var pendientes = new Queue<int>();
+        pendientes.Enqueue(tareaId);
+
+        while (pendientes.Count > 0)
+        {
+            var actual = pendientes.Dequeue();
+            var hijas = tareas.Where(t => t.TareaPadreId == actual).ToList();
+
+            foreach (var hija in hijas)
+            {
+                resultado.Add(hija);
+                pendientes.Enqueue(hija.Id);
+            }
+        }
+
+        return resultado;
+    }
+
+    private Tarea? ObtenerTareaPadre(Tarea tarea)
+    {
+        if (tarea.TareaPadreId == null)
+        {
+            return null;
+        }
+
+        return tareas.FirstOrDefault(t => t.Id == tarea.TareaPadreId.Value);
+    }
+
+    private bool PuedeMoverSegunJerarquia(Tarea tarea, EstadoTarea nuevoEstado, out string mensaje)
+    {
+        mensaje = string.Empty;
+
+        // Regla 0: Dependencias de predecesoras
+        var quiereAvanzar = nuevoEstado == EstadoTarea.EnCurso || nuevoEstado == EstadoTarea.Finalizado;
+        if (quiereAvanzar)
+        {
+            var predecesorasPendientes = tarea.Predecesoras
+                .Where(p => p.Estado != EstadoTarea.Finalizado)
+                .Select(p => p.Nombre)
+                .ToList();
+
+            if (predecesorasPendientes.Any())
+            {
+                mensaje = "No puedes avanzar esta tarea porque tiene dependencias sin finalizar: " + string.Join(", ", predecesorasPendientes);
+                return false;
+            }
+        }
+
+        // Regla 1: Una tarea padre no puede finalizar si tiene subtareas abiertas
+        if (nuevoEstado == EstadoTarea.Finalizado && TieneSubtareasNoFinalizadas(tarea.Id))
+        {
+            mensaje = "No puedes finalizar una tarea padre mientras tenga subtareas no finalizadas";
+            return false;
+        }
+
+        // Regla 2: Una subtarea no puede avanzar si su tarea padre está pendiente o bloqueada
+        var tareaPadre = ObtenerTareaPadre(tarea);
+        if (tareaPadre != null)
+        {
+            if (quiereAvanzar && (tareaPadre.Estado == EstadoTarea.Pendiente || tareaPadre.Estado == EstadoTarea.Bloqueado))
+            {
+                mensaje = "No puedes avanzar una subtarea si su tarea padre está pendiente o bloqueada";
+                return false;
+            }
+
+            // Regla 3: Si la tarea padre está finalizada, sus subtareas deben permanecer finalizadas
+            if (tareaPadre.Estado == EstadoTarea.Finalizado && nuevoEstado != EstadoTarea.Finalizado)
+            {
+                mensaje = "No puedes reabrir una subtarea si su tarea padre ya está finalizada";
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private string GetEstadoTexto(EstadoTarea estado)
+    {
+        return estado switch
+        {
+            EstadoTarea.Finalizado => "Finalizado",
+            EstadoTarea.EnCurso => "En Curso",
+            EstadoTarea.Pendiente => "Pendiente",
+            EstadoTarea.Bloqueado => "Bloqueado",
+            _ => estado.ToString()
+        };
+    }
+
+    private List<Tarea> ObtenerTareasCandidatasDependencia()
+    {
+        var idsExcluidos = new HashSet<int>();
+
+        if (tareaEditando.Id > 0)
+        {
+            idsExcluidos.Add(tareaEditando.Id);
+
+            foreach (var subtarea in ObtenerSubtareasDescendientes(tareaEditando.Id))
+            {
+                idsExcluidos.Add(subtarea.Id);
+            }
+        }
+
+        return tareas
+            .Where(t => !idsExcluidos.Contains(t.Id))
+            .OrderBy(t => t.Nombre)
+            .ToList();
     }
 }

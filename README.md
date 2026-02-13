@@ -12,6 +12,18 @@ El aplicativo digitaliza los procesos clave de gestión de proyectos, desde la p
 
 ---
 
+## 🆕 Novedades recientes (13/02/2026)
+
+- **Kanban de tareas mejorado**: subida de documentos en tareas, reglas de jerarquía para movimiento de estados y validación de dependencias entre tareas.
+- **Firmas conjuntas reforzadas**: control de firmas duplicadas por usuario/tarea, detalle de pendientes y rechazadas, y bloqueo automático tras rechazo.
+- **Modelo de roles ampliado**: interoperabilidad horizontal entre **Jefe de Obra** y **Oficina Técnica**, más soporte de **OperarioObra** y **OperarioOficinaT**.
+- **Datos demo realistas**: nuevo seeding de arranque con dataset operativo más completo, activable por configuración (`SeedDemoOnStartup`).
+- **Gantt de proyecto rediseñado**: visualización tipo Project, corrección de escala/anchos y scroll horizontal contenido dentro del bloque del diagrama.
+- **Gantt agregado de proyectos**: nueva vista en `/proyectos` para ver todos los proyectos en línea temporal, con leyenda por estado y marca visual de fecha de inicio.
+- **Navegación corregida**: compatibilidad para ruta de detalle `/proyectos/{id}` evitando errores `Not Found`.
+
+---
+
 ## 🎯 Objetivos del Proyecto
 
 ### Principales

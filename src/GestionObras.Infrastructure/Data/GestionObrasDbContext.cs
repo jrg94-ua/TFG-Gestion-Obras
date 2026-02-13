@@ -113,6 +113,26 @@ public class GestionObrasDbContext : IdentityDbContext<UsuarioObra>
                   .WithMany(t => t.SubTareas)
                   .HasForeignKey(t => t.TareaPadreId)
                   .OnDelete(DeleteBehavior.Restrict);
+
+            // Dependencias entre tareas (predecesoras/dependientes)
+            entity.HasMany(t => t.Predecesoras)
+                  .WithMany(t => t.Dependientes)
+                  .UsingEntity<Dictionary<string, object>>(
+                      "TareaDependencias",
+                      j => j.HasOne<Tarea>()
+                            .WithMany()
+                            .HasForeignKey("PredecesoraId")
+                            .OnDelete(DeleteBehavior.Restrict),
+                      j => j.HasOne<Tarea>()
+                            .WithMany()
+                            .HasForeignKey("TareaId")
+                            .OnDelete(DeleteBehavior.Cascade),
+                      j =>
+                      {
+                          j.HasKey("TareaId", "PredecesoraId");
+                          j.ToTable("TareaDependencias");
+                      }
+                  );
                   
             // Relación con usuario que completó la tarea
             entity.HasOne(t => t.CompletadaPor)

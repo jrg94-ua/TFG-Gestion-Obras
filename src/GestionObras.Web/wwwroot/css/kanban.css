@@ -1,15 +1,17 @@
 /* Kanban Container */
 .kanban-container {
-    padding: 2rem;
+    padding: 1.5rem 1.75rem 2rem;
     background-color: #f8f9fa;
     min-height: 100vh;
+    max-width: 1900px;
+    margin: 0 auto;
 }
 
 .kanban-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 2rem;
+    margin-bottom: 1.25rem;
     padding-bottom: 1rem;
     border-bottom: 2px solid #dee2e6;
 }
@@ -25,35 +27,39 @@
     display: flex;
     gap: 1.5rem;
     align-items: center;
-    margin-bottom: 2rem;
-    padding: 1rem;
+    margin-bottom: 1.25rem;
+    padding: 1rem 1.1rem;
     background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border-radius: 10px;
+    border: 1px solid #e9ecef;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
 }
 
 /* Tablero Kanban */
 .kanban-board {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: 1rem;
     margin-top: 1rem;
+    align-items: start;
 }
 
 /* Columnas */
 .kanban-column {
     background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border-radius: 10px;
+    border: 1px solid #e9ecef;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     display: flex;
     flex-direction: column;
-    min-height: 600px;
-    max-height: calc(100vh - 250px);
+    min-height: 640px;
+    max-height: calc(100vh - 230px);
+    overflow: hidden;
 }
 
 .kanban-column-header {
-    padding: 1rem;
-    border-radius: 8px 8px 0 0;
+    padding: 0.95rem 1rem;
+    border-radius: 10px 10px 0 0;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -84,23 +90,23 @@
 
 .kanban-column-body {
     flex: 1;
-    padding: 1rem;
+    padding: 0.9rem;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.85rem;
 }
 
 /* Tarjetas de Tarea */
 .kanban-card {
-    background: white;
-    border: 1px solid #dee2e6;
-    border-radius: 6px;
-    padding: 1rem;
+    background: #fff;
+    border: 1px solid #dfe3e8;
+    border-radius: 10px;
+    padding: 0.9rem;
     cursor: move;
     transition: all 0.2s ease;
     position: relative;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
 .kanban-card:hover {
@@ -114,16 +120,18 @@
 }
 
 .kanban-card .card-title {
-    font-size: 1rem;
+    font-size: 1.02rem;
+    line-height: 1.35;
     font-weight: 600;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.45rem;
     padding-right: 80px; /* Espacio para el badge de prioridad */
 }
 
 .kanban-card .card-text {
-    font-size: 0.875rem;
-    margin-bottom: 0.5rem;
-    max-height: 60px;
+    font-size: 0.86rem;
+    line-height: 1.35;
+    margin-bottom: 0.45rem;
+    max-height: 74px;
     overflow: hidden;
     text-overflow: ellipsis;
 }
@@ -157,21 +165,36 @@
 /* Contenedor de subtareas expandidas */
 .subtareas-container {
     border-left: 3px solid #007bff;
-    padding-left: 0.5rem;
+    padding-left: 0.65rem;
     margin-top: 0.5rem;
 }
 
 /* Acciones de la tarjeta */
 .card-actions {
     display: flex;
-    gap: 0.5rem;
-    padding-top: 0.5rem;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    padding-top: 0.55rem;
     border-top: 1px solid #e9ecef;
 }
 
 .card-actions .btn {
-    flex: 1;
-    font-size: 0.875rem;
+    flex: 1 1 48%;
+    min-width: 42px;
+    font-size: 0.8rem;
+    padding: 0.25rem 0.45rem;
+}
+
+.firmas-estado {
+    background: #fcfdff;
+}
+
+.firmas-estado small {
+    line-height: 1.35;
+}
+
+.firmas-estado .badge {
+    margin-bottom: 0.2rem;
 }
 
 /* Badges de prioridad */
@@ -204,13 +227,17 @@
 /* Responsive */
 @media (max-width: 1400px) {
     .kanban-board {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(2, minmax(330px, 1fr));
     }
 }
 
 @media (max-width: 768px) {
     .kanban-board {
         grid-template-columns: 1fr;
+    }
+
+    .kanban-container {
+        padding: 1rem;
     }
     
     .kanban-header {

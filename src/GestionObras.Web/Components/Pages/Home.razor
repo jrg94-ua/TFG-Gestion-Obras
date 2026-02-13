@@ -27,7 +27,7 @@
             {
                 Navigation.NavigateTo("/oficina-tecnica/dashboard", true);
             }
-            else if (user.IsInRole("Operario"))
+            else if (user.IsInRole("Operario") || user.IsInRole("OperarioObra") || user.IsInRole("OperarioOficinaT"))
             {
                 Navigation.NavigateTo("/operario/dashboard", true);
             }

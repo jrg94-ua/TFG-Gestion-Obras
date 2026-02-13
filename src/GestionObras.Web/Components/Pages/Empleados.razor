@@ -1,8 +1,15 @@
 @page "/empleados"
 @using GestionObras.Core.Entities
+@using GestionObras.Infrastructure.Data
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
 @using Microsoft.AspNetCore.Authorization
-@attribute [Authorize(Roles = "Administrador,JefeObra")]
+@attribute [Authorize(Roles = "Administrador,JefeObra,OficinaTecnica")]
 @rendermode InteractiveServer
+@inject GestionObrasDbContext DbContext
+@inject AuthenticationStateProvider AuthStateProvider
+@inject UserManager<UsuarioObra> UserManager
 
 <!-- TODO: PENDIENTE - Los botones de la vista (Editar, Eliminar, Guardar) no responden a los clicks.
      Problema identificado: Los eventos @onclick no se ejecutan después de abrir/cerrar modales.
@@ -13,11 +20,16 @@
 <div class="container-fluid py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="h3 mb-0">
-            <i class="bi bi-people"></i> Gestión de Empleados
+            <i class="bi bi-people"></i> Gestión Jerárquica de Empleados
         </h1>
         <button class="btn btn-primary" @onclick="AbrirModalNuevo">
             <i class="bi bi-plus-circle"></i> Nuevo Empleado
         </button>
+    </div>
+
+    <div class="alert alert-primary">
+        <i class="bi bi-diagram-3"></i>
+        <strong>Vista jerárquica:</strong> @descripcionJerarquiaActual
     </div>
 
     <!-- Filtros -->
@@ -85,7 +97,7 @@
                                     <td>
                                         <div class="d-flex align-items-center">
                                             <div class="avatar-circle me-2">
-                                                @empleado.Nombre.Substring(0, 1)@empleado.Apellidos.Substring(0, 1)
+                                                @ObtenerIniciales(empleado)
                                             </div>
                                             <strong>@empleado.Nombre @empleado.Apellidos</strong>
                                         </div>
@@ -239,6 +251,8 @@
 
     private string filtroNombre = "";
     private string filtroEstado = "";
+    private HashSet<string> rolesUsuarioActual = new();
+    private string descripcionJerarquiaActual = "Cargando jerarquía...";
 
     private IEnumerable<Empleado> empleadosFiltrados => empleados
         .Where(e => string.IsNullOrEmpty(filtroNombre) || 
@@ -253,53 +267,51 @@
     private async Task CargarEmpleados()
     {
         cargando = true;
-        await Task.Delay(500);
 
-        empleados = new List<Empleado>
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var principal = authState.User;
+        var usuarioActual = await UserManager.GetUserAsync(principal);
+        rolesUsuarioActual = usuarioActual != null
+            ? (await UserManager.GetRolesAsync(usuarioActual)).ToHashSet()
+            : new HashSet<string>();
+
+        descripcionJerarquiaActual = ObtenerDescripcionJerarquia();
+
+        var usuarios = await DbContext.Users
+            .OrderBy(u => u.NombreCompleto)
+            .ToListAsync();
+
+        var lista = new List<Empleado>();
+        var idSecuencial = 1;
+
+        foreach (var usuario in usuarios)
         {
-            new Empleado 
-            { 
-                Id = 1, 
-                Nombre = "Juan", 
-                Apellidos = "García López", 
-                DNI = "12345678A", 
-                Email = "juan.garcia@obras.com",
-                Telefono = "666111222",
-                Departamento = "Obras",
-                Cargo = "Jefe de Obra",
-                FechaContratacion = new DateTime(2020, 1, 15),
-                Direccion = "Calle Mayor 1, Madrid",
-                Activo = true
-            },
-            new Empleado 
-            { 
-                Id = 2, 
-                Nombre = "María", 
-                Apellidos = "Rodríguez Pérez", 
-                DNI = "87654321B", 
-                Email = "maria.rodriguez@obras.com",
-                Telefono = "666333444",
-                Departamento = "Oficina Técnica",
-                Cargo = "Arquitecta Técnica",
-                FechaContratacion = new DateTime(2019, 3, 10),
-                Direccion = "Avenida Principal 45, Barcelona",
-                Activo = true
-            },
-            new Empleado 
-            { 
-                Id = 3, 
-                Nombre = "Carlos", 
-                Apellidos = "Martínez Sánchez", 
-                DNI = "45678912C", 
-                Email = "carlos.martinez@obras.com",
-                Telefono = "666555666",
-                Departamento = "Operarios",
-                Cargo = "Operario Oficial 1ª",
-                FechaContratacion = new DateTime(2021, 6, 1),
-                Direccion = "Plaza España 12, Valencia",
-                Activo = true
+            var rolesEmpleado = await UserManager.GetRolesAsync(usuario);
+            if (!PuedeVerUsuarioPorJerarquia(rolesEmpleado))
+            {
+                continue;
             }
-        };
+
+            var (nombre, apellidos) = SepararNombreCompleto(usuario.NombreCompleto);
+            var rolPrincipal = rolesEmpleado.FirstOrDefault() ?? "Sin rol";
+
+            lista.Add(new Empleado
+            {
+                Id = idSecuencial++,
+                Nombre = nombre,
+                Apellidos = apellidos,
+                DNI = usuario.DNI,
+                Email = usuario.Email ?? string.Empty,
+                Telefono = usuario.TelefonoMovil ?? usuario.PhoneNumber ?? string.Empty,
+                Departamento = rolPrincipal,
+                Cargo = string.IsNullOrWhiteSpace(usuario.Cargo) ? rolPrincipal : usuario.Cargo,
+                FechaContratacion = usuario.FechaCreacion,
+                Direccion = null,
+                Activo = usuario.Activo
+            });
+        }
+
+        empleados = lista;
 
         cargando = false;
     }
@@ -345,7 +357,7 @@
     {
         if (empleadoSeleccionado.Id == 0)
         {
-            empleadoSeleccionado.Id = empleados.Max(e => e.Id) + 1;
+            empleadoSeleccionado.Id = empleados.Any() ? empleados.Max(e => e.Id) + 1 : 1;
             empleados.Add(empleadoSeleccionado);
         }
         else
@@ -396,5 +408,73 @@
     {
         filtroNombre = "";
         filtroEstado = "";
+    }
+
+    private bool PuedeVerUsuarioPorJerarquia(IList<string> rolesEmpleado)
+    {
+        if (rolesUsuarioActual.Contains("Administrador"))
+        {
+            return true;
+        }
+
+        // Jerarquía horizontal: JefeObra y OficinaTecnica son pares.
+        // Ambos gestionan su propio escalón inferior especializado.
+        if (rolesUsuarioActual.Contains("JefeObra") || rolesUsuarioActual.Contains("OficinaTecnica"))
+        {
+            if (rolesUsuarioActual.Contains("JefeObra"))
+            {
+                return rolesEmpleado.Contains("OperarioObra") || rolesEmpleado.Contains("Operario");
+            }
+
+            if (rolesUsuarioActual.Contains("OficinaTecnica"))
+            {
+                return rolesEmpleado.Contains("OperarioOficinaT") || rolesEmpleado.Contains("Operario");
+            }
+        }
+
+        return false;
+    }
+
+    private string ObtenerDescripcionJerarquia()
+    {
+        if (rolesUsuarioActual.Contains("Administrador"))
+        {
+            return "Como Administrador ves todos los escalones.";
+        }
+
+        if (rolesUsuarioActual.Contains("JefeObra"))
+        {
+            return "Como Jefe de Obra ves y gestionas Operario-Obra (Oficina Técnica es horizontal, interoperable por tareas conjuntas).";
+        }
+
+        if (rolesUsuarioActual.Contains("OficinaTecnica"))
+        {
+            return "Como Oficina Técnica ves y gestionas Operario-OficinaT (Jefe de Obra es horizontal, interoperable por tareas conjuntas).";
+        }
+
+        return "Tu rol no tiene un escalón inferior configurable en este módulo.";
+    }
+
+    private static (string nombre, string apellidos) SepararNombreCompleto(string? nombreCompleto)
+    {
+        if (string.IsNullOrWhiteSpace(nombreCompleto))
+        {
+            return ("Sin", "Nombre");
+        }
+
+        var partes = nombreCompleto.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (partes.Length == 1)
+        {
+            return (partes[0], string.Empty);
+        }
+
+        return (partes[0], string.Join(' ', partes.Skip(1)));
+    }
+
+    private static string ObtenerIniciales(Empleado empleado)
+    {
+        var inicialNombre = string.IsNullOrWhiteSpace(empleado.Nombre) ? "?" : empleado.Nombre.Substring(0, 1).ToUpper();
+        var inicialApellido = string.IsNullOrWhiteSpace(empleado.Apellidos) ? "?" : empleado.Apellidos.Substring(0, 1).ToUpper();
+        return $"{inicialNombre}{inicialApellido}";
     }
 }
