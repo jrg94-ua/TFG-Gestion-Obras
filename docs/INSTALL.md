@@ -1,169 +1,108 @@
-# Guía de Instalación de .NET SDK
+# Guía de instalación y arranque
 
-## Descargar e Instalar .NET 8.0
-
-### Para Windows
-
-1. Visita la página oficial de descargas:
-   ```
-   https://dotnet.microsoft.com/download/dotnet/8.0
-   ```
-
-2. Descarga el instalador de **.NET SDK 8.0** (no solo el Runtime)
-
-3. Ejecuta el instalador y sigue las instrucciones
-
-4. Reinicia Visual Studio Code
-
-5. Verifica la instalación abriendo PowerShell:
-   ```powershell
-   dotnet --version
-   ```
-
-   Deberías ver algo como: `8.0.x`
+Esta guía está actualizada para el estado actual del repositorio. El flujo recomendado de desarrollo es con contenedores mediante `docker-compose`.
 
 ---
 
-## Crear la Estructura del Proyecto ASP.NET Core
+## Opción recomendada: arranque con contenedores
 
-Una vez instalado .NET, ejecuta estos comandos en PowerShell desde la carpeta raíz del proyecto:
+### Requisitos
+
+- Docker Desktop (o Docker Engine + Compose Plugin)
+- Git
+
+Verificar instalación:
 
 ```powershell
-# Navegar a la carpeta src
-cd c:\Users\jorge\Desktop\TFG-JORGE\src
-
-# Crear solución principal
-dotnet new sln -n GestionObras
-
-# Crear proyecto Web API
-dotnet new webapi -n GestionObras.API -o GestionObras.API
-
-# Crear proyecto Core (Dominio)
-dotnet new classlib -n GestionObras.Core -o GestionObras.Core
-
-# Crear proyecto Infrastructure (Acceso a datos)
-dotnet new classlib -n GestionObras.Infrastructure -o GestionObras.Infrastructure
-
-# Crear proyecto Blazor (Frontend)
-dotnet new blazorserver -n GestionObras.Web -o GestionObras.Web
-
-# Agregar proyectos a la solución
-dotnet sln add GestionObras.API/GestionObras.API.csproj
-dotnet sln add GestionObras.Core/GestionObras.Core.csproj
-dotnet sln add GestionObras.Infrastructure/GestionObras.Infrastructure.csproj
-dotnet sln add GestionObras.Web/GestionObras.Web.csproj
-
-# Crear referencias entre proyectos (arquitectura en capas)
-dotnet add GestionObras.API/GestionObras.API.csproj reference GestionObras.Core/GestionObras.Core.csproj
-dotnet add GestionObras.API/GestionObras.API.csproj reference GestionObras.Infrastructure/GestionObras.Infrastructure.csproj
-dotnet add GestionObras.Infrastructure/GestionObras.Infrastructure.csproj reference GestionObras.Core/GestionObras.Core.csproj
-dotnet add GestionObras.Web/GestionObras.Web.csproj reference GestionObras.Core/GestionObras.Core.csproj
+docker --version
+docker compose version
 ```
 
----
+### 1) Clonar el repositorio
 
-## Instalar Paquetes NuGet Necesarios
-
-### Para el proyecto Core (sin dependencias externas por Clean Architecture)
 ```powershell
-cd GestionObras.Core
-# No requiere paquetes externos
-cd ..
+git clone https://github.com/jrg94-ua/tfg-gestion-obras.git
+cd tfg-gestion-obras
 ```
 
-### Para el proyecto Infrastructure
+### 2) Construir y levantar servicios
+
+Desde la raíz del repositorio (donde está `docker-compose.yml`):
+
 ```powershell
-cd GestionObras.Infrastructure
-
-# Entity Framework Core para SQL Server
-dotnet add package Microsoft.EntityFrameworkCore.SqlServer
-
-# Entity Framework Core Tools (para migraciones)
-dotnet add package Microsoft.EntityFrameworkCore.Tools
-
-# Entity Framework Core Design
-dotnet add package Microsoft.EntityFrameworkCore.Design
-
-cd ..
+docker compose up -d --build
 ```
 
-### Para el proyecto API
+Esto levanta:
+
+- `sqlserver` (SQL Server 2022)
+- `api` (ASP.NET Core API)
+- `web` (Blazor)
+
+### 3) Comprobar estado
+
 ```powershell
-cd GestionObras.API
-
-# ASP.NET Core Identity para autenticación
-dotnet add package Microsoft.AspNetCore.Identity.EntityFrameworkCore
-
-# JWT para tokens
-dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer
-
-# Swagger para documentación API
-dotnet add package Swashbuckle.AspNetCore
-
-cd ..
+docker compose ps
+docker compose logs -f api
+docker compose logs -f web
 ```
 
-### Para el proyecto Web (Blazor)
+Accesos por defecto:
+
+- Web: `http://localhost:5001`
+- API: `http://localhost:5000`
+- SQL Server: `localhost,1433`
+
+### 4) Parar el entorno
+
 ```powershell
-cd GestionObras.Web
+docker compose down
+```
 
-# Bootstrap Icons
-dotnet add package BlazorBootstrap
+Para borrar también volúmenes de base de datos:
 
-cd ..
+```powershell
+docker compose down -v
 ```
 
 ---
 
-## Estructura Final del Proyecto
+## Opción alternativa: arranque local con .NET (sin contenedores)
 
-Después de ejecutar los comandos, tu estructura debería verse así:
+### Requisitos
 
-```
-src/
-├── GestionObras.sln
-├── GestionObras.API/           (Web API REST)
-│   ├── Controllers/
-│   ├── Program.cs
-│   └── appsettings.json
-├── GestionObras.Core/          (Dominio - sin dependencias)
-│   ├── Entities/
-│   ├── Interfaces/
-│   └── Services/
-├── GestionObras.Infrastructure/ (Acceso a datos y servicios externos)
-│   ├── Data/
-│   ├── Repositories/
-│   └── Services/
-└── GestionObras.Web/           (Frontend Blazor)
-    ├── Pages/
-    ├── Shared/
-    └── Program.cs
-```
+- .NET SDK 8.0+
+- SQL Server local (o cadena de conexión equivalente)
 
----
-
-## Ejecutar el Proyecto
+### Pasos
 
 ```powershell
-# Ejecutar la API
-cd GestionObras.API
-dotnet run
-
-# En otra terminal, ejecutar el frontend Blazor
-cd GestionObras.Web
-dotnet run
+cd src
+dotnet restore ..\TFG-JORGE.sln
+dotnet build ..\TFG-JORGE.sln
 ```
 
----
-
-## Próximos Pasos
-
-1. Configurar la cadena de conexión a SQL Server en `appsettings.json`
-2. Crear las entidades de dominio en `GestionObras.Core`
-3. Configurar el DbContext en `GestionObras.Infrastructure`
-4. Crear las primeras migraciones de Entity Framework
-5. Implementar los controladores básicos en `GestionObras.API`
+Después, ejecutar cada proyecto por separado si se necesita modo local.
 
 ---
 
-**Nota**: Si no tienes instalado SQL Server, puedes usar **SQL Server Express** (gratis) o **SQLite** para desarrollo.
+## Configuración relevante
+
+- El orquestador está en `docker-compose.yml`.
+- Los `Dockerfile` están en:
+  - `src/GestionObras.API/Dockerfile`
+  - `src/GestionObras.Web/Dockerfile`
+- El seeding demo está habilitado en contenedores con `SeedDemoOnStartup=true` para el servicio `web`.
+
+---
+
+## Resolución rápida de problemas
+
+- Si un puerto está ocupado (5000, 5001, 1433), cambia el mapeo en `docker-compose.yml`.
+- Si falla SQL Server al arrancar, revisa memoria asignada a Docker Desktop y logs de `sqlserver`.
+- Si tras cambios de código no se reflejan, reconstruye imágenes:
+
+```powershell
+docker compose down
+docker compose up -d --build
+```

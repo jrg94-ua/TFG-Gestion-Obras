@@ -17,6 +17,7 @@ namespace GestionObras.Infrastructure.Repositories
         {
             return await _context.Proyectos
                 .Include(p => p.Tareas)
+                    .ThenInclude(t => t.UsuariosAsignados)
                 .Include(p => p.Responsable)
                 .OrderByDescending(p => p.FechaInicio)
                 .ToListAsync();

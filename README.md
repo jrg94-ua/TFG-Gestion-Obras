@@ -150,14 +150,15 @@ TFG-JORGE/
 
 ## 🚀 Requisitos Previos
 
-### Software Necesario
+### Opción recomendada (contenedores)
+- **Docker Desktop** o Docker Engine + Compose Plugin
+- **Git**
+
+### Opción local (sin contenedores)
 - **.NET SDK 8.0 o superior** ([Descargar](https://dotnet.microsoft.com/download))
 - **SQL Server 2019+** o **SQL Server Express** ([Descargar](https://www.microsoft.com/sql-server/sql-server-downloads))
-- **Visual Studio 2022** o **VS Code** con extensiones de C#
-- **Node.js 18+** (para herramientas de frontend) - Opcional
-- **Docker Desktop** (para despliegue containerizado) - Opcional
 
-### Para Servicios de IA (Opcional en desarrollo)
+### Para Servicios de IA (opcional en desarrollo)
 - **Ollama** instalado localmente ([Descargar](https://ollama.ai/))
 - Modelo **Llama 3** descargado: `ollama pull llama3`
 - API Key de **OpenAI/Tavily** para búsqueda de normativa
@@ -172,35 +173,30 @@ git clone https://github.com/jrg94-ua/tfg-gestion-obras.git
 cd tfg-gestion-obras
 ```
 
-### 2. Instalar .NET SDK (si no está instalado)
+### 2. Arranque recomendado con Docker
 ```bash
-# Verificar instalación
-dotnet --version
-
-# Si no está instalado, descargar desde:
-# https://dotnet.microsoft.com/download/dotnet/8.0
+docker compose up -d --build
+docker compose ps
 ```
 
-### 3. Restaurar dependencias
+Servicios y puertos:
+- **Web**: `http://localhost:5001`
+- **API**: `http://localhost:5000`
+- **SQL Server**: `localhost:1433`
+
+Parar entorno:
+```bash
+docker compose down
+```
+
+### 3. Alternativa local con .NET
 ```bash
 cd src
-dotnet restore
+dotnet restore ..\TFG-JORGE.sln
+dotnet build ..\TFG-JORGE.sln
 ```
 
-### 4. Configurar la base de datos
-```bash
-# Editar la cadena de conexión en appsettings.json
-# Luego ejecutar las migraciones:
-cd GestionObras.API
-dotnet ef database update
-```
-
-### 5. Ejecutar la aplicación
-```bash
-dotnet run --project GestionObras.API
-```
-
-La API estará disponible en `https://localhost:5001`
+Para instrucciones completas, ver la guía de instalación actualizada en `docs/INSTALL.md`.
 
 ---
 
@@ -289,7 +285,7 @@ La API estará disponible en `https://localhost:5001`
 - [Diagramas de Arquitectura](docs/arquitectura/README.md)
 - [Integración Normativa](docs/normativa/README.md)
 - [Manual de Usuario por Perfiles](docs/manual-usuario/README.md)
-- [Guía de Despliegue](docs/deployment.md)
+- [Guía de Despliegue](scripts/deployment/README.md)
 
 ---
 

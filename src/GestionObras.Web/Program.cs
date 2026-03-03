@@ -44,7 +44,8 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("AdminPolicy", policy => policy.RequireRole("Administrador"));
     options.AddPolicy("JefeObraPolicy", policy => policy.RequireRole("JefeObra", "Administrador"));
     options.AddPolicy("OficinaTecnicaPolicy", policy => policy.RequireRole("OficinaTecnica", "Administrador"));
-    options.AddPolicy("OperarioPolicy", policy => policy.RequireRole("Operario", "OperarioObra", "OperarioOficinaT", "JefeObra", "OficinaTecnica", "Administrador"));
+    options.AddPolicy("RecursosHumanosPolicy", policy => policy.RequireRole("RecursosHumanos", "Administrador"));
+    options.AddPolicy("OperarioPolicy", policy => policy.RequireRole("Operario", "OperarioObra", "OperarioOficinaT", "JefeObra", "OficinaTecnica", "RecursosHumanos", "Administrador"));
 });
 
 // Agregar servicios de cascading authentication state para Blazor
@@ -57,6 +58,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<GestionObras.Infrastructure.Repositories.IProyectoRepository, GestionObras.Infrastructure.Repositories.ProyectoRepository>();
 builder.Services.AddScoped<GestionObras.Infrastructure.Repositories.ITareaRepository, GestionObras.Infrastructure.Repositories.TareaRepository>();
 builder.Services.AddScoped<GestionObras.Infrastructure.Repositories.IEmpleadoRepository, GestionObras.Infrastructure.Repositories.EmpleadoRepository>();
+builder.Services.AddScoped<GestionObras.Infrastructure.Repositories.IFichajeRepository, GestionObras.Infrastructure.Repositories.FichajeRepository>();
 
 // Registrar servicios personalizados
 builder.Services.AddScoped<GestionObras.Web.Services.DocumentoService>();
@@ -140,7 +142,7 @@ app.Run();
 static async Task InicializarRolesYUsuarios(RoleManager<IdentityRole> roleManager, UserManager<UsuarioObra> userManager)
 {
     // Crear roles si no existen
-    string[] roles = { "Administrador", "JefeObra", "OficinaTecnica", "Operario", "OperarioObra", "OperarioOficinaT" };
+    string[] roles = { "Administrador", "JefeObra", "OficinaTecnica", "Operario", "OperarioObra", "OperarioOficinaT", "RecursosHumanos" };
     
     foreach (var rol in roles)
     {

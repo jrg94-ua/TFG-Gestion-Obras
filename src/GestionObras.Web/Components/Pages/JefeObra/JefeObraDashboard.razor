@@ -4,8 +4,12 @@
 @using GestionObras.Infrastructure.Data
 @using GestionObras.Core.Entities
 @using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
 @inject GestionObrasDbContext DbContext
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+@inject UserManager<UsuarioObra> UserManager
 @rendermode InteractiveServer
 
 <PageTitle>Panel de Jefe de Obra - Gestión de Obras</PageTitle>
@@ -119,24 +123,41 @@
     private int tareasBloqueadas;
     private int totalMateriales;
     private List<GestionObras.Core.Entities.Proyecto> misProyectos = new();
+    private UsuarioObra? usuarioActual;
 
     protected override async Task OnInitializedAsync()
     {
-        await CargarDatos();
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        usuarioActual = await UserManager.GetUserAsync(authState.User);
+        if (usuarioActual != null)
+            await CargarDatos();
     }
 
     private async Task CargarDatos()
     {
-        proyectosActivos = await DbContext.Proyectos.CountAsync(p => p.Estado == EstadoProyecto.EnCurso);
-        tareasPendientes = await DbContext.Tareas.CountAsync(t => t.Estado == EstadoTarea.Pendiente);
-        tareasBloqueadas = await DbContext.Tareas.CountAsync(t => t.Estado == EstadoTarea.Bloqueado);
-        totalMateriales = await DbContext.Materiales.CountAsync();
-        
-        misProyectos = await DbContext.Proyectos
-            .Include(p => p.Tareas)
+        var userId = usuarioActual!.Id;
+        var roles = await UserManager.GetRolesAsync(usuarioActual);
+        var esAdmin = roles.Contains("Administrador");
+
+        // Si es Admin ve todo, si es JefeObra solo sus proyectos
+        IQueryable<Proyecto> queryProyectos = DbContext.Proyectos.Include(p => p.Tareas);
+
+        if (!esAdmin)
+        {
+            queryProyectos = queryProyectos.Where(p => p.ResponsableId == userId);
+        }
+
+        misProyectos = await queryProyectos
             .OrderByDescending(p => p.FechaInicio)
             .Take(10)
             .ToListAsync();
+
+        var proyectoIds = misProyectos.Select(p => p.Id).ToList();
+
+        proyectosActivos = misProyectos.Count(p => p.Estado == EstadoProyecto.EnCurso);
+        tareasPendientes = await DbContext.Tareas.CountAsync(t => proyectoIds.Contains(t.ProyectoId) && t.Estado == EstadoTarea.Pendiente);
+        tareasBloqueadas = await DbContext.Tareas.CountAsync(t => proyectoIds.Contains(t.ProyectoId) && t.Estado == EstadoTarea.Bloqueado);
+        totalMateriales = await DbContext.Materiales.CountAsync();
     }
 
     private string GetEstadoBadge(EstadoProyecto estado)

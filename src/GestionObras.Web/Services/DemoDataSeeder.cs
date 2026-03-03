@@ -45,6 +45,10 @@ public static class DemoDataSeeder
         var operarioTec2 = await EnsureUserAsync(userManager, roleManager,
             "ot.02@gestionobras.com", "Javier Soler Prats", "84000002M", TipoUsuario.Operario, "Demo123!", "OperarioOficinaT");
 
+        // Recursos Humanos
+        var rrhh = await EnsureUserAsync(userManager, roleManager,
+            "rrhh@gestionobras.com", "Elena Martínez García", "85000001N", TipoUsuario.RecursosHumanos, "Demo123!", "RecursosHumanos");
+
         var empleados = new List<Empleado>
         {
             new() { Nombre = "Álvaro", Apellidos = "Molina Serrano", DNI = "81000001J", Email = "jefe.norte@gestionobras.com", Telefono = "600101001", Categoria = CategoriaLaboral.JefeObra, FechaContratacion = DateTime.Today.AddYears(-8), Departamento = "Obra", Cargo = "Jefe de Obra Zona Norte", Activo = true, UsuarioId = jefeNorte.Id },
@@ -56,7 +60,8 @@ public static class DemoDataSeeder
             new() { Nombre = "Nuria", Apellidos = "Pastor Simó", DNI = "83000003L", Email = "obra.03@gestionobras.com", Telefono = "600101007", Categoria = CategoriaLaboral.OficialSegunda, FechaContratacion = DateTime.Today.AddYears(-2), Departamento = "Cuadrilla Obra", Cargo = "Oficial 2ª Albañilería", Activo = true, UsuarioId = operarioObra3.Id },
             new() { Nombre = "Mario", Apellidos = "Crespo Tomás", DNI = "83000004L", Email = "obra.04@gestionobras.com", Telefono = "600101008", Categoria = CategoriaLaboral.OficialSegunda, FechaContratacion = DateTime.Today.AddYears(-2), Departamento = "Cuadrilla Obra", Cargo = "Oficial 2ª Instalaciones", Activo = true, UsuarioId = operarioObra4.Id },
             new() { Nombre = "Paula", Apellidos = "Cuesta León", DNI = "84000001M", Email = "ot.01@gestionobras.com", Telefono = "600101009", Categoria = CategoriaLaboral.OficialTercera, FechaContratacion = DateTime.Today.AddYears(-2), Departamento = "Oficina Técnica", Cargo = "Asistente Técnica", Activo = true, UsuarioId = operarioTec1.Id },
-            new() { Nombre = "Javier", Apellidos = "Soler Prats", DNI = "84000002M", Email = "ot.02@gestionobras.com", Telefono = "600101010", Categoria = CategoriaLaboral.OficialTercera, FechaContratacion = DateTime.Today.AddYears(-1), Departamento = "Oficina Técnica", Cargo = "Control Documental", Activo = true, UsuarioId = operarioTec2.Id }
+            new() { Nombre = "Javier", Apellidos = "Soler Prats", DNI = "84000002M", Email = "ot.02@gestionobras.com", Telefono = "600101010", Categoria = CategoriaLaboral.OficialTercera, FechaContratacion = DateTime.Today.AddYears(-1), Departamento = "Oficina Técnica", Cargo = "Control Documental", Activo = true, UsuarioId = operarioTec2.Id },
+            new() { Nombre = "Elena", Apellidos = "Martínez García", DNI = "85000001N", Email = "rrhh@gestionobras.com", Telefono = "600101011", Categoria = CategoriaLaboral.Encargado, FechaContratacion = DateTime.Today.AddYears(-5), Departamento = "Recursos Humanos", Cargo = "Responsable RRHH", Activo = true, UsuarioId = rrhh.Id }
         };
 
         foreach (var empleado in empleados)
@@ -199,6 +204,13 @@ public static class DemoDataSeeder
         await SeedFirmasYBloqueosAsync(dbContext, tareas, jefeNorte, jefeSur, oficinaSenior, oficinaPlanificacion);
         await SeedFacturasAsync(dbContext, proyectos, proveedoresDb);
         await SeedSolicitudesMaterialAsync(dbContext, materiales, proyectos, jefeNorte, jefeSur, admin);
+        await SeedHorariosYFichajesAsync(dbContext, proyectos,
+            new[] { operarioObra1, operarioObra2, operarioObra3, operarioObra4, operarioTec1, operarioTec2 });
+
+        await SeedContratosAsync(dbContext,
+            new[] { jefeNorte, jefeSur, oficinaSenior, oficinaPlanificacion,
+                    operarioObra1, operarioObra2, operarioObra3, operarioObra4,
+                    operarioTec1, operarioTec2, rrhh });
 
         await dbContext.SaveChangesAsync();
     }
@@ -583,6 +595,109 @@ public static class DemoDataSeeder
         };
 
         dbContext.SolicitudesMateriales.AddRange(solicitudes);
+        await dbContext.SaveChangesAsync();
+    }
+
+    private static async Task SeedHorariosYFichajesAsync(
+        GestionObrasDbContext dbContext,
+        List<Proyecto> proyectos,
+        UsuarioObra[] operarios)
+    {
+        var proyAsignado = proyectos.FirstOrDefault();
+
+        // Asignar horarios semanales L-V a cada operario
+        foreach (var op in operarios)
+        {
+            for (var dia = DiaSemana.Lunes; dia <= DiaSemana.Viernes; dia++)
+            {
+                dbContext.HorariosAsignados.Add(new HorarioAsignado
+                {
+                    UsuarioId = op.Id,
+                    ProyectoId = proyAsignado?.Id,
+                    DiaSemana = dia,
+                    HoraEntrada = new TimeOnly(8, 0),
+                    HoraSalida = new TimeOnly(14, 0),
+                    TipoTurno = TipoTurno.Mañana,
+                    VigenteDesde = DateOnly.FromDateTime(DateTime.Today.AddMonths(-1)),
+                    Activo = true
+                });
+            }
+        }
+        await dbContext.SaveChangesAsync();
+
+        // Generar fichajes de los últimos 5 días laborables
+        var hoy = DateTime.Today;
+        var rng = new Random(42);
+        for (int d = 1; d <= 5; d++)
+        {
+            var fecha = hoy.AddDays(-d);
+            if (fecha.DayOfWeek == DayOfWeek.Saturday || fecha.DayOfWeek == DayOfWeek.Sunday)
+                continue;
+
+            foreach (var op in operarios)
+            {
+                var entradaMin = rng.Next(0, 15);
+                var horaEntrada = fecha.AddHours(8).AddMinutes(entradaMin);
+                var horaSalida = fecha.AddHours(14).AddMinutes(rng.Next(-5, 20));
+
+                dbContext.RegistrosFichaje.Add(new RegistroFichaje
+                {
+                    UsuarioId = op.Id,
+                    ProyectoId = proyAsignado?.Id,
+                    Fecha = DateOnly.FromDateTime(fecha),
+                    HoraEntrada = horaEntrada,
+                    HoraSalida = horaSalida,
+                    Estado = d <= 2 ? EstadoFichaje.Pendiente : EstadoFichaje.Validado
+                });
+            }
+        }
+        await dbContext.SaveChangesAsync();
+    }
+
+    private static async Task SeedContratosAsync(
+        GestionObrasDbContext dbContext,
+        UsuarioObra[] trabajadores)
+    {
+        if (await dbContext.Contratos.AnyAsync()) return;
+
+        var rng = new Random(99);
+        var tiposContrato = new[] {
+            TipoContrato.Indefinido, TipoContrato.TempObraoServicio,
+            TipoContrato.TempCircunstanciasProduccion, TipoContrato.FijoDiscontinuo
+        };
+        var centros = new[] { "Valencia - Central", "Paterna - Obra", "Vila-real - Obra", "Elche - Obra" };
+
+        foreach (var t in trabajadores)
+        {
+            var tipo = tiposContrato[rng.Next(tiposContrato.Length)];
+            var antiguedad = rng.Next(1, 8);
+            var fechaInicio = DateOnly.FromDateTime(DateTime.Today.AddYears(-antiguedad));
+            DateOnly? fechaFin = tipo == TipoContrato.Indefinido ? null
+                : DateOnly.FromDateTime(DateTime.Today.AddMonths(rng.Next(1, 18)));
+
+            var salario = tipo switch
+            {
+                TipoContrato.Indefinido => rng.Next(24000, 48000),
+                TipoContrato.TempObraoServicio => rng.Next(20000, 32000),
+                _ => rng.Next(18000, 28000)
+            };
+
+            dbContext.Contratos.Add(new Contrato
+            {
+                UsuarioId = t.Id,
+                TipoContrato = tipo,
+                FechaInicio = fechaInicio,
+                FechaFin = fechaFin,
+                SalarioBrutoAnual = salario,
+                Jornada = JornadaLaboral.Completa,
+                HorasSemanales = 40,
+                CategoriaConvenio = "Convenio Colectivo de la Construcción",
+                NumeroSeguridadSocial = $"28/{rng.Next(1000000, 9999999):D7}/{rng.Next(10, 99):D2}",
+                CentroTrabajo = centros[rng.Next(centros.Length)],
+                Activo = true,
+                FechaCreacion = DateTime.Now
+            });
+        }
         await dbContext.SaveChangesAsync();
     }
 

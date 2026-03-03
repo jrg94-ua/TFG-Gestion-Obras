@@ -1,0 +1,456 @@
+@page "/rrhh/contratos"
+@attribute [Authorize(Roles = "RecursosHumanos,Administrador")]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using GestionObras.Core.Entities
+@using GestionObras.Infrastructure.Data
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Identity
+@inject GestionObrasDbContext DbContext
+@inject UserManager<UsuarioObra> UserManager
+@inject AuthenticationStateProvider AuthStateProvider
+@rendermode InteractiveServer
+
+<PageTitle>Gestión de Contratos - RRHH</PageTitle>
+
+@if (cargando)
+{
+    <div class="text-center p-5">
+        <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div>
+    </div>
+}
+else
+{
+    <div class="container-fluid px-4 py-3">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="text-primary">📋 Gestión de Contratos — RRHH</h1>
+                <p class="text-muted mb-0">Administración de contratos laborales de toda la plantilla</p>
+            </div>
+            <button class="btn btn-primary" @onclick="AbrirFormularioNuevo">
+                <i class="bi bi-plus-circle"></i> Nuevo Contrato
+            </button>
+        </div>
+
+        <!-- Resumen -->
+        <div class="row mb-4 g-3">
+            <div class="col-md-3">
+                <div class="card border-primary shadow-sm">
+                    <div class="card-body text-center">
+                        <h3 class="text-primary">@contratos.Count(c => c.Activo)</h3>
+                        <p class="mb-0">Contratos activos</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-success shadow-sm">
+                    <div class="card-body text-center">
+                        <h3 class="text-success">@contratos.Count(c => c.TipoContrato == TipoContrato.Indefinido)</h3>
+                        <p class="mb-0">Indefinidos</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-warning shadow-sm">
+                    <div class="card-body text-center">
+                        <h3 class="text-warning">@contratos.Count(c => c.TipoContrato != TipoContrato.Indefinido)</h3>
+                        <p class="mb-0">Temporales</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-danger shadow-sm">
+                    <div class="card-body text-center">
+                        <h3 class="text-danger">@contratosProximosVencer</h3>
+                        <p class="mb-0">Vencen en 30 días</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filtros -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Trabajador</label>
+                        <select class="form-select" @bind="filtroUsuarioId" @bind:after="FiltrarContratos">
+                            <option value="">Todos</option>
+                            @foreach (var u in trabajadores)
+                            {
+                                <option value="@u.Id">@u.NombreCompleto</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Tipo de contrato</label>
+                        <select class="form-select" @bind="filtroTipo" @bind:after="FiltrarContratos">
+                            <option value="">Todos</option>
+                            @foreach (TipoContrato t in Enum.GetValues<TipoContrato>())
+                            {
+                                <option value="@((int)t)">@FormatTipoContrato(t)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Estado</label>
+                        <select class="form-select" @bind="filtroActivo" @bind:after="FiltrarContratos">
+                            <option value="">Todos</option>
+                            <option value="true">Activos</option>
+                            <option value="false">Finalizados</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabla -->
+        <div class="card shadow-sm">
+            <div class="card-body p-0">
+                @if (!contratosFiltrados.Any())
+                {
+                    <p class="text-center text-muted p-4">No hay contratos con los filtros seleccionados.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Trabajador</th>
+                                    <th>Tipo</th>
+                                    <th>Jornada</th>
+                                    <th>Horas/sem</th>
+                                    <th>Salario bruto</th>
+                                    <th>Inicio</th>
+                                    <th>Fin</th>
+                                    <th>Centro</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var c in contratosFiltrados)
+                                {
+                                    var esProximoVencer = c.FechaFin.HasValue
+                                        && c.FechaFin.Value <= DateOnly.FromDateTime(DateTime.Today.AddDays(30))
+                                        && c.FechaFin.Value >= DateOnly.FromDateTime(DateTime.Today);
+                                    <tr class="@(esProximoVencer ? "table-warning" : "")">
+                                        <td><strong>@c.Usuario?.NombreCompleto</strong></td>
+                                        <td><span class="badge bg-info text-dark">@FormatTipoContrato(c.TipoContrato)</span></td>
+                                        <td>@FormatJornada(c.Jornada)</td>
+                                        <td>@c.HorasSemanales h</td>
+                                        <td>@c.SalarioBrutoAnual.ToString("C0") €/año</td>
+                                        <td>@c.FechaInicio.ToString("dd/MM/yyyy")</td>
+                                        <td>@(c.FechaFin?.ToString("dd/MM/yyyy") ?? "—")</td>
+                                        <td>@(c.CentroTrabajo ?? "—")</td>
+                                        <td>
+                                            @if (c.Activo)
+                                            {
+                                                <span class="badge bg-success">Activo</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary">Finalizado</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => EditarContrato(c)" title="Editar">
+                                                ✏️
+                                            </button>
+                                            @if (c.Activo)
+                                            {
+                                                <button class="btn btn-sm btn-outline-danger" @onclick="() => FinalizarContrato(c)" title="Finalizar contrato">
+                                                    🔒
+                                                </button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Modal formulario contrato -->
+        @if (mostrarFormulario)
+        {
+            <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">@(editandoId > 0 ? "Editar" : "Nuevo") Contrato</h5>
+                            <button type="button" class="btn-close" @onclick="CerrarFormulario"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Trabajador *</label>
+                                    <select class="form-select" @bind="formContrato.UsuarioId" disabled="@(editandoId > 0)">
+                                        <option value="">— Seleccionar —</option>
+                                        @foreach (var u in trabajadores)
+                                        {
+                                            <option value="@u.Id">@u.NombreCompleto</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Tipo de contrato *</label>
+                                    <select class="form-select" @bind="formContrato.TipoContrato">
+                                        @foreach (TipoContrato t in Enum.GetValues<TipoContrato>())
+                                        {
+                                            <option value="@t">@FormatTipoContrato(t)</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Fecha inicio *</label>
+                                    <input type="date" class="form-control" @bind="fechaInicioForm" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Fecha fin</label>
+                                    <input type="date" class="form-control" @bind="fechaFinForm" />
+                                    <small class="text-muted">Dejar en blanco para indefinido</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Salario bruto anual (€) *</label>
+                                    <input type="number" class="form-control" step="100" @bind="formContrato.SalarioBrutoAnual" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Jornada</label>
+                                    <select class="form-select" @bind="formContrato.Jornada">
+                                        @foreach (JornadaLaboral j in Enum.GetValues<JornadaLaboral>())
+                                        {
+                                            <option value="@j">@FormatJornada(j)</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Horas semanales</label>
+                                    <input type="number" class="form-control" step="0.5" @bind="formContrato.HorasSemanales" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Centro de trabajo</label>
+                                    <input type="text" class="form-control" @bind="formContrato.CentroTrabajo" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Categoría convenio</label>
+                                    <input type="text" class="form-control" @bind="formContrato.CategoriaConvenio" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Nº Seg. Social</label>
+                                    <input type="text" class="form-control" @bind="formContrato.NumeroSeguridadSocial" />
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label">Observaciones</label>
+                                    <textarea class="form-control" rows="2" @bind="formContrato.Observaciones"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-secondary" @onclick="CerrarFormulario">Cancelar</button>
+                            <button class="btn btn-primary" @onclick="GuardarContrato" disabled="@guardando">
+                                @if (guardando) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                                Guardar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(mensaje))
+        {
+            <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1050;">
+                <div class="toast show align-items-center text-bg-@(esError ? "danger" : "success") border-0" role="alert">
+                    <div class="d-flex">
+                        <div class="toast-body">@mensaje</div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" @onclick="() => mensaje = null"></button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private bool cargando = true;
+    private bool mostrarFormulario;
+    private bool guardando;
+    private int editandoId;
+    private string? mensaje;
+    private bool esError;
+
+    private List<UsuarioObra> trabajadores = new();
+    private List<Contrato> contratos = new();
+    private List<Contrato> contratosFiltrados = new();
+    private int contratosProximosVencer;
+
+    // Filtros
+    private string filtroUsuarioId = "";
+    private string filtroTipo = "";
+    private string filtroActivo = "true";
+
+    // Formulario
+    private Contrato formContrato = new();
+    private DateTime? fechaInicioForm;
+    private DateTime? fechaFinForm;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await CargarDatos();
+            cargando = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CargarDatos()
+    {
+        trabajadores = await DbContext.Users.Where(u => u.Activo).OrderBy(u => u.NombreCompleto).ToListAsync();
+        contratos = await DbContext.Contratos
+            .Include(c => c.Usuario)
+            .OrderByDescending(c => c.FechaCreacion)
+            .ToListAsync();
+
+        var hoy = DateOnly.FromDateTime(DateTime.Today);
+        var limite = hoy.AddDays(30);
+        contratosProximosVencer = contratos.Count(c => c.Activo && c.FechaFin.HasValue && c.FechaFin.Value <= limite && c.FechaFin.Value >= hoy);
+
+        FiltrarContratos();
+    }
+
+    private void FiltrarContratos()
+    {
+        var query = contratos.AsEnumerable();
+
+        if (!string.IsNullOrEmpty(filtroUsuarioId))
+            query = query.Where(c => c.UsuarioId == filtroUsuarioId);
+        if (!string.IsNullOrEmpty(filtroTipo) && int.TryParse(filtroTipo, out int tipo))
+            query = query.Where(c => (int)c.TipoContrato == tipo);
+        if (!string.IsNullOrEmpty(filtroActivo))
+            query = query.Where(c => c.Activo == (filtroActivo == "true"));
+
+        contratosFiltrados = query.ToList();
+    }
+
+    private void AbrirFormularioNuevo()
+    {
+        editandoId = 0;
+        formContrato = new Contrato
+        {
+            Jornada = JornadaLaboral.Completa,
+            HorasSemanales = 40,
+            Activo = true
+        };
+        fechaInicioForm = DateTime.Today;
+        fechaFinForm = null;
+        mostrarFormulario = true;
+    }
+
+    private void EditarContrato(Contrato contrato)
+    {
+        editandoId = contrato.Id;
+        formContrato = contrato;
+        fechaInicioForm = contrato.FechaInicio.ToDateTime(TimeOnly.MinValue);
+        fechaFinForm = contrato.FechaFin?.ToDateTime(TimeOnly.MinValue);
+        mostrarFormulario = true;
+    }
+
+    private void CerrarFormulario() => mostrarFormulario = false;
+
+    private async Task GuardarContrato()
+    {
+        if (string.IsNullOrEmpty(formContrato.UsuarioId))
+        {
+            MostrarMensaje("Selecciona un trabajador", true);
+            return;
+        }
+        if (fechaInicioForm == null)
+        {
+            MostrarMensaje("La fecha de inicio es obligatoria", true);
+            return;
+        }
+
+        guardando = true;
+        try
+        {
+            formContrato.FechaInicio = DateOnly.FromDateTime(fechaInicioForm.Value);
+            formContrato.FechaFin = fechaFinForm.HasValue ? DateOnly.FromDateTime(fechaFinForm.Value) : null;
+
+            if (editandoId > 0)
+            {
+                formContrato.FechaModificacion = DateTime.Now;
+                DbContext.Contratos.Update(formContrato);
+            }
+            else
+            {
+                formContrato.FechaCreacion = DateTime.Now;
+                DbContext.Contratos.Add(formContrato);
+            }
+            await DbContext.SaveChangesAsync();
+            MostrarMensaje(editandoId > 0 ? "Contrato actualizado" : "Contrato creado correctamente", false);
+            mostrarFormulario = false;
+            await CargarDatos();
+        }
+        catch (Exception ex)
+        {
+            MostrarMensaje($"Error: {ex.Message}", true);
+        }
+        guardando = false;
+    }
+
+    private async Task FinalizarContrato(Contrato contrato)
+    {
+        try
+        {
+            contrato.Activo = false;
+            contrato.FechaFin = DateOnly.FromDateTime(DateTime.Today);
+            contrato.FechaModificacion = DateTime.Now;
+            DbContext.Contratos.Update(contrato);
+            await DbContext.SaveChangesAsync();
+            MostrarMensaje("Contrato finalizado", false);
+            await CargarDatos();
+        }
+        catch (Exception ex)
+        {
+            MostrarMensaje($"Error: {ex.Message}", true);
+        }
+    }
+
+    private string FormatTipoContrato(TipoContrato tipo)
+    {
+        return tipo switch
+        {
+            TipoContrato.Indefinido => "Indefinido",
+            TipoContrato.TempObraoServicio => "Obra/Servicio",
+            TipoContrato.TempCircunstanciasProduccion => "Circunstancias Prod.",
+            TipoContrato.FormacionAlternancia => "Form. Alternancia",
+            TipoContrato.FormacionPractica => "Form. Práctica",
+            TipoContrato.Interinidad => "Interinidad",
+            TipoContrato.FijoDiscontinuo => "Fijo Discontinuo",
+            _ => tipo.ToString()
+        };
+    }
+
+    private string FormatJornada(JornadaLaboral jornada)
+    {
+        return jornada switch
+        {
+            JornadaLaboral.Completa => "Completa",
+            JornadaLaboral.Parcial => "Parcial",
+            JornadaLaboral.Reducida => "Reducida",
+            _ => jornada.ToString()
+        };
+    }
+
+    private void MostrarMensaje(string msg, bool error)
+    {
+        mensaje = msg;
+        esError = error;
+        _ = Task.Delay(4000).ContinueWith(_ => { mensaje = null; InvokeAsync(StateHasChanged); });
+    }
+}

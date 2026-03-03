@@ -1,0 +1,321 @@
+@page "/fichaje"
+@attribute [Authorize(Roles = "Operario,OperarioObra,OperarioOficinaT,JefeObra,OficinaTecnica,RecursosHumanos,Administrador")]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using GestionObras.Core.Entities
+@using GestionObras.Infrastructure.Data
+@using GestionObras.Infrastructure.Repositories
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Identity
+@inject GestionObrasDbContext DbContext
+@inject IFichajeRepository FichajeRepo
+@inject UserManager<UsuarioObra> UserManager
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+
+<PageTitle>Fichaje - Gestión de Obras</PageTitle>
+
+@if (cargando)
+{
+    <div class="text-center p-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Cargando...</span>
+        </div>
+    </div>
+}
+else
+{
+    <div class="container-fluid px-4 py-3">
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="text-primary"><i class="bi bi-clock-history"></i> ⏱️ Fichaje de Jornada</h1>
+                <p class="text-muted mb-0">@usuarioActual?.NombreCompleto — @DateTime.Now.ToString("dddd, dd MMMM yyyy")</p>
+            </div>
+        </div>
+
+        <!-- Tarjeta principal de fichaje -->
+        <div class="row justify-content-center mb-4">
+            <div class="col-md-6">
+                <div class="card shadow-sm border-0" style="border-radius: 16px;">
+                    <div class="card-body text-center p-5">
+                        @if (fichajeAbierto != null)
+                        {
+                            <div class="mb-3">
+                                <span class="badge bg-success fs-5 px-4 py-2">🟢 Jornada en curso</span>
+                            </div>
+                            <p class="text-muted">Entrada: <strong>@fichajeAbierto.HoraEntrada.ToString("HH:mm")</strong></p>
+                            @if (fichajeAbierto.Proyecto != null)
+                            {
+                                <p class="text-muted">Proyecto: <strong>@fichajeAbierto.Proyecto.Nombre</strong></p>
+                            }
+                            <p class="display-4 fw-bold text-primary my-3" id="reloj-jornada">
+                                @((DateTime.Now - fichajeAbierto.HoraEntrada).ToString(@"hh\:mm\:ss"))
+                            </p>
+                            <button class="btn btn-danger btn-lg px-5 py-3" @onclick="FicharSalida" disabled="@procesando">
+                                @if (procesando)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                }
+                                🔴 Fichar Salida
+                            </button>
+                        }
+                        else
+                        {
+                            <div class="mb-3">
+                                <span class="badge bg-secondary fs-5 px-4 py-2">⚪ Sin fichar</span>
+                            </div>
+                            <p class="display-4 fw-bold text-muted my-3">--:--:--</p>
+
+                            @if (proyectosDisponibles.Any())
+                            {
+                                <div class="mb-3">
+                                    <label class="form-label">Proyecto</label>
+                                    <select class="form-select" @bind="proyectoSeleccionadoId">
+                                        <option value="">— Sin proyecto —</option>
+                                        @foreach (var p in proyectosDisponibles)
+                                        {
+                                            <option value="@p.Id">@p.Nombre</option>
+                                        }
+                                    </select>
+                                </div>
+                            }
+                            <button class="btn btn-success btn-lg px-5 py-3" @onclick="FicharEntrada" disabled="@procesando">
+                                @if (procesando)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                }
+                                🟢 Fichar Entrada
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mi horario de hoy -->
+        @if (horarioHoy.Any())
+        {
+            <div class="row justify-content-center mb-4">
+                <div class="col-md-8">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0">📅 Mi horario de hoy</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <table class="table table-striped mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Turno</th>
+                                        <th>Entrada</th>
+                                        <th>Salida</th>
+                                        <th>Proyecto</th>
+                                        <th>Horas</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var h in horarioHoy)
+                                    {
+                                        <tr>
+                                            <td><span class="badge bg-primary">@h.TipoTurno</span></td>
+                                            <td>@h.HoraEntrada.ToString("HH:mm")</td>
+                                            <td>@h.HoraSalida.ToString("HH:mm")</td>
+                                            <td>@(h.Proyecto?.Nombre ?? "General")</td>
+                                            <td>@h.HorasPrevistas.ToString("F1") h</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Historial reciente -->
+        <div class="row justify-content-center">
+            <div class="col-md-10">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">📋 Historial de fichajes (últimos 7 días)</h5>
+                        <span class="badge bg-secondary">@historial.Count registros</span>
+                    </div>
+                    <div class="card-body p-0">
+                        @if (!historial.Any())
+                        {
+                            <p class="text-center text-muted p-4">No hay fichajes en los últimos 7 días.</p>
+                        }
+                        else
+                        {
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Entrada</th>
+                                        <th>Salida</th>
+                                        <th>Proyecto</th>
+                                        <th>Horas</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var f in historial)
+                                    {
+                                        <tr>
+                                            <td>@f.Fecha.ToString("dd/MM/yyyy")</td>
+                                            <td>@f.HoraEntrada.ToString("HH:mm")</td>
+                                            <td>@(f.HoraSalida?.ToString("HH:mm") ?? "—")</td>
+                                            <td>@(f.Proyecto?.Nombre ?? "—")</td>
+                                            <td>@(f.TotalHoras.HasValue ? $"{f.TotalHoras:F1} h" : "—")</td>
+                                            <td>
+                                                @switch (f.Estado)
+                                                {
+                                                    case EstadoFichaje.Pendiente:
+                                                        <span class="badge bg-warning text-dark">Pendiente</span>
+                                                        break;
+                                                    case EstadoFichaje.Validado:
+                                                        <span class="badge bg-success">Validado</span>
+                                                        break;
+                                                    case EstadoFichaje.Rechazado:
+                                                        <span class="badge bg-danger">Rechazado</span>
+                                                        break;
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(mensaje))
+        {
+            <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1050;">
+                <div class="toast show align-items-center text-bg-@(esError ? "danger" : "success") border-0" role="alert">
+                    <div class="d-flex">
+                        <div class="toast-body">@mensaje</div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" @onclick="() => mensaje = null"></button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private UsuarioObra? usuarioActual;
+    private RegistroFichaje? fichajeAbierto;
+    private List<RegistroFichaje> historial = new();
+    private List<HorarioAsignado> horarioHoy = new();
+    private List<Proyecto> proyectosDisponibles = new();
+    private int? proyectoSeleccionadoId;
+    private bool cargando = true;
+    private bool procesando;
+    private string? mensaje;
+    private bool esError;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            usuarioActual = await UserManager.GetUserAsync(authState.User);
+            if (usuarioActual != null)
+            {
+                await CargarDatos();
+            }
+            cargando = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CargarDatos()
+    {
+        var hoy = DateOnly.FromDateTime(DateTime.Today);
+        fichajeAbierto = await FichajeRepo.GetFichajeAbiertoAsync(usuarioActual!.Id, hoy);
+        historial = await FichajeRepo.GetFichajesByUsuarioAsync(usuarioActual.Id, hoy.AddDays(-7), hoy);
+
+        // Horario del día actual
+        var diaSemana = DateTime.Now.DayOfWeek switch
+        {
+            DayOfWeek.Monday => DiaSemana.Lunes,
+            DayOfWeek.Tuesday => DiaSemana.Martes,
+            DayOfWeek.Wednesday => DiaSemana.Miercoles,
+            DayOfWeek.Thursday => DiaSemana.Jueves,
+            DayOfWeek.Friday => DiaSemana.Viernes,
+            DayOfWeek.Saturday => DiaSemana.Sabado,
+            DayOfWeek.Sunday => DiaSemana.Domingo,
+            _ => DiaSemana.Lunes
+        };
+        var todosHorarios = await FichajeRepo.GetHorariosByUsuarioAsync(usuarioActual.Id);
+        horarioHoy = todosHorarios.Where(h => h.DiaSemana == diaSemana).ToList();
+
+        // Proyectos en los que participa el usuario
+        proyectosDisponibles = await DbContext.Proyectos
+            .Where(p => p.Estado == EstadoProyecto.EnCurso || p.Estado == EstadoProyecto.Planificacion)
+            .Where(p => p.Tareas.Any(t => t.UsuariosAsignados.Any(u => u.Id == usuarioActual.Id))
+                     || p.ResponsableId == usuarioActual.Id)
+            .OrderBy(p => p.Nombre)
+            .ToListAsync();
+    }
+
+    private async Task FicharEntrada()
+    {
+        procesando = true;
+        try
+        {
+            var ahora = DateTime.Now;
+            var fichaje = new RegistroFichaje
+            {
+                UsuarioId = usuarioActual!.Id,
+                ProyectoId = proyectoSeleccionadoId,
+                Fecha = DateOnly.FromDateTime(ahora),
+                HoraEntrada = ahora,
+                Estado = EstadoFichaje.Pendiente
+            };
+            await FichajeRepo.AddFichajeAsync(fichaje);
+            MostrarMensaje("Entrada fichada correctamente", false);
+            await CargarDatos();
+        }
+        catch (Exception ex)
+        {
+            MostrarMensaje($"Error al fichar entrada: {ex.Message}", true);
+        }
+        procesando = false;
+    }
+
+    private async Task FicharSalida()
+    {
+        procesando = true;
+        try
+        {
+            if (fichajeAbierto != null)
+            {
+                fichajeAbierto.HoraSalida = DateTime.Now;
+                await FichajeRepo.UpdateFichajeAsync(fichajeAbierto);
+                MostrarMensaje($"Salida fichada. Jornada: {fichajeAbierto.TotalHoras:F1} horas", false);
+                await CargarDatos();
+            }
+        }
+        catch (Exception ex)
+        {
+            MostrarMensaje($"Error al fichar salida: {ex.Message}", true);
+        }
+        procesando = false;
+    }
+
+    private void MostrarMensaje(string msg, bool error)
+    {
+        mensaje = msg;
+        esError = error;
+        _ = Task.Delay(4000).ContinueWith(_ =>
+        {
+            mensaje = null;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+}

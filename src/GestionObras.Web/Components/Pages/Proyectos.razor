@@ -1,6 +1,8 @@
 @page "/proyectos"
 @attribute [Authorize]
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
 @using GestionObras.Core.Entities
 @using GestionObras.Infrastructure.Repositories
 @using GestionObras.Infrastructure.Data
@@ -10,6 +12,8 @@
 @inject GestionObrasDbContext DbContext
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthStateProvider
+@inject UserManager<UsuarioObra> UserManager
 @rendermode InteractiveServer
 
 <PageTitle>Proyectos - Gestión de Obras</PageTitle>
@@ -476,15 +480,58 @@
     private DateTime ganttFin = DateTime.Today;
     private List<DateTime> mesesTimeline = new();
 
+    // Autenticación / filtro por rol
+    private string? usuarioActualId;
+    private HashSet<string> rolesUsuarioActual = new();
+    private bool esAdmin = false;
+
     protected override async Task OnInitializedAsync()
     {
+        await ObtenerUsuarioActual();
         await CargarProyectos();
         await CargarUsuariosResponsables();
     }
 
+    private async Task ObtenerUsuarioActual()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var claimsPrincipal = authState.User;
+        if (claimsPrincipal.Identity?.IsAuthenticated == true)
+        {
+            var usuario = await UserManager.GetUserAsync(claimsPrincipal);
+            usuarioActualId = usuario?.Id;
+            if (usuario != null)
+            {
+                var roles = await UserManager.GetRolesAsync(usuario);
+                rolesUsuarioActual = roles.ToHashSet();
+                esAdmin = rolesUsuarioActual.Contains("Administrador");
+            }
+        }
+    }
+
     private async Task CargarProyectos()
     {
-        proyectos = await ProyectoRepository.GetAllAsync();
+        var todos = await ProyectoRepository.GetAllAsync();
+
+        if (esAdmin)
+        {
+            // Administrador ve todos los proyectos
+            proyectos = todos;
+        }
+        else if (rolesUsuarioActual.Contains("JefeObra") || rolesUsuarioActual.Contains("OficinaTecnica"))
+        {
+            // Jefe de Obra / Oficina Técnica solo ven proyectos donde son responsables
+            proyectos = todos.Where(p => p.ResponsableId == usuarioActualId).ToList();
+        }
+        else
+        {
+            // Operario u otro rol: solo proyectos en los que tiene tareas asignadas
+            proyectos = todos
+                .Where(p => p.Tareas.Any(t => t.UsuariosAsignados != null
+                    && t.UsuariosAsignados.Any(u => u.Id == usuarioActualId)))
+                .ToList();
+        }
+
         AplicarFiltros();
     }
 

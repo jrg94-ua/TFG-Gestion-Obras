@@ -27,6 +27,9 @@ public class GestionObrasDbContext : IdentityDbContext<UsuarioObra>
     public DbSet<Presupuesto> Presupuestos { get; set; }
     public DbSet<CarpetaLegal> CarpetasLegales { get; set; }
     public DbSet<Proveedor> Proveedores { get; set; }
+    public DbSet<RegistroFichaje> RegistrosFichaje { get; set; }
+    public DbSet<HorarioAsignado> HorariosAsignados { get; set; }
+    public DbSet<Contrato> Contratos { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -290,6 +293,61 @@ public class GestionObrasDbContext : IdentityDbContext<UsuarioObra>
             // Índices para búsquedas
             entity.HasIndex(s => s.Estado);
             entity.HasIndex(s => s.FechaSolicitud);
+        });
+
+        // RegistroFichaje
+        builder.Entity<RegistroFichaje>(entity =>
+        {
+            entity.HasKey(r => r.Id);
+            entity.Property(r => r.Notas).HasMaxLength(500);
+
+            entity.HasOne(r => r.Usuario)
+                  .WithMany()
+                  .HasForeignKey(r => r.UsuarioId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(r => r.Proyecto)
+                  .WithMany()
+                  .HasForeignKey(r => r.ProyectoId)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(r => new { r.UsuarioId, r.Fecha });
+        });
+
+        // HorarioAsignado
+        builder.Entity<HorarioAsignado>(entity =>
+        {
+            entity.HasKey(h => h.Id);
+
+            entity.HasOne(h => h.Usuario)
+                  .WithMany()
+                  .HasForeignKey(h => h.UsuarioId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(h => h.Proyecto)
+                  .WithMany()
+                  .HasForeignKey(h => h.ProyectoId)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(h => new { h.UsuarioId, h.DiaSemana });
+        });
+
+        // Contrato
+        builder.Entity<Contrato>(entity =>
+        {
+            entity.HasKey(c => c.Id);
+            entity.Property(c => c.SalarioBrutoAnual).HasColumnType("decimal(18,2)");
+            entity.Property(c => c.CategoriaConvenio).HasMaxLength(200);
+            entity.Property(c => c.NumeroSeguridadSocial).HasMaxLength(50);
+            entity.Property(c => c.CentroTrabajo).HasMaxLength(200);
+            entity.Property(c => c.Observaciones).HasMaxLength(1000);
+
+            entity.HasOne(c => c.Usuario)
+                  .WithMany()
+                  .HasForeignKey(c => c.UsuarioId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(c => c.UsuarioId);
         });
     }
 }

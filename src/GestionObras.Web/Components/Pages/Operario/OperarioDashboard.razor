@@ -1,150 +1,264 @@
 @page "/operario/dashboard"
-@attribute [Authorize(Roles = "Operario,JefeObra,Administrador")]
+@attribute [Authorize(Roles = "Operario,OperarioObra,OperarioOficinaT,JefeObra,Administrador")]
 @using Microsoft.AspNetCore.Authorization
 @using GestionObras.Infrastructure.Data
 @using GestionObras.Core.Entities
 @using Microsoft.EntityFrameworkCore
 @using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
 @inject GestionObrasDbContext DbContext
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UserManager<UsuarioObra> UserManager
 @rendermode InteractiveServer
 
-<PageTitle>Panel de Operario - Gestión de Obras</PageTitle>
+<PageTitle>Mi Panel - Gestión de Obras</PageTitle>
 
-<div class="dashboard-container">
-    <div class="dashboard-header">
-        <h1>🔧 Panel de Operario</h1>
-        <p>Mis tareas asignadas</p>
+@if (cargando)
+{
+    <div class="text-center p-5">
+        <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div>
     </div>
+}
+else
+{
+    <div class="container-fluid px-4 py-3">
+        <!-- Saludo -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="text-primary mb-1">🔧 Hola, @nombreUsuario</h1>
+                <p class="text-muted mb-0">Tu resumen del día — @DateTime.Today.ToString("dddd, dd MMMM yyyy")</p>
+            </div>
+            <button class="btn btn-success btn-lg" @onclick='() => Navigation.NavigateTo("/fichaje")'>
+                <i class="bi bi-clock me-1"></i> Fichar
+            </button>
+        </div>
 
-    <div class="metrics-grid">
-        <div class="metric-card">
-            <div class="metric-icon">✅</div>
-            <div class="metric-content">
-                <h3>@tareasPendientes</h3>
-                <p>Tareas Pendientes</p>
+        <!-- Métricas -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm h-100" style="border-left:4px solid #ffc107 !important;">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <div class="display-6">⏳</div>
+                        <div><h3 class="mb-0">@tareasPendientes</h3><small class="text-muted">Pendientes</small></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm h-100" style="border-left:4px solid #0d6efd !important;">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <div class="display-6">🔄</div>
+                        <div><h3 class="mb-0">@tareasEnCurso</h3><small class="text-muted">En curso</small></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm h-100" style="border-left:4px solid #198754 !important;">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <div class="display-6">✅</div>
+                        <div><h3 class="mb-0">@tareasCompletadas</h3><small class="text-muted">Completadas</small></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm h-100" style="border-left:4px solid #6f42c1 !important;">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <div class="display-6">📅</div>
+                        <div><h3 class="mb-0">@horasSemanales.ToString("F0") h</h3><small class="text-muted">Horas/semana</small></div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <div class="metric-card">
-            <div class="metric-icon">⏳</div>
-            <div class="metric-content">
-                <h3>@tareasEnCurso</h3>
-                <p>En Progreso</p>
+        <div class="row g-4">
+            <!-- Mis Tareas -->
+            <div class="col-lg-8">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0 fw-semibold">📋 Mis Tareas Activas</h5>
+                        <button class="btn btn-sm btn-outline-primary" @onclick='() => Navigation.NavigateTo("/mi-tablero")'>Ver tablero</button>
+                    </div>
+                    <div class="card-body p-0">
+                        @if (!misTareas.Any())
+                        {
+                            <div class="text-center text-muted p-4">
+                                <div class="display-4 mb-2">🎉</div>
+                                <p>No tienes tareas pendientes</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr><th>Tarea</th><th>Proyecto</th><th>Estado</th><th>Inicio</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var t in misTareas)
+                                        {
+                                            <tr>
+                                                <td><strong>@t.Nombre</strong></td>
+                                                <td>@t.Proyecto?.Nombre</td>
+                                                <td><span class="badge @GetBadge(t.Estado)">@t.Estado</span></td>
+                                                <td>@t.FechaInicio.ToString("dd/MM/yyyy")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                </div>
             </div>
-        </div>
 
-        <div class="metric-card">
-            <div class="metric-icon">✔️</div>
-            <div class="metric-content">
-                <h3>@tareasCompletadas</h3>
-                <p>Completadas</p>
-            </div>
-        </div>
+            <!-- Mi Horario Semanal -->
+            <div class="col-lg-4">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0 fw-semibold">📅 Mi Horario Semanal</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        @if (!misHorarios.Any())
+                        {
+                            <div class="text-center text-muted p-4">
+                                <p>Sin horarios asignados</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="list-group list-group-flush">
+                                @foreach (DiaSemana dia in Enum.GetValues<DiaSemana>())
+                                {
+                                    var turnos = misHorarios.Where(h => h.DiaSemana == dia).ToList();
+                                    if (turnos.Any())
+                                    {
+                                        var esHoy = dia == DiaSemanaHoy();
+                                        <div class="list-group-item @(esHoy ? "list-group-item-success" : "")">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <strong>@dia @(esHoy ? " ← HOY" : "")</strong>
+                                            </div>
+                                            @foreach (var h in turnos)
+                                            {
+                                                <small class="d-block text-muted">
+                                                    @switch (h.TipoTurno)
+                                                    {
+                                                        case TipoTurno.Mañana: <text>☀️</text> break;
+                                                        case TipoTurno.Tarde: <text>🌅</text> break;
+                                                        case TipoTurno.Noche: <text>🌙</text> break;
+                                                        case TipoTurno.Partido: <text>📐</text> break;
+                                                    }
+                                                    @h.HoraEntrada.ToString("HH:mm") - @h.HoraSalida.ToString("HH:mm")
+                                                    @if (h.Proyecto != null) { <text>(@h.Proyecto.Nombre)</text> }
+                                                </small>
+                                            }
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
 
-        <div class="metric-card">
-            <div class="metric-icon">📦</div>
-            <div class="metric-content">
-                <h3>@materialesDisponibles</h3>
-                <p>Materiales</p>
+                <!-- Último fichaje -->
+                <div class="card shadow-sm border-0 mt-3">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0 fw-semibold">🕐 Último Fichaje</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (ultimoFichaje != null)
+                        {
+                            <p class="mb-1"><strong>Entrada:</strong> @ultimoFichaje.HoraEntrada.ToString("dd/MM HH:mm")</p>
+                            @if (ultimoFichaje.HoraSalida.HasValue)
+                            {
+                                <p class="mb-1"><strong>Salida:</strong> @ultimoFichaje.HoraSalida.Value.ToString("dd/MM HH:mm")</p>
+                                <p class="mb-0 text-muted"><strong>Duración:</strong> @((ultimoFichaje.HoraSalida.Value - ultimoFichaje.HoraEntrada).ToString(@"hh\:mm")) h</p>
+                            }
+                            else
+                            {
+                                <span class="badge bg-success">En turno activo</span>
+                            }
+                        }
+                        else
+                        {
+                            <p class="text-muted mb-0">Sin fichajes recientes</p>
+                        }
+                    </div>
+                </div>
+
+                <!-- Acciones rápidas -->
+                <div class="card shadow-sm border-0 mt-3">
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-outline-primary" @onclick='() => Navigation.NavigateTo("/mi-tablero")'>
+                                📋 Mi Tablero
+                            </button>
+                            <button class="btn btn-outline-success" @onclick='() => Navigation.NavigateTo("/fichaje")'>
+                                🕐 Fichaje
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-
-    <div class="quick-actions">
-        <h2>Acciones Rápidas</h2>
-        <div class="actions-grid">
-            <button class="action-btn" @onclick="@(() => Navigation.NavigateTo("/mis-tareas"))">
-                <i class="bi bi-list-task"></i>
-                <span>Mis Tareas</span>
-            </button>
-            <button class="action-btn" @onclick="@(() => Navigation.NavigateTo("/kanban"))">
-                <i class="bi bi-kanban-fill"></i>
-                <span>Tablero Kanban</span>
-            </button>
-            <button class="action-btn" @onclick="@(() => Navigation.NavigateTo("/materiales"))">
-                <i class="bi bi-box-seam"></i>
-                <span>Materiales</span>
-            </button>
-            <button class="action-btn" @onclick="@(() => Navigation.NavigateTo("/proyectos"))">
-                <i class="bi bi-building"></i>
-                <span>Proyectos</span>
-            </button>
-        </div>
-    </div>
-
-    <div class="recent-activity">
-        <h2>Mis Tareas Activas</h2>
-        <div class="table-responsive">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>Tarea</th>
-                        <th>Proyecto</th>
-                        <th>Estado</th>
-                        <th>Fecha Inicio</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var tarea in misTareas)
-                    {
-                        <tr>
-                            <td>@tarea.Nombre</td>
-                            <td>@tarea.Proyecto?.Nombre</td>
-                            <td><span class="badge @GetEstadoBadge(tarea.Estado)">@tarea.Estado</span></td>
-                            <td>@tarea.FechaInicio.ToString("dd/MM/yyyy")</td>
-                            <td>
-                                <button class="btn btn-sm btn-primary" @onclick="@(() => Navigation.NavigateTo($"/tareas/{tarea.Id}"))">
-                                    Ver
-                                </button>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
+}
 
 @code {
-    private int tareasPendientes;
-    private int tareasEnCurso;
-    private int tareasCompletadas;
-    private int materialesDisponibles;
+    private bool cargando = true;
+    private string nombreUsuario = "";
+    private string? userId;
+    private int tareasPendientes, tareasEnCurso, tareasCompletadas;
+    private double horasSemanales;
     private List<GestionObras.Core.Entities.Tarea> misTareas = new();
+    private List<HorarioAsignado> misHorarios = new();
+    private RegistroFichaje? ultimoFichaje;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        await CargarDatos();
+        if (firstRender)
+        {
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = await UserManager.GetUserAsync(authState.User);
+            if (user != null)
+            {
+                userId = user.Id;
+                nombreUsuario = user.NombreCompleto?.Split(' ').FirstOrDefault() ?? "Operario";
+                await CargarDatos();
+            }
+            cargando = false;
+            StateHasChanged();
+        }
     }
 
     private async Task CargarDatos()
     {
-        // Por ahora mostramos todas las tareas, en el futuro filtrar por empleado asignado
-        tareasPendientes = await DbContext.Tareas.CountAsync(t => t.Estado == EstadoTarea.Pendiente);
-        tareasEnCurso = await DbContext.Tareas.CountAsync(t => t.Estado == EstadoTarea.EnCurso);
-        tareasCompletadas = await DbContext.Tareas.CountAsync(t => t.Estado == EstadoTarea.Finalizado);
-        materialesDisponibles = await DbContext.Materiales.CountAsync();
-        
-        misTareas = await DbContext.Tareas
-            .Include(t => t.Proyecto)
-            .Where(t => t.Estado == EstadoTarea.Pendiente || t.Estado == EstadoTarea.EnCurso)
-            .OrderBy(t => t.FechaInicio)
-            .Take(10)
-            .ToListAsync();
+        // Tareas donde estoy asignado (UsuariosAsignados)
+        tareasPendientes = await DbContext.Tareas.CountAsync(t => t.UsuariosAsignados.Any(u => u.Id == userId) && t.Estado == EstadoTarea.Pendiente);
+        tareasEnCurso = await DbContext.Tareas.CountAsync(t => t.UsuariosAsignados.Any(u => u.Id == userId) && t.Estado == EstadoTarea.EnCurso);
+        tareasCompletadas = await DbContext.Tareas.CountAsync(t => t.UsuariosAsignados.Any(u => u.Id == userId) && t.Estado == EstadoTarea.Finalizado);
+        misTareas = await DbContext.Tareas.Include(t => t.Proyecto)
+            .Where(t => t.UsuariosAsignados.Any(u => u.Id == userId) && (t.Estado == EstadoTarea.Pendiente || t.Estado == EstadoTarea.EnCurso))
+            .OrderBy(t => t.FechaInicio).Take(10).ToListAsync();
+
+        // Mi horario semanal
+        misHorarios = await DbContext.HorariosAsignados.Include(h => h.Proyecto)
+            .Where(h => h.UsuarioId == userId && h.Activo)
+            .OrderBy(h => h.DiaSemana).ThenBy(h => h.HoraEntrada).ToListAsync();
+        horasSemanales = misHorarios.Sum(h => h.HorasPrevistas);
+
+        // Último fichaje
+        ultimoFichaje = await DbContext.RegistrosFichaje
+            .Where(f => f.UsuarioId == userId)
+            .OrderByDescending(f => f.HoraEntrada).FirstOrDefaultAsync();
     }
 
-    private string GetEstadoBadge(EstadoTarea estado)
-    {
-        return estado switch
-        {
-            EstadoTarea.EnCurso => "bg-success",
-            EstadoTarea.Pendiente => "bg-warning",
-            EstadoTarea.Finalizado => "bg-secondary",
-            EstadoTarea.Bloqueado => "bg-danger",
-            _ => "bg-primary"
-        };
-    }
+    private DiaSemana DiaSemanaHoy() => DateTime.Now.DayOfWeek switch {
+        DayOfWeek.Monday => DiaSemana.Lunes, DayOfWeek.Tuesday => DiaSemana.Martes,
+        DayOfWeek.Wednesday => DiaSemana.Miercoles, DayOfWeek.Thursday => DiaSemana.Jueves,
+        DayOfWeek.Friday => DiaSemana.Viernes, DayOfWeek.Saturday => DiaSemana.Sabado,
+        DayOfWeek.Sunday => DiaSemana.Domingo, _ => DiaSemana.Lunes };
+
+    private string GetBadge(EstadoTarea e) => e switch {
+        EstadoTarea.EnCurso => "bg-primary", EstadoTarea.Pendiente => "bg-warning text-dark",
+        EstadoTarea.Finalizado => "bg-success", EstadoTarea.Bloqueado => "bg-danger", _ => "bg-secondary" };
 }

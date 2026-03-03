@@ -1,0 +1,430 @@
+@page "/rrhh/horarios"
+@attribute [Authorize(Roles = "RecursosHumanos,Administrador")]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using GestionObras.Core.Entities
+@using GestionObras.Infrastructure.Data
+@using GestionObras.Infrastructure.Repositories
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Identity
+@inject GestionObrasDbContext DbContext
+@inject IFichajeRepository FichajeRepo
+@inject UserManager<UsuarioObra> UserManager
+@inject AuthenticationStateProvider AuthStateProvider
+@rendermode InteractiveServer
+
+<PageTitle>Gestión de Horarios - RRHH</PageTitle>
+
+<style>
+    .cal-grid {
+        display: grid;
+        grid-template-columns: 220px repeat(7, 1fr);
+        gap: 1px;
+        background: #dee2e6;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+    .cal-hdr {
+        background: #2c3e50;
+        color: white;
+        padding: 14px 8px;
+        font-weight: 600;
+        text-align: center;
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .cal-hdr.corner { background: #1a252f; }
+    .cal-hdr.hoy { background: #1b5e20; }
+    .cal-name {
+        background: #f8f9fa;
+        padding: 10px 12px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border-right: 3px solid #2c3e50;
+        min-height: 76px;
+    }
+    .cal-avatar {
+        width: 36px; height: 36px; border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white; display: flex; align-items: center; justify-content: center;
+        font-size: 0.75rem; font-weight: 700; flex-shrink: 0;
+    }
+    .cal-name-info { display: flex; flex-direction: column; }
+    .cal-name-info strong { font-size: 0.85rem; color: #2c3e50; }
+    .cal-name-info small { font-size: 0.72rem; color: #6c757d; }
+    .cal-cell {
+        background: white; padding: 5px; min-height: 76px;
+        display: flex; flex-direction: column; gap: 3px;
+        cursor: pointer; transition: background 0.15s; position: relative;
+    }
+    .cal-cell:hover { background: #f0f4ff; }
+    .cal-cell.hoy-col { background: #e8f5e9; }
+    .cal-cell.hoy-col:hover { background: #c8e6c9; }
+    .cal-cell.vacia:hover::after {
+        content: '+'; position: absolute; inset: 0;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.8rem; color: #c5cad0; font-weight: 300;
+    }
+    .turno-pill {
+        border-radius: 8px; padding: 4px 8px; font-size: 0.72rem;
+        font-weight: 600; display: flex; align-items: center; gap: 4px;
+        position: relative; line-height: 1.3;
+    }
+    .turno-pill .t-del {
+        position: absolute; top: -5px; right: -5px;
+        width: 18px; height: 18px; border-radius: 50%;
+        background: #dc3545; color: white; border: 2px solid white;
+        font-size: 0.6rem; display: none; align-items: center;
+        justify-content: center; cursor: pointer; padding: 0;
+    }
+    .turno-pill:hover .t-del { display: flex; }
+    .t-man { background: #fff3cd; color: #856404; border-left: 3px solid #ffc107; }
+    .t-tar { background: #cfe2ff; color: #084298; border-left: 3px solid #0d6efd; }
+    .t-noc { background: #d3d3d9; color: #1e1e2f; border-left: 3px solid #343a40; }
+    .t-par { background: #e2d9f3; color: #432874; border-left: 3px solid #6f42c1; }
+    .legend-bar { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; }
+    .legend-dot { width: 14px; height: 14px; border-radius: 4px; }
+    .legend-item { display: flex; align-items: center; gap: 5px; font-size: 0.82rem; }
+</style>
+
+@if (cargando)
+{
+    <div class="text-center p-5">
+        <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div>
+    </div>
+}
+else
+{
+    <div class="container-fluid px-4 py-3">
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="text-primary mb-1">📅 Calendario de Horarios — RRHH</h1>
+                <p class="text-muted mb-0">Haz clic en una celda vacía para asignar turno</p>
+            </div>
+            <button class="btn btn-primary btn-lg" @onclick="AbrirFormularioNuevo">
+                <i class="bi bi-plus-circle me-1"></i> Nuevo Horario
+            </button>
+        </div>
+
+        <!-- Filtros + Leyenda -->
+        <div class="card shadow-sm mb-4 border-0">
+            <div class="card-body">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Proyecto</label>
+                        <select class="form-select" @bind="filtroProyectoId" @bind:after="CargarHorarios">
+                            <option value="">Todos los proyectos</option>
+                            @foreach (var p in proyectos)
+                            {
+                                <option value="@p.Id">@p.Nombre</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Trabajador</label>
+                        <select class="form-select" @bind="filtroUsuarioId" @bind:after="CargarHorarios">
+                            <option value="">Todos</option>
+                            @foreach (var u in trabajadores)
+                            {
+                                <option value="@u.Id">@u.NombreCompleto</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-6 d-flex align-items-end">
+                        <div class="legend-bar ms-auto">
+                            <div class="legend-item"><div class="legend-dot" style="background:#ffc107;"></div> Mañana</div>
+                            <div class="legend-item"><div class="legend-dot" style="background:#0d6efd;"></div> Tarde</div>
+                            <div class="legend-item"><div class="legend-dot" style="background:#343a40;"></div> Noche</div>
+                            <div class="legend-item"><div class="legend-dot" style="background:#6f42c1;"></div> Partido</div>
+                            <span class="badge bg-secondary ms-2">@horarios.Count turnos · @trabConHorario.Count personas</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CALENDARIO SEMANAL -->
+        @if (!trabConHorario.Any())
+        {
+            <div class="card shadow-sm border-0">
+                <div class="card-body text-center p-5">
+                    <div class="display-1 mb-3">📅</div>
+                    <h4 class="text-muted">No hay horarios asignados</h4>
+                    <p class="text-muted">Pulsa "Nuevo Horario" para configurar turnos</p>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="cal-grid">
+                <!-- Cabecera -->
+                <div class="cal-hdr corner">👤 Trabajador</div>
+                @foreach (DiaSemana dia in Enum.GetValues<DiaSemana>())
+                {
+                    <div class="cal-hdr @(EsHoy(dia) ? "hoy" : "")">
+                        @DiaCorto(dia)
+                        @if (EsHoy(dia)) { <br/><span style="font-weight:400;opacity:0.8;font-size:0.7rem;">HOY</span> }
+                    </div>
+                }
+
+                @foreach (var t in trabConHorario)
+                {
+                    var hSem = HorasSemana(t.Id);
+                    <div class="cal-name">
+                        <div class="cal-avatar">@Iniciales(t.NombreCompleto)</div>
+                        <div class="cal-name-info">
+                            <strong>@t.NombreCompleto</strong>
+                            <small>@hSem.ToString("F0") h / semana</small>
+                        </div>
+                    </div>
+
+                    @foreach (DiaSemana dia in Enum.GetValues<DiaSemana>())
+                    {
+                        var turnos = TurnosDia(t.Id, dia);
+                        <div class="cal-cell @(EsHoy(dia) ? "hoy-col" : "") @(!turnos.Any() ? "vacia" : "")"
+                             @onclick="() => ClickCelda(t.Id, dia)">
+                            @foreach (var h in turnos)
+                            {
+                                <div class="turno-pill @TurnoClass(h.TipoTurno)">
+                                    @TurnoIcon(h.TipoTurno) @h.HoraEntrada.ToString("HH:mm")-@h.HoraSalida.ToString("HH:mm")
+                                    <button class="t-del" @onclick="() => EliminarHorario(h.Id)" @onclick:stopPropagation="true" title="Eliminar">✕</button>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+            </div>
+
+            <!-- Resumen por proyecto -->
+            @if (horarios.Any(h => h.Proyecto != null))
+            {
+                <div class="card shadow-sm border-0 mt-4">
+                    <div class="card-header bg-white fw-semibold">📊 Resumen por proyecto</div>
+                    <div class="card-body p-0">
+                        <table class="table table-sm mb-0">
+                            <thead class="table-light">
+                                <tr><th>Proyecto</th><th>Trabajadores</th><th>Turnos</th><th>Horas/sem</th></tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var g in horarios.Where(h => h.Proyecto != null).GroupBy(h => h.Proyecto!.Nombre))
+                                {
+                                    <tr>
+                                        <td><strong>@g.Key</strong></td>
+                                        <td>@g.Select(h => h.UsuarioId).Distinct().Count()</td>
+                                        <td>@g.Count()</td>
+                                        <td>@g.Sum(h => h.HorasPrevistas).ToString("F0") h</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
+        }
+
+        <!-- Modal nuevo horario -->
+        @if (mostrarForm)
+        {
+            <div class="modal fade show d-block" tabindex="-1" style="background-color:rgba(0,0,0,0.5);">
+                <div class="modal-dialog">
+                    <div class="modal-content" style="border-radius:16px;border:none;">
+                        <div class="modal-header border-0 pb-0">
+                            <h5 class="modal-title fw-bold">➕ Asignar turno</h5>
+                            <button type="button" class="btn-close" @onclick="CerrarForm"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Trabajador *</label>
+                                <select class="form-select" @bind="nuevo.UsuarioId">
+                                    <option value="">— Seleccionar —</option>
+                                    @foreach (var u in trabajadores)
+                                    {
+                                        <option value="@u.Id">@u.NombreCompleto</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Proyecto</label>
+                                <select class="form-select" @bind="nuevoProyId">
+                                    <option value="">— General —</option>
+                                    @foreach (var p in proyectos)
+                                    {
+                                        <option value="@p.Id">@p.Nombre</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Días *</label>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    @foreach (DiaSemana d in Enum.GetValues<DiaSemana>())
+                                    {
+                                        var sel = diasSel.Contains(d);
+                                        <button type="button" class="btn @(sel ? "btn-primary" : "btn-outline-secondary") px-3"
+                                                @onclick="() => ToggleDia(d)">@DiaCorto(d)</button>
+                                    }
+                                </div>
+                            </div>
+                            <div class="row g-3 mb-3">
+                                <div class="col-6">
+                                    <label class="form-label fw-semibold">Entrada *</label>
+                                    <input type="text" class="form-control" placeholder="08:00" @bind="heStr" />
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label fw-semibold">Salida *</label>
+                                    <input type="text" class="form-control" placeholder="14:00" @bind="hsStr" />
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Turno</label>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    @foreach (TipoTurno t in Enum.GetValues<TipoTurno>())
+                                    {
+                                        <button type="button" class="btn @(nuevo.TipoTurno == t ? "btn-dark" : "btn-outline-secondary")"
+                                                @onclick="() => nuevo.TipoTurno = t">@TurnoIcon(t) @t</button>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer border-0 pt-0">
+                            <button class="btn btn-light" @onclick="CerrarForm">Cancelar</button>
+                            <button class="btn btn-primary px-4" @onclick="Guardar" disabled="@guardando">
+                                @if (guardando) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                                Asignar @(diasSel.Count > 1 ? $"({diasSel.Count} días)" : "")
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(msg))
+        {
+            <div class="position-fixed bottom-0 end-0 p-3" style="z-index:1050;">
+                <div class="toast show align-items-center text-bg-@(msgErr ? "danger" : "success") border-0" role="alert" style="border-radius:12px;">
+                    <div class="d-flex">
+                        <div class="toast-body">@msg</div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" @onclick="() => msg = null"></button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private bool cargando = true;
+    private bool mostrarForm, guardando, msgErr;
+    private string? msg;
+
+    private List<Proyecto> proyectos = new();
+    private List<UsuarioObra> trabajadores = new();
+    private List<HorarioAsignado> horarios = new();
+    private List<UsuarioObra> trabConHorario = new();
+
+    private string filtroProyectoId = "", filtroUsuarioId = "";
+
+    // Form
+    private HorarioAsignado nuevo = new();
+    private string? nuevoProyId;
+    private string heStr = "08:00", hsStr = "14:00";
+    private HashSet<DiaSemana> diasSel = new() { DiaSemana.Lunes, DiaSemana.Martes, DiaSemana.Miercoles, DiaSemana.Jueves, DiaSemana.Viernes };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            proyectos = await DbContext.Proyectos.OrderBy(p => p.Nombre).ToListAsync();
+            trabajadores = await DbContext.Users.Where(u => u.Activo).OrderBy(u => u.NombreCompleto).ToListAsync();
+            await CargarHorarios();
+            cargando = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CargarHorarios()
+    {
+        IQueryable<HorarioAsignado> q = DbContext.HorariosAsignados
+            .Include(h => h.Usuario).Include(h => h.Proyecto).Where(h => h.Activo);
+        if (!string.IsNullOrEmpty(filtroProyectoId) && int.TryParse(filtroProyectoId, out int pid))
+            q = q.Where(h => h.ProyectoId == pid);
+        if (!string.IsNullOrEmpty(filtroUsuarioId))
+            q = q.Where(h => h.UsuarioId == filtroUsuarioId);
+        horarios = await q.OrderBy(h => h.Usuario!.NombreCompleto).ThenBy(h => h.DiaSemana).ThenBy(h => h.HoraEntrada).ToListAsync();
+        var ids = horarios.Select(h => h.UsuarioId).Distinct().ToList();
+        trabConHorario = trabajadores.Where(t => ids.Contains(t.Id)).ToList();
+    }
+
+    // --- Helpers ---
+    private List<HorarioAsignado> TurnosDia(string uid, DiaSemana d) => horarios.Where(h => h.UsuarioId == uid && h.DiaSemana == d).ToList();
+    private double HorasSemana(string uid) => horarios.Where(h => h.UsuarioId == uid).Sum(h => h.HorasPrevistas);
+    private bool EsHoy(DiaSemana d) => d == (DateTime.Now.DayOfWeek switch {
+        DayOfWeek.Monday => DiaSemana.Lunes, DayOfWeek.Tuesday => DiaSemana.Martes,
+        DayOfWeek.Wednesday => DiaSemana.Miercoles, DayOfWeek.Thursday => DiaSemana.Jueves,
+        DayOfWeek.Friday => DiaSemana.Viernes, DayOfWeek.Saturday => DiaSemana.Sabado,
+        DayOfWeek.Sunday => DiaSemana.Domingo, _ => DiaSemana.Lunes });
+    private string DiaCorto(DiaSemana d) => d switch {
+        DiaSemana.Lunes => "LUN", DiaSemana.Martes => "MAR", DiaSemana.Miercoles => "MIÉ",
+        DiaSemana.Jueves => "JUE", DiaSemana.Viernes => "VIE", DiaSemana.Sabado => "SÁB",
+        DiaSemana.Domingo => "DOM", _ => d.ToString() };
+    private string TurnoClass(TipoTurno t) => t switch {
+        TipoTurno.Mañana => "t-man", TipoTurno.Tarde => "t-tar",
+        TipoTurno.Noche => "t-noc", TipoTurno.Partido => "t-par", _ => "" };
+    private string TurnoIcon(TipoTurno t) => t switch {
+        TipoTurno.Mañana => "☀️", TipoTurno.Tarde => "🌅",
+        TipoTurno.Noche => "🌙", TipoTurno.Partido => "📐", _ => "" };
+    private string Iniciales(string n) { var p = n.Split(' ', StringSplitOptions.RemoveEmptyEntries); return p.Length >= 2 ? $"{p[0][0]}{p[1][0]}" : (p.Length > 0 ? p[0][0].ToString() : "?"); }
+
+    // --- Acciones ---
+    private void ClickCelda(string uid, DiaSemana dia)
+    {
+        if (!TurnosDia(uid, dia).Any())
+        {
+            nuevo = new HorarioAsignado { UsuarioId = uid, TipoTurno = TipoTurno.Mañana, Activo = true, VigenteDesde = DateOnly.FromDateTime(DateTime.Today) };
+            diasSel = new HashSet<DiaSemana> { dia };
+            nuevoProyId = null; heStr = "08:00"; hsStr = "14:00";
+            mostrarForm = true;
+        }
+    }
+    private void ToggleDia(DiaSemana d) { if (diasSel.Contains(d)) diasSel.Remove(d); else diasSel.Add(d); }
+    private void AbrirFormularioNuevo()
+    {
+        nuevo = new HorarioAsignado { TipoTurno = TipoTurno.Mañana, Activo = true, VigenteDesde = DateOnly.FromDateTime(DateTime.Today) };
+        diasSel = new HashSet<DiaSemana> { DiaSemana.Lunes, DiaSemana.Martes, DiaSemana.Miercoles, DiaSemana.Jueves, DiaSemana.Viernes };
+        nuevoProyId = null; heStr = "08:00"; hsStr = "14:00"; mostrarForm = true;
+    }
+    private void CerrarForm() => mostrarForm = false;
+
+    private async Task Guardar()
+    {
+        if (string.IsNullOrEmpty(nuevo.UsuarioId)) { Msg("Selecciona un trabajador", true); return; }
+        if (!diasSel.Any()) { Msg("Selecciona al menos un día", true); return; }
+        guardando = true;
+        try
+        {
+            TimeOnly.TryParse(heStr, out var he); TimeOnly.TryParse(hsStr, out var hs);
+            int? pId = null;
+            if (!string.IsNullOrEmpty(nuevoProyId) && int.TryParse(nuevoProyId, out int pp)) pId = pp;
+            foreach (var dia in diasSel.OrderBy(d => d))
+                await FichajeRepo.AddHorarioAsync(new HorarioAsignado {
+                    UsuarioId = nuevo.UsuarioId, ProyectoId = pId, DiaSemana = dia,
+                    HoraEntrada = he, HoraSalida = hs, TipoTurno = nuevo.TipoTurno,
+                    Activo = true, VigenteDesde = DateOnly.FromDateTime(DateTime.Today) });
+            Msg($"Horario asignado para {diasSel.Count} día(s)", false);
+            mostrarForm = false; await CargarHorarios();
+        }
+        catch (Exception ex) { Msg($"Error: {ex.Message}", true); }
+        guardando = false;
+    }
+
+    private async Task EliminarHorario(int id)
+    {
+        try { await FichajeRepo.DeleteHorarioAsync(id); Msg("Turno eliminado", false); await CargarHorarios(); }
+        catch (Exception ex) { Msg($"Error: {ex.Message}", true); }
+    }
+
+    private void Msg(string m, bool err) { msg = m; msgErr = err; _ = Task.Delay(4000).ContinueWith(_ => { msg = null; InvokeAsync(StateHasChanged); }); }
+}

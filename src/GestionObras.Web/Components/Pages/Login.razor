@@ -9,68 +9,325 @@
 
 <PageTitle>Iniciar Sesión - Gestión de Obras</PageTitle>
 
-<div class="login-container">
-    <div class="login-card">
-        <div class="login-header">
-            <h2>🏗️ Gestión de Obras</h2>
-            <p>Inicia sesión para continuar</p>
-        </div>
-
-        <EditForm Model="@loginModel" OnValidSubmit="@HandleLogin" FormName="loginForm">
-            <DataAnnotationsValidator />
-            
-            @if (!string.IsNullOrEmpty(errorMessage))
-            {
-                <div class="alert alert-danger" role="alert">
-                    @errorMessage
+<div class="login-page">
+    <div class="login-wrapper">
+        <!-- Panel izquierdo: Formulario -->
+        <div class="login-form-panel">
+            <div class="login-card">
+                <div class="login-header">
+                    <h2>🏗️ Gestión de Obras</h2>
+                    <p>Inicia sesión para continuar</p>
                 </div>
-            }
 
-            <div class="form-group">
-                <label for="email">Correo Electrónico</label>
-                <InputText id="email" class="form-control" @bind-Value="loginModel.Email" placeholder="usuario@ejemplo.com" />
-                <ValidationMessage For="@(() => loginModel.Email)" />
+                <EditForm Model="@loginModel" OnValidSubmit="@HandleLogin" FormName="loginForm">
+                    <DataAnnotationsValidator />
+
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger" role="alert">
+                            @errorMessage
+                        </div>
+                    }
+
+                    <div class="form-group mb-3">
+                        <label for="email" class="form-label fw-semibold">Correo Electrónico</label>
+                        <InputText id="email" class="form-control form-control-lg" @bind-Value="loginModel.Email" placeholder="usuario@ejemplo.com" />
+                        <ValidationMessage For="@(() => loginModel.Email)" />
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label for="password" class="form-label fw-semibold">Contraseña</label>
+                        <InputText id="password" type="password" class="form-control form-control-lg" @bind-Value="loginModel.Password" placeholder="••••••••" />
+                        <ValidationMessage For="@(() => loginModel.Password)" />
+                    </div>
+
+                    <div class="form-group form-check mb-3">
+                        <InputCheckbox id="rememberMe" class="form-check-input" @bind-Value="loginModel.RememberMe" />
+                        <label class="form-check-label" for="rememberMe">Recordarme</label>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg w-100" disabled="@isLoading">
+                        @if (isLoading)
+                        {
+                            <span class="spinner-border spinner-border-sm" role="status"></span>
+                            <span> Iniciando sesión...</span>
+                        }
+                        else
+                        {
+                            <span>🔑 Iniciar Sesión</span>
+                        }
+                    </button>
+                </EditForm>
             </div>
-
-            <div class="form-group">
-                <label for="password">Contraseña</label>
-                <InputText id="password" type="password" class="form-control" @bind-Value="loginModel.Password" placeholder="••••••••" />
-                <ValidationMessage For="@(() => loginModel.Password)" />
-            </div>
-
-            <div class="form-group form-check">
-                <InputCheckbox id="rememberMe" class="form-check-input" @bind-Value="loginModel.RememberMe" />
-                <label class="form-check-label" for="rememberMe">
-                    Recordarme
-                </label>
-            </div>
-
-            <button type="submit" class="btn btn-primary btn-block" disabled="@isLoading">
-                @if (isLoading)
-                {
-                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                    <span> Iniciando sesión...</span>
-                }
-                else
-                {
-                    <span>Iniciar Sesión</span>
-                }
-            </button>
-        </EditForm>
-
-        <div class="login-footer">
-            <p>¿Olvidaste tu contraseña? <a href="/recuperar-password">Recuperar</a></p>
         </div>
-    </div>
 
-    <div class="login-info">
-        <h3>Usuarios de Prueba</h3>
-        <ul>
-            <li><strong>Administrador:</strong> admin@gestionobras.com / Admin123!</li>
-            <li><strong>Jefe de Obra:</strong> jefe@gestionobras.com / Jefe123!</li>
-        </ul>
+        <!-- Panel derecho: Usuarios demo -->
+        <div class="login-demo-panel">
+            <h3 class="text-center mb-1" style="color: #2c3e50;">🧪 Acceso Rápido — Demo</h3>
+            <p class="text-center text-muted mb-3" style="font-size: 0.85rem;">Haz clic en una tarjeta para rellenar el formulario</p>
+
+            <div class="demo-users-grid">
+                <!-- Administrador -->
+                <div class="demo-user-card demo-admin" onclick="fillLogin('admin@gestionobras.com','Admin123!')">
+                    <div class="demo-icon">👑</div>
+                    <div class="demo-info">
+                        <span class="demo-role">Administrador</span>
+                        <span class="demo-name">Dirección General</span>
+                        <span class="demo-email">admin@gestionobras.com</span>
+                        <span class="demo-pass">Admin123!</span>
+                    </div>
+                </div>
+
+                <!-- Jefe de Obra -->
+                <div class="demo-user-card demo-jefe" onclick="fillLogin('jefe.norte@gestionobras.com','Demo123!')">
+                    <div class="demo-icon">👷</div>
+                    <div class="demo-info">
+                        <span class="demo-role">Jefe de Obra</span>
+                        <span class="demo-name">Álvaro Molina Serrano</span>
+                        <span class="demo-email">jefe.norte@gestionobras.com</span>
+                        <span class="demo-pass">Demo123!</span>
+                    </div>
+                </div>
+
+                <!-- Oficina Técnica -->
+                <div class="demo-user-card demo-oficina" onclick="fillLogin('oficina.senior@gestionobras.com','Demo123!')">
+                    <div class="demo-icon">📐</div>
+                    <div class="demo-info">
+                        <span class="demo-role">Oficina Técnica</span>
+                        <span class="demo-name">Lucía Sanchis Ferrer</span>
+                        <span class="demo-email">oficina.senior@gestionobras.com</span>
+                        <span class="demo-pass">Demo123!</span>
+                    </div>
+                </div>
+
+                <!-- Recursos Humanos -->
+                <div class="demo-user-card demo-rrhh" onclick="fillLogin('rrhh@gestionobras.com','Demo123!')">
+                    <div class="demo-icon">🧑‍💼</div>
+                    <div class="demo-info">
+                        <span class="demo-role">Recursos Humanos</span>
+                        <span class="demo-name">Elena Martínez García</span>
+                        <span class="demo-email">rrhh@gestionobras.com</span>
+                        <span class="demo-pass">Demo123!</span>
+                    </div>
+                </div>
+
+                <!-- Operario de Obra -->
+                <div class="demo-user-card demo-operario" onclick="fillLogin('obra.01@gestionobras.com','Demo123!')">
+                    <div class="demo-icon">🔧</div>
+                    <div class="demo-info">
+                        <span class="demo-role">Operario de Obra</span>
+                        <span class="demo-name">Iván Quintana Beltrán</span>
+                        <span class="demo-email">obra.01@gestionobras.com</span>
+                        <span class="demo-pass">Demo123!</span>
+                    </div>
+                </div>
+
+                <!-- Operario Oficina Técnica -->
+                <div class="demo-user-card demo-operariot" onclick="fillLogin('ot.01@gestionobras.com','Demo123!')">
+                    <div class="demo-icon">📋</div>
+                    <div class="demo-info">
+                        <span class="demo-role">Operario Oficina Téc.</span>
+                        <span class="demo-name">Paula Cuesta León</span>
+                        <span class="demo-email">ot.01@gestionobras.com</span>
+                        <span class="demo-pass">Demo123!</span>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
+
+<script>
+    function fillLogin(email, pass) {
+        var emailInput = document.getElementById('email');
+        var passInput = document.getElementById('password');
+        if (emailInput) {
+            // Set native value setter to trigger Blazor binding
+            var nativeEmailSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+            nativeEmailSetter.call(emailInput, email);
+            emailInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        if (passInput) {
+            var nativePassSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+            nativePassSetter.call(passInput, pass);
+            passInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        // Visual feedback
+        var cards = document.querySelectorAll('.demo-user-card');
+        cards.forEach(function(c) { c.classList.remove('selected'); });
+        event.currentTarget.classList.add('selected');
+    }
+</script>
+
+<style>
+    .login-page {
+        min-height: 100vh;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+
+    .login-wrapper {
+        display: flex;
+        gap: 2rem;
+        max-width: 1100px;
+        width: 100%;
+        align-items: stretch;
+    }
+
+    /* Panel formulario */
+    .login-form-panel {
+        flex: 0 0 380px;
+        display: flex;
+        align-items: center;
+    }
+
+    .login-card {
+        background: #fff;
+        border-radius: 16px;
+        padding: 2rem;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        width: 100%;
+    }
+
+    .login-header {
+        text-align: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .login-header h2 {
+        font-size: 1.6rem;
+        color: #2c3e50;
+        margin-bottom: 0.25rem;
+    }
+
+    .login-header p {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+
+    /* Panel demo */
+    .login-demo-panel {
+        flex: 1;
+        background: rgba(255,255,255,0.95);
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    }
+
+    .demo-users-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+    }
+
+    .demo-user-card {
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        padding: 0.85rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        background: #fff;
+    }
+
+    .demo-user-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+    }
+
+    .demo-user-card.selected {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 3px rgba(13,110,253,0.25);
+        background: #f0f6ff;
+    }
+
+    .demo-icon {
+        font-size: 2rem;
+        flex-shrink: 0;
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+    }
+
+    .demo-info {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        gap: 1px;
+    }
+
+    .demo-role {
+        font-weight: 700;
+        font-size: 0.85rem;
+        color: #2c3e50;
+    }
+
+    .demo-name {
+        font-size: 0.75rem;
+        color: #6c757d;
+    }
+
+    .demo-email {
+        font-size: 0.7rem;
+        color: #0d6efd;
+        font-family: monospace;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .demo-pass {
+        font-size: 0.7rem;
+        color: #198754;
+        font-family: monospace;
+    }
+
+    /* Colores por rol */
+    .demo-admin { border-left: 4px solid #6f42c1; }
+    .demo-admin .demo-icon { background: #f3efff; }
+    .demo-admin .demo-role { color: #6f42c1; }
+
+    .demo-jefe { border-left: 4px solid #fd7e14; }
+    .demo-jefe .demo-icon { background: #fff5ed; }
+    .demo-jefe .demo-role { color: #fd7e14; }
+
+    .demo-oficina { border-left: 4px solid #0dcaf0; }
+    .demo-oficina .demo-icon { background: #edfbff; }
+    .demo-oficina .demo-role { color: #0ba5c7; }
+
+    .demo-rrhh { border-left: 4px solid #20c997; }
+    .demo-rrhh .demo-icon { background: #edfff8; }
+    .demo-rrhh .demo-role { color: #198754; }
+
+    .demo-operario { border-left: 4px solid #ffc107; }
+    .demo-operario .demo-icon { background: #fffced; }
+    .demo-operario .demo-role { color: #b58a00; }
+
+    .demo-operariot { border-left: 4px solid #6c757d; }
+    .demo-operariot .demo-icon { background: #f5f5f5; }
+    .demo-operariot .demo-role { color: #6c757d; }
+
+    /* Responsive */
+    @@media (max-width: 900px) {
+        .login-wrapper {
+            flex-direction: column;
+        }
+        .login-form-panel {
+            flex: unset;
+        }
+        .demo-users-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
 
 @code {
     [SupplyParameterFromForm]

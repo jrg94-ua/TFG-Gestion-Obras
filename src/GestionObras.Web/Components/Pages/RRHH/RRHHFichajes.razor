@@ -1,0 +1,326 @@
+@page "/rrhh/fichajes"
+@attribute [Authorize(Roles = "RecursosHumanos,Administrador")]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using GestionObras.Core.Entities
+@using GestionObras.Infrastructure.Data
+@using GestionObras.Infrastructure.Repositories
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Identity
+@inject GestionObrasDbContext DbContext
+@inject IFichajeRepository FichajeRepo
+@inject UserManager<UsuarioObra> UserManager
+@inject AuthenticationStateProvider AuthStateProvider
+@rendermode InteractiveServer
+
+<PageTitle>Control de Fichajes - RRHH</PageTitle>
+
+@if (cargando)
+{
+    <div class="text-center p-5">
+        <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div>
+    </div>
+}
+else
+{
+    <div class="container-fluid px-4 py-3">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="text-primary">📊 Control de Fichajes — RRHH</h1>
+                <p class="text-muted mb-0">Gestión y validación de fichajes de toda la plantilla</p>
+            </div>
+        </div>
+
+        <!-- Resumen -->
+        <div class="row mb-4 g-3">
+            <div class="col-md-3">
+                <div class="card border-success shadow-sm">
+                    <div class="card-body text-center">
+                        <h3 class="text-success">@fichajes.Count(f => f.HoraSalida == null)</h3>
+                        <p class="mb-0">En jornada ahora</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-primary shadow-sm">
+                    <div class="card-body text-center">
+                        <h3 class="text-primary">@fichajes.Count(f => f.HoraSalida != null)</h3>
+                        <p class="mb-0">Jornadas completadas</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-warning shadow-sm">
+                    <div class="card-body text-center">
+                        <h3 class="text-warning">@fichajes.Count(f => f.Estado == EstadoFichaje.Pendiente)</h3>
+                        <p class="mb-0">Pendientes de validar</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-info shadow-sm">
+                    <div class="card-body text-center">
+                        <h3 class="text-info">@(fichajes.Where(f => f.TotalHoras.HasValue).Sum(f => f.TotalHoras!.Value).ToString("F1")) h</h3>
+                        <p class="mb-0">Horas totales</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filtros -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label">Proyecto</label>
+                        <select class="form-select" @bind="filtroProyectoId" @bind:after="CargarFichajes">
+                            <option value="">Todos</option>
+                            @foreach (var p in proyectos)
+                            {
+                                <option value="@p.Id">@p.Nombre</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Trabajador</label>
+                        <select class="form-select" @bind="filtroUsuarioId" @bind:after="CargarFichajes">
+                            <option value="">Todos</option>
+                            @foreach (var u in trabajadores)
+                            {
+                                <option value="@u.Id">@u.NombreCompleto</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Desde</label>
+                        <input type="date" class="form-control" @bind="fechaDesde" @bind:after="CargarFichajes" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Hasta</label>
+                        <input type="date" class="form-control" @bind="fechaHasta" @bind:after="CargarFichajes" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Estado</label>
+                        <select class="form-select" @bind="filtroEstado" @bind:after="AplicarFiltroEstado">
+                            <option value="">Todos</option>
+                            <option value="Pendiente">Pendiente</option>
+                            <option value="Validado">Validado</option>
+                            <option value="Rechazado">Rechazado</option>
+                        </select>
+                    </div>
+                    <div class="col-md-1">
+                        <button class="btn btn-outline-success w-100" @onclick="ValidarTodosPendientes" title="Validar todos los pendientes">
+                            ✅ Todo
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabla de fichajes -->
+        <div class="card shadow-sm">
+            <div class="card-body p-0">
+                @if (!fichajesFiltrados.Any())
+                {
+                    <p class="text-center text-muted p-4">No hay fichajes en el rango seleccionado.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Trabajador</th>
+                                    <th>Fecha</th>
+                                    <th>Entrada</th>
+                                    <th>Salida</th>
+                                    <th>Proyecto</th>
+                                    <th>Horas</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var f in fichajesFiltrados)
+                                {
+                                    <tr class="@(f.HoraSalida == null ? "table-success" : "")">
+                                        <td><strong>@f.Usuario?.NombreCompleto</strong></td>
+                                        <td>@f.Fecha.ToString("dd/MM/yyyy")</td>
+                                        <td>@f.HoraEntrada.ToString("HH:mm")</td>
+                                        <td>@(f.HoraSalida?.ToString("HH:mm") ?? "🔵 En curso")</td>
+                                        <td>@(f.Proyecto?.Nombre ?? "—")</td>
+                                        <td>@(f.TotalHoras.HasValue ? $"{f.TotalHoras:F1} h" : "—")</td>
+                                        <td>
+                                            @switch (f.Estado)
+                                            {
+                                                case EstadoFichaje.Pendiente:
+                                                    <span class="badge bg-warning text-dark">Pendiente</span>
+                                                    break;
+                                                case EstadoFichaje.Validado:
+                                                    <span class="badge bg-success">Validado</span>
+                                                    break;
+                                                case EstadoFichaje.Rechazado:
+                                                    <span class="badge bg-danger">Rechazado</span>
+                                                    break;
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (f.Estado == EstadoFichaje.Pendiente && f.HoraSalida != null)
+                                            {
+                                                <button class="btn btn-sm btn-success me-1" @onclick="() => CambiarEstado(f, EstadoFichaje.Validado)" title="Validar">
+                                                    ✅
+                                                </button>
+                                                <button class="btn btn-sm btn-danger" @onclick="() => CambiarEstado(f, EstadoFichaje.Rechazado)" title="Rechazar">
+                                                    ❌
+                                                </button>
+                                            }
+                                            @if (f.Estado == EstadoFichaje.Rechazado)
+                                            {
+                                                <button class="btn btn-sm btn-outline-success" @onclick="() => CambiarEstado(f, EstadoFichaje.Validado)" title="Revertir a Validado">
+                                                    ↩️
+                                                </button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(mensaje))
+        {
+            <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1050;">
+                <div class="toast show align-items-center text-bg-@(esError ? "danger" : "success") border-0" role="alert">
+                    <div class="d-flex">
+                        <div class="toast-body">@mensaje</div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" @onclick="() => mensaje = null"></button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private bool cargando = true;
+    private string? mensaje;
+    private bool esError;
+
+    private List<Proyecto> proyectos = new();
+    private List<UsuarioObra> trabajadores = new();
+    private List<RegistroFichaje> fichajes = new();
+    private List<RegistroFichaje> fichajesFiltrados = new();
+
+    // Filtros
+    private string filtroProyectoId = "";
+    private string filtroUsuarioId = "";
+    private DateTime fechaDesde = DateTime.Today.AddDays(-7);
+    private DateTime fechaHasta = DateTime.Today;
+    private string filtroEstado = "";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await CargarDatosIniciales();
+            await CargarFichajes();
+            cargando = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CargarDatosIniciales()
+    {
+        proyectos = await DbContext.Proyectos
+            .OrderBy(p => p.Nombre)
+            .ToListAsync();
+
+        trabajadores = await DbContext.Users
+            .Where(u => u.Activo)
+            .OrderBy(u => u.NombreCompleto)
+            .ToListAsync();
+    }
+
+    private async Task CargarFichajes()
+    {
+        var desde = DateOnly.FromDateTime(fechaDesde);
+        var hasta = DateOnly.FromDateTime(fechaHasta);
+
+        IQueryable<RegistroFichaje> query = DbContext.RegistrosFichaje
+            .Include(f => f.Usuario)
+            .Include(f => f.Proyecto)
+            .Where(f => f.Fecha >= desde && f.Fecha <= hasta);
+
+        if (!string.IsNullOrEmpty(filtroProyectoId) && int.TryParse(filtroProyectoId, out int pid))
+            query = query.Where(f => f.ProyectoId == pid);
+        if (!string.IsNullOrEmpty(filtroUsuarioId))
+            query = query.Where(f => f.UsuarioId == filtroUsuarioId);
+
+        fichajes = await query
+            .OrderByDescending(f => f.Fecha)
+            .ThenByDescending(f => f.HoraEntrada)
+            .ToListAsync();
+
+        AplicarFiltroEstado();
+    }
+
+    private void AplicarFiltroEstado()
+    {
+        fichajesFiltrados = string.IsNullOrEmpty(filtroEstado)
+            ? fichajes
+            : fichajes.Where(f => f.Estado.ToString() == filtroEstado).ToList();
+    }
+
+    private async Task CambiarEstado(RegistroFichaje fichaje, EstadoFichaje nuevoEstado)
+    {
+        try
+        {
+            fichaje.Estado = nuevoEstado;
+            await FichajeRepo.UpdateFichajeAsync(fichaje);
+            MostrarMensaje($"Fichaje {(nuevoEstado == EstadoFichaje.Validado ? "validado" : "rechazado")}", false);
+            AplicarFiltroEstado();
+        }
+        catch (Exception ex)
+        {
+            MostrarMensaje($"Error: {ex.Message}", true);
+        }
+    }
+
+    private async Task ValidarTodosPendientes()
+    {
+        var pendientes = fichajesFiltrados
+            .Where(f => f.Estado == EstadoFichaje.Pendiente && f.HoraSalida != null)
+            .ToList();
+
+        if (!pendientes.Any())
+        {
+            MostrarMensaje("No hay fichajes pendientes para validar", true);
+            return;
+        }
+
+        try
+        {
+            foreach (var f in pendientes)
+            {
+                f.Estado = EstadoFichaje.Validado;
+                await FichajeRepo.UpdateFichajeAsync(f);
+            }
+            MostrarMensaje($"{pendientes.Count} fichajes validados correctamente", false);
+            AplicarFiltroEstado();
+        }
+        catch (Exception ex)
+        {
+            MostrarMensaje($"Error: {ex.Message}", true);
+        }
+    }
+
+    private void MostrarMensaje(string msg, bool error)
+    {
+        mensaje = msg;
+        esError = error;
+        _ = Task.Delay(4000).ContinueWith(_ => { mensaje = null; InvokeAsync(StateHasChanged); });
+    }
+}

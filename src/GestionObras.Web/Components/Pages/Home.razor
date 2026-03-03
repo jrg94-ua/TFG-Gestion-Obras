@@ -27,9 +27,13 @@
             {
                 Navigation.NavigateTo("/oficina-tecnica/dashboard", true);
             }
+            else if (user.IsInRole("RecursosHumanos"))
+            {
+                Navigation.NavigateTo("/rrhh/dashboard", true);
+            }
             else if (user.IsInRole("Operario") || user.IsInRole("OperarioObra") || user.IsInRole("OperarioOficinaT"))
             {
-                Navigation.NavigateTo("/operario/dashboard", true);
+                Navigation.NavigateTo("/mi-tablero", true);
             }
             else
             {

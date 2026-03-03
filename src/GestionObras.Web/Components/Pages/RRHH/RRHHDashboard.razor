@@ -1,0 +1,266 @@
+@page "/rrhh/dashboard"
+@attribute [Authorize(Roles = "RecursosHumanos,Administrador")]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using GestionObras.Core.Entities
+@using GestionObras.Infrastructure.Data
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Identity
+@inject GestionObrasDbContext DbContext
+@inject NavigationManager Navigation
+@inject UserManager<UsuarioObra> UserManager
+@inject AuthenticationStateProvider AuthStateProvider
+@rendermode InteractiveServer
+
+<PageTitle>Recursos Humanos - Gestión de Obras</PageTitle>
+
+<div class="container-fluid px-4 py-3">
+    <div class="dashboard-header mb-4">
+        <h1 class="text-primary">🧑‍💼 Panel de Recursos Humanos</h1>
+        <p class="text-muted">Gestión integral de personal, fichajes, horarios y contratos</p>
+    </div>
+
+    <!-- Métricas principales -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-primary shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="display-5 text-primary mb-2">👥</div>
+                    <h3 class="text-primary">@totalTrabajadores</h3>
+                    <p class="mb-0">Trabajadores activos</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-success shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="display-5 text-success mb-2">📝</div>
+                    <h3 class="text-success">@contratosActivos</h3>
+                    <p class="mb-0">Contratos activos</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-warning shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="display-5 text-warning mb-2">⏱️</div>
+                    <h3 class="text-warning">@fichajesPendientes</h3>
+                    <p class="mb-0">Fichajes por validar</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-info shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="display-5 text-info mb-2">🟢</div>
+                    <h3 class="text-info">@enJornadaAhora</h3>
+                    <p class="mb-0">En jornada ahora</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alertas -->
+    @if (contratosProximosVencer.Any())
+    {
+        <div class="alert alert-warning d-flex align-items-center mb-4" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            <div>
+                <strong>⚠️ Contratos próximos a vencer:</strong>
+                @foreach (var c in contratosProximosVencer)
+                {
+                    <span class="badge bg-warning text-dark ms-2">@c.Usuario?.NombreCompleto — @c.FechaFin?.ToString("dd/MM/yyyy")</span>
+                }
+            </div>
+        </div>
+    }
+
+    <!-- Acciones rápidas -->
+    <div class="row g-3 mb-4">
+        <div class="col-12">
+            <h2 class="h5 mb-3">Acciones Rápidas</h2>
+        </div>
+        <div class="col-md-3">
+            <button class="btn btn-outline-primary w-100 py-3" @onclick='() => Navigation.NavigateTo("/rrhh/fichajes")'>
+                <div class="mb-1">📊</div>
+                <strong>Control de Fichajes</strong>
+                <div class="small text-muted">Validar asistencia</div>
+            </button>
+        </div>
+        <div class="col-md-3">
+            <button class="btn btn-outline-success w-100 py-3" @onclick='() => Navigation.NavigateTo("/rrhh/horarios")'>
+                <div class="mb-1">📅</div>
+                <strong>Gestión de Horarios</strong>
+                <div class="small text-muted">Turnos y jornadas</div>
+            </button>
+        </div>
+        <div class="col-md-3">
+            <button class="btn btn-outline-info w-100 py-3" @onclick='() => Navigation.NavigateTo("/rrhh/contratos")'>
+                <div class="mb-1">📋</div>
+                <strong>Contratos</strong>
+                <div class="small text-muted">Gestión contractual</div>
+            </button>
+        </div>
+        <div class="col-md-3">
+            <button class="btn btn-outline-secondary w-100 py-3" @onclick='() => Navigation.NavigateTo("/empleados")'>
+                <div class="mb-1">👥</div>
+                <strong>Plantilla</strong>
+                <div class="small text-muted">Ver empleados</div>
+            </button>
+        </div>
+    </div>
+
+    <!-- Fichajes recientes y resumen -->
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">⏱️ Fichajes pendientes de hoy</h5>
+                    <a href="/rrhh/fichajes" class="btn btn-sm btn-outline-primary">Ver todos</a>
+                </div>
+                <div class="card-body p-0">
+                    @if (!fichajesHoy.Any())
+                    {
+                        <p class="text-center text-muted p-4">No hay fichajes pendientes hoy.</p>
+                    }
+                    else
+                    {
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Trabajador</th>
+                                    <th>Entrada</th>
+                                    <th>Salida</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var f in fichajesHoy.Take(8))
+                                {
+                                    <tr>
+                                        <td>@f.Usuario?.NombreCompleto</td>
+                                        <td>@f.HoraEntrada.ToString("HH:mm")</td>
+                                        <td>@(f.HoraSalida?.ToString("HH:mm") ?? "🔵")</td>
+                                        <td>
+                                            @if (f.Estado == EstadoFichaje.Pendiente)
+                                            {
+                                                <span class="badge bg-warning text-dark">Pendiente</span>
+                                            }
+                                            else if (f.Estado == EstadoFichaje.Validado)
+                                            {
+                                                <span class="badge bg-success">Validado</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">📋 Contratos recientes</h5>
+                    <a href="/rrhh/contratos" class="btn btn-sm btn-outline-info">Ver todos</a>
+                </div>
+                <div class="card-body p-0">
+                    @if (!contratosRecientes.Any())
+                    {
+                        <p class="text-center text-muted p-4">No hay contratos registrados.</p>
+                    }
+                    else
+                    {
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Trabajador</th>
+                                    <th>Tipo</th>
+                                    <th>Inicio</th>
+                                    <th>Fin</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var c in contratosRecientes.Take(8))
+                                {
+                                    <tr>
+                                        <td>@c.Usuario?.NombreCompleto</td>
+                                        <td><span class="badge bg-info text-dark">@FormatTipoContrato(c.TipoContrato)</span></td>
+                                        <td>@c.FechaInicio.ToString("dd/MM/yyyy")</td>
+                                        <td>@(c.FechaFin?.ToString("dd/MM/yyyy") ?? "Indefinido")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private int totalTrabajadores;
+    private int contratosActivos;
+    private int fichajesPendientes;
+    private int enJornadaAhora;
+
+    private List<RegistroFichaje> fichajesHoy = new();
+    private List<Contrato> contratosRecientes = new();
+    private List<Contrato> contratosProximosVencer = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        totalTrabajadores = await DbContext.Users.CountAsync(u => u.Activo);
+        contratosActivos = await DbContext.Contratos.CountAsync(c => c.Activo);
+
+        var hoy = DateOnly.FromDateTime(DateTime.Today);
+        fichajesPendientes = await DbContext.RegistrosFichaje
+            .CountAsync(f => f.Estado == EstadoFichaje.Pendiente && f.HoraSalida != null);
+        enJornadaAhora = await DbContext.RegistrosFichaje
+            .CountAsync(f => f.Fecha == hoy && f.HoraSalida == null);
+
+        fichajesHoy = await DbContext.RegistrosFichaje
+            .Include(f => f.Usuario)
+            .Where(f => f.Fecha == hoy)
+            .OrderByDescending(f => f.HoraEntrada)
+            .Take(10)
+            .ToListAsync();
+
+        contratosRecientes = await DbContext.Contratos
+            .Include(c => c.Usuario)
+            .Where(c => c.Activo)
+            .OrderByDescending(c => c.FechaCreacion)
+            .Take(10)
+            .ToListAsync();
+
+        // Contratos que vencen en los próximos 30 días
+        var limite = hoy.AddDays(30);
+        contratosProximosVencer = await DbContext.Contratos
+            .Include(c => c.Usuario)
+            .Where(c => c.Activo && c.FechaFin != null && c.FechaFin <= limite && c.FechaFin >= hoy)
+            .OrderBy(c => c.FechaFin)
+            .ToListAsync();
+    }
+
+    private string FormatTipoContrato(TipoContrato tipo)
+    {
+        return tipo switch
+        {
+            TipoContrato.Indefinido => "Indefinido",
+            TipoContrato.TempObraoServicio => "Obra/Servicio",
+            TipoContrato.TempCircunstanciasProduccion => "Circunstancias Prod.",
+            TipoContrato.FormacionAlternancia => "Form. Alternancia",
+            TipoContrato.FormacionPractica => "Form. Práctica",
+            TipoContrato.Interinidad => "Interinidad",
+            TipoContrato.FijoDiscontinuo => "Fijo Discontinuo",
+            _ => tipo.ToString()
+        };
+    }
+}

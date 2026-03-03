@@ -10,18 +10,23 @@
 
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-speedometer2-nav-menu" aria-hidden="true"></span> Dashboard
-            </NavLink>
-        </div>
+        <!-- Dashboard - Solo roles de gestión -->
+        <AuthorizeView Roles="Administrador,JefeObra,OficinaTecnica,RecursosHumanos">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                    <span class="bi bi-speedometer2-nav-menu" aria-hidden="true"></span> Dashboard
+                </NavLink>
+            </div>
+        </AuthorizeView>
 
-        <!-- Proyectos - Todos los roles -->
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="proyectos">
-                <span class="bi bi-building-nav-menu" aria-hidden="true"></span> Proyectos
-            </NavLink>
-        </div>
+        <!-- Proyectos - Solo roles de gestión -->
+        <AuthorizeView Roles="Administrador,JefeObra,OficinaTecnica,RecursosHumanos">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="proyectos">
+                    <span class="bi bi-building-nav-menu" aria-hidden="true"></span> Proyectos
+                </NavLink>
+            </div>
+        </AuthorizeView>
 
         <!-- Tablero de Proyectos - Solo Admin -->
         <AuthorizeView Roles="Administrador">
@@ -50,12 +55,14 @@
             </div>
         </AuthorizeView>
 
-        <!-- Materiales - Todos -->
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="materiales">
-                <span class="bi bi-box-seam-nav-menu" aria-hidden="true"></span> Materiales
-            </NavLink>
-        </div>
+        <!-- Materiales - Solo gestión -->
+        <AuthorizeView Roles="Administrador,JefeObra,OficinaTecnica,RecursosHumanos">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="materiales">
+                    <span class="bi bi-box-seam-nav-menu" aria-hidden="true"></span> Materiales
+                </NavLink>
+            </div>
+        </AuthorizeView>
 
         <!-- Solicitar Materiales - Solo JefeObra -->
         <AuthorizeView Roles="JefeObra">
@@ -85,6 +92,56 @@
             <div class="nav-item px-3">
                 <NavLink class="nav-link" href="facturas">
                     <span class="bi bi-receipt-nav-menu" aria-hidden="true"></span> Facturas
+                </NavLink>
+            </div>
+        </AuthorizeView>
+
+        <!-- Fichaje - Todos los trabajadores -->
+        <AuthorizeView Roles="Operario,OperarioObra,OperarioOficinaT,JefeObra,OficinaTecnica,RecursosHumanos,Administrador">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="fichaje">
+                    <span class="bi bi-clock-nav-menu" aria-hidden="true"></span> Fichaje
+                </NavLink>
+            </div>
+        </AuthorizeView>
+
+        <!-- Vista horarios/fichajes equipo - JefeObra y OficinaTecnica (solo lectura) -->
+        <AuthorizeView Roles="JefeObra,OficinaTecnica,Administrador">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="jefe-obra/horarios">
+                    <span class="bi bi-calendar-week-nav-menu" aria-hidden="true"></span> Horarios Equipo
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="jefe-obra/control-fichajes">
+                    <span class="bi bi-clipboard-data-nav-menu" aria-hidden="true"></span> Fichajes Equipo
+                </NavLink>
+            </div>
+        </AuthorizeView>
+
+        <!-- Módulo RRHH - Solo RecursosHumanos y Admin -->
+        <AuthorizeView Roles="RecursosHumanos,Administrador">
+            <div class="nav-item px-3 mt-2">
+                <small class="text-muted px-3 text-uppercase fw-bold">Recursos Humanos</small>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="rrhh/dashboard">
+                    <span class="bi bi-person-badge-nav-menu" aria-hidden="true"></span> Panel RRHH
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="rrhh/fichajes">
+                    <span class="bi bi-clipboard-check-nav-menu" aria-hidden="true"></span> Gestión Fichajes
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="rrhh/horarios">
+                    <span class="bi bi-calendar-week-nav-menu" aria-hidden="true"></span> Gestión Horarios
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="rrhh/contratos">
+                    <span class="bi bi-file-earmark-text-nav-menu" aria-hidden="true"></span> Contratos
                 </NavLink>
             </div>
         </AuthorizeView>
