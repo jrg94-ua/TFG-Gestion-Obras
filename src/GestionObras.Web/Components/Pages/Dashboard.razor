@@ -1,10 +1,9 @@
 @page "/dashboard"
 @using Microsoft.AspNetCore.Authorization
-@using Microsoft.EntityFrameworkCore
-@using GestionObras.Infrastructure.Data
 @using GestionObras.Core.Entities
+@using GestionObras.Web.Services
 @attribute [Authorize]
-@inject GestionObrasDbContext DbContext
+@inject DashboardService DashboardSvc
 @inject NavigationManager Navigation
 @rendermode InteractiveServer
 
@@ -210,28 +209,16 @@
 
         try
         {
-            // Cargar estadísticas generales
-            totalProyectos = await DbContext.Proyectos.CountAsync();
-            proyectosEnCurso = await DbContext.Proyectos
-                .CountAsync(p => p.Estado == EstadoProyecto.EnCurso);
-            
-            totalTareas = await DbContext.Tareas
-                .CountAsync(t => t.Estado != EstadoTarea.Finalizado);
-            
-            tareasBloqueadas = await DbContext.Tareas
-                .CountAsync(t => t.Estado == EstadoTarea.Bloqueado);
-            
-            totalEmpleados = await DbContext.Empleados.CountAsync();
-            totalMateriales = await DbContext.Materiales.CountAsync();
+            var stats = await DashboardSvc.ObtenerEstadisticasAsync();
 
-            // Cargar proyectos recientes (últimos 5)
-            proyectosRecientes = await DbContext.Proyectos
-                .OrderByDescending(p => p.FechaInicio)
-                .Take(5)
-                .ToListAsync();
-
-            // Generar alertas
-            GenerarAlertas();
+            totalProyectos = stats.TotalProyectos;
+            proyectosEnCurso = stats.ProyectosEnCurso;
+            totalTareas = stats.TotalTareas;
+            tareasBloqueadas = stats.TareasBloqueadas;
+            totalEmpleados = stats.TotalEmpleados;
+            totalMateriales = stats.TotalMateriales;
+            proyectosRecientes = stats.ProyectosRecientes;
+            alertas = stats.Alertas;
         }
         catch (Exception ex)
         {
@@ -240,25 +227,6 @@
         finally
         {
             isLoading = false;
-        }
-    }
-
-    private void GenerarAlertas()
-    {
-        if (tareasBloqueadas > 0)
-        {
-            alertas.Add($"{tareasBloqueadas} tareas bloqueadas requieren atención");
-        }
-
-        if (totalProyectos == 0)
-        {
-            alertas.Add("No hay proyectos registrados. Comienza creando tu primer proyecto.");
-        }
-
-        var proyectosBloqueados = proyectosRecientes.Count(p => p.Estado == EstadoProyecto.Bloqueado);
-        if (proyectosBloqueados > 0)
-        {
-            alertas.Add($"{proyectosBloqueados} proyectos están en estado bloqueado");
         }
     }
 

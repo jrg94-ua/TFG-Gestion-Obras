@@ -1,12 +1,13 @@
 @page "/facturas"
 @using GestionObras.Core.Entities
+@using GestionObras.Web.Services
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = "Administrador,OficinaTecnica")]
 @rendermode InteractiveServer
-
-<!-- TODO: PENDIENTE - Los botones de la vista (Editar, Eliminar, Guardar) no responden a los clicks.
-     Problema identificado: Los eventos @onclick no se ejecutan después de abrir/cerrar modales.
-     Necesita revisión de la configuración de renderizado interactivo de Blazor Server. -->
+@inject FacturaService FacturaSvc
+@inject ExportPdfService ExportPdf
+@inject ExportExcelService ExportExcel
+@inject IJSRuntime JS
 
 <PageTitle>Facturas - Gestión Obras</PageTitle>
 
@@ -15,9 +16,19 @@
         <h1 class="h3 mb-0">
             <i class="bi bi-receipt"></i> Gestión de Facturas
         </h1>
-        <button class="btn btn-primary" @onclick="AbrirModalNuevo">
-            <i class="bi bi-plus-circle"></i> Nueva Factura
-        </button>
+        <div class="d-flex gap-2">
+            <div class="btn-group">
+                <button class="btn btn-outline-danger" @onclick="ExportarPdf" title="Exportar a PDF">
+                    <i class="bi bi-file-earmark-pdf"></i> PDF
+                </button>
+                <button class="btn btn-outline-success" @onclick="ExportarExcel" title="Exportar a Excel">
+                    <i class="bi bi-file-earmark-spreadsheet"></i> Excel
+                </button>
+            </div>
+            <button class="btn btn-primary" @onclick="AbrirModalNuevo">
+                <i class="bi bi-plus-circle"></i> Nueva Factura
+            </button>
+        </div>
     </div>
 
     <!-- Filtros -->
@@ -262,13 +273,25 @@
                             <label class="form-label">Observaciones</label>
                             <textarea class="form-control" rows="2" @bind="facturaSeleccionada.Observaciones"></textarea>
                         </div>
-                        <div class="col-md-12">
-                            <div class="alert alert-info">
-                                <small>
-                                    <i class="bi bi-info-circle"></i> 
-                                    El proveedor se gestiona mediante relaciones de base de datos.
-                                </small>
-                            </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Proveedor</label>
+                            <select class="form-select" @bind="facturaSeleccionada.ProveedorId">
+                                <option value="">Sin proveedor</option>
+                                @foreach (var prov in proveedoresDisponibles)
+                                {
+                                    <option value="@prov.Id">@prov.Nombre (@prov.CIF)</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Proyecto</label>
+                            <select class="form-select" @bind="facturaSeleccionada.ProyectoId">
+                                <option value="">Sin proyecto</option>
+                                @foreach (var proy in proyectosDisponibles)
+                                {
+                                    <option value="@proy.Id">@proy.Nombre</option>
+                                }
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -314,11 +337,14 @@
 
 @code {
     private List<Factura> facturas = new();
+    private List<Proveedor> proveedoresDisponibles = new();
+    private List<Proyecto> proyectosDisponibles = new();
     private bool cargando = true;
     private bool mostrarModal = false;
     private bool mostrarModalEliminar = false;
     private Factura facturaSeleccionada = new();
     private Factura? facturaAEliminar;
+    private string? errorMensaje;
 
     private string filtroNumero = "";
     private string filtroEstado = "";
@@ -341,59 +367,21 @@
     private async Task CargarFacturas()
     {
         cargando = true;
-        await Task.Delay(500);
-
-        facturas = new List<Factura>
+        try
         {
-            new Factura 
-            { 
-                Id = 1, 
-                NumeroFactura = "F-2024-001", 
-                Concepto = "Materiales de construcción",
-                FechaEmision = new DateTime(2024, 1, 15),
-                FechaVencimiento = new DateTime(2024, 2, 15),
-                BaseImponible = 5000m,
-                PorcentajeIVA = 21m,
-                IVA = 1050m,
-                ImporteTotal = 6050m,
-                Estado = EstadoFactura.Pagada,
-                NombreProyecto = "Edificio Residencial Centro",
-                MetodoPago = "Transferencia",
-                FechaPago = new DateTime(2024, 2, 10)
-            },
-            new Factura 
-            { 
-                Id = 2, 
-                NumeroFactura = "F-2024-002", 
-                Concepto = "Mano de obra - Enero 2024",
-                FechaEmision = new DateTime(2024, 1, 31),
-                FechaVencimiento = new DateTime(2024, 2, 28),
-                BaseImponible = 12000m,
-                PorcentajeIVA = 21m,
-                IVA = 2520m,
-                ImporteTotal = 14520m,
-                Estado = EstadoFactura.Pendiente,
-                NombreProyecto = "Rehabilitación Edificio Histórico",
-                MetodoPago = "Transferencia"
-            },
-            new Factura 
-            { 
-                Id = 3, 
-                NumeroFactura = "F-2024-003", 
-                Concepto = "Alquiler maquinaria pesada",
-                FechaEmision = new DateTime(2024, 1, 1),
-                FechaVencimiento = new DateTime(2024, 1, 31),
-                BaseImponible = 3500m,
-                PorcentajeIVA = 21m,
-                IVA = 735m,
-                ImporteTotal = 4235m,
-                Estado = EstadoFactura.Vencida,
-                NombreProyecto = "Nave Industrial Polígono Norte",
-                MetodoPago = "Transferencia"
-            }
-        };
-
-        cargando = false;
+            facturas = await FacturaSvc.ObtenerTodasAsync();
+            proveedoresDisponibles = await FacturaSvc.ObtenerProveedoresAsync();
+            proyectosDisponibles = await FacturaSvc.ObtenerProyectosAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar facturas: {ex.Message}");
+            facturas = new();
+        }
+        finally
+        {
+            cargando = false;
+        }
     }
 
     private void AbrirModalNuevo()
@@ -405,6 +393,7 @@
             Estado = EstadoFactura.Pendiente,
             PorcentajeIVA = 21m
         };
+        errorMensaje = null;
         mostrarModal = true;
     }
 
@@ -425,8 +414,11 @@
             Estado = factura.Estado,
             NombreProyecto = factura.NombreProyecto,
             MetodoPago = factura.MetodoPago,
-            Observaciones = factura.Observaciones
+            Observaciones = factura.Observaciones,
+            ProveedorId = factura.ProveedorId,
+            ProyectoId = factura.ProyectoId
         };
+        errorMensaje = null;
         mostrarModal = true;
     }
 
@@ -434,6 +426,7 @@
     {
         mostrarModal = false;
         facturaSeleccionada = new();
+        errorMensaje = null;
     }
 
     private void CalcularTotales(ChangeEventArgs e)
@@ -444,39 +437,19 @@
 
     private async Task GuardarFactura()
     {
-        // Recalcular antes de guardar
-        facturaSeleccionada.IVA = facturaSeleccionada.BaseImponible * (facturaSeleccionada.PorcentajeIVA / 100);
-        facturaSeleccionada.ImporteTotal = facturaSeleccionada.BaseImponible + facturaSeleccionada.IVA;
-        facturaSeleccionada.Importe = facturaSeleccionada.ImporteTotal;
+        try
+        {
+            await FacturaSvc.GuardarAsync(facturaSeleccionada);
+            await CargarFacturas();
+        }
+        catch (Exception ex)
+        {
+            errorMensaje = $"Error al guardar: {ex.Message}";
+            Console.WriteLine($"Error al guardar factura: {ex.Message}");
+            return;
+        }
 
-        if (facturaSeleccionada.Id == 0)
-        {
-            facturaSeleccionada.Id = facturas.Any() ? facturas.Max(f => f.Id) + 1 : 1;
-            facturas.Add(facturaSeleccionada);
-        }
-        else
-        {
-            var factura = facturas.FirstOrDefault(f => f.Id == facturaSeleccionada.Id);
-            if (factura != null)
-            {
-                factura.NumeroFactura = facturaSeleccionada.NumeroFactura;
-                factura.Concepto = facturaSeleccionada.Concepto;
-                factura.FechaEmision = facturaSeleccionada.FechaEmision;
-                factura.FechaVencimiento = facturaSeleccionada.FechaVencimiento;
-                factura.FechaPago = facturaSeleccionada.FechaPago;
-                factura.BaseImponible = facturaSeleccionada.BaseImponible;
-                factura.PorcentajeIVA = facturaSeleccionada.PorcentajeIVA;
-                factura.IVA = facturaSeleccionada.IVA;
-                factura.ImporteTotal = facturaSeleccionada.ImporteTotal;
-                factura.Importe = facturaSeleccionada.ImporteTotal;
-                factura.Estado = facturaSeleccionada.Estado;
-                factura.NombreProyecto = facturaSeleccionada.NombreProyecto;
-                factura.MetodoPago = facturaSeleccionada.MetodoPago;
-                factura.Observaciones = facturaSeleccionada.Observaciones;
-            }
-        }
         CerrarModal();
-        StateHasChanged();
     }
 
     private void ConfirmarEliminar(Factura factura)
@@ -495,15 +468,38 @@
     {
         if (facturaAEliminar != null)
         {
-            facturas.Remove(facturaAEliminar);
+            try
+            {
+                await FacturaSvc.EliminarAsync(facturaAEliminar.Id);
+                await CargarFacturas();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al eliminar factura: {ex.Message}");
+            }
         }
         CerrarModalEliminar();
-        StateHasChanged();
     }
 
     private void LimpiarFiltros()
     {
         filtroNumero = "";
         filtroEstado = "";
+    }
+
+    private async Task ExportarPdf()
+    {
+        var datos = facturasFiltradas.ToList();
+        var bytes = ExportPdf.GenerarInformeFacturas(datos);
+        var base64 = Convert.ToBase64String(bytes);
+        await JS.InvokeVoidAsync("descargarArchivo", $"Facturas_{DateTime.Now:yyyyMMdd}.pdf", "application/pdf", base64);
+    }
+
+    private async Task ExportarExcel()
+    {
+        var datos = facturasFiltradas.ToList();
+        var bytes = ExportExcel.GenerarExcelFacturas(datos);
+        var base64 = Convert.ToBase64String(bytes);
+        await JS.InvokeVoidAsync("descargarArchivo", $"Facturas_{DateTime.Now:yyyyMMdd}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", base64);
     }
 }

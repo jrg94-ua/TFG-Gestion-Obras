@@ -62,6 +62,12 @@ builder.Services.AddScoped<GestionObras.Infrastructure.Repositories.IFichajeRepo
 
 // Registrar servicios personalizados
 builder.Services.AddScoped<GestionObras.Web.Services.DocumentoService>();
+builder.Services.AddScoped<GestionObras.Web.Services.ExportPdfService>();
+builder.Services.AddScoped<GestionObras.Web.Services.ExportExcelService>();
+builder.Services.AddScoped<GestionObras.Web.Services.FacturaService>();
+builder.Services.AddScoped<GestionObras.Web.Services.PresupuestoService>();
+builder.Services.AddScoped<GestionObras.Web.Services.MaterialService>();
+builder.Services.AddScoped<GestionObras.Web.Services.DashboardService>();
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -76,6 +82,9 @@ builder.Services.ConfigureApplicationCookie(options =>
 });
 
 var app = builder.Build();
+
+// Configurar licencia QuestPDF (Community es gratuita)
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 
 // Inicializar roles y usuarios por defecto
 using (var scope = app.Services.CreateScope())

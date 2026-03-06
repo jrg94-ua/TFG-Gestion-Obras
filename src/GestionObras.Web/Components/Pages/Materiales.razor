@@ -1,16 +1,11 @@
 @page "/materiales"
 @using GestionObras.Core.Entities
 @using Microsoft.AspNetCore.Authorization
-@using Microsoft.EntityFrameworkCore
-@using GestionObras.Infrastructure.Data
-@inject GestionObrasDbContext DbContext
+@using GestionObras.Web.Services
+@inject MaterialService MaterialSvc
 @inject NavigationManager Navigation
 @attribute [Authorize]
 @rendermode InteractiveServer
-
-<!-- TODO: PENDIENTE - Los botones de la vista (Editar, Eliminar, Guardar) no responden a los clicks.
-     Problema identificado: Los eventos @onclick no se ejecutan después de abrir/cerrar modales.
-     Necesita revisión de la configuración de renderizado interactivo de Blazor Server. -->
 
 <PageTitle>Materiales - Gestión Obras</PageTitle>
 
@@ -270,10 +265,7 @@
         cargando = true;
         try
         {
-            materiales = await DbContext.Materiales
-                .Include(m => m.Proveedor)
-                .OrderBy(m => m.Nombre)
-                .ToListAsync();
+            materiales = await MaterialSvc.ObtenerTodosAsync();
         }
         catch (Exception ex)
         {
@@ -325,30 +317,7 @@
     {
         try
         {
-            if (materialSeleccionado.Id == 0)
-            {
-                // Nuevo material
-                DbContext.Materiales.Add(materialSeleccionado);
-            }
-            else
-            {
-                // Editar material existente
-                var material = await DbContext.Materiales.FindAsync(materialSeleccionado.Id);
-                if (material != null)
-                {
-                    material.Codigo = materialSeleccionado.Codigo;
-                    material.Nombre = materialSeleccionado.Nombre;
-                    material.Descripcion = materialSeleccionado.Descripcion;
-                    material.Categoria = materialSeleccionado.Categoria;
-                    material.UnidadMedida = materialSeleccionado.UnidadMedida;
-                    material.PrecioUnitario = materialSeleccionado.PrecioUnitario;
-                    material.StockDisponible = materialSeleccionado.StockDisponible;
-                    material.StockMinimo = materialSeleccionado.StockMinimo;
-                    DbContext.Materiales.Update(material);
-                }
-            }
-            
-            await DbContext.SaveChangesAsync();
+            await MaterialSvc.GuardarAsync(materialSeleccionado);
             await CargarMateriales();
         }
         catch (Exception ex)
@@ -379,13 +348,8 @@
         {
             try
             {
-                var material = await DbContext.Materiales.FindAsync(materialAEliminar.Id);
-                if (material != null)
-                {
-                    DbContext.Materiales.Remove(material);
-                    await DbContext.SaveChangesAsync();
-                    await CargarMateriales();
-                }
+                await MaterialSvc.EliminarAsync(materialAEliminar.Id);
+                await CargarMateriales();
             }
             catch (Exception ex)
             {

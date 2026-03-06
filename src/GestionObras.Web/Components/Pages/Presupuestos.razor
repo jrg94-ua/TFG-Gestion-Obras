@@ -1,12 +1,13 @@
 @page "/presupuestos"
 @using GestionObras.Core.Entities
+@using GestionObras.Web.Services
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = "Administrador,OficinaTecnica")]
 @rendermode InteractiveServer
-
-<!-- TODO: PENDIENTE - Los botones de la vista (Editar, Eliminar, Guardar) no responden a los clicks.
-     Problema identificado: Los eventos @onclick no se ejecutan después de abrir/cerrar modales.
-     Necesita revisión de la configuración de renderizado interactivo de Blazor Server. -->
+@inject PresupuestoService PresupuestoSvc
+@inject ExportPdfService ExportPdf
+@inject ExportExcelService ExportExcel
+@inject IJSRuntime JS
 
 <PageTitle>Presupuestos - Gestión Obras</PageTitle>
 
@@ -15,9 +16,19 @@
         <h1 class="h3 mb-0">
             <i class="bi bi-calculator"></i> Gestión de Presupuestos
         </h1>
-        <button class="btn btn-primary" @onclick="AbrirModalNuevo">
-            <i class="bi bi-plus-circle"></i> Nuevo Presupuesto
-        </button>
+        <div class="d-flex gap-2">
+            <div class="btn-group">
+                <button class="btn btn-outline-danger" @onclick="ExportarPdf" title="Exportar a PDF">
+                    <i class="bi bi-file-earmark-pdf"></i> PDF
+                </button>
+                <button class="btn btn-outline-success" @onclick="ExportarExcel" title="Exportar a Excel">
+                    <i class="bi bi-file-earmark-spreadsheet"></i> Excel
+                </button>
+            </div>
+            <button class="btn btn-primary" @onclick="AbrirModalNuevo">
+                <i class="bi bi-plus-circle"></i> Nuevo Presupuesto
+            </button>
+        </div>
     </div>
 
     <!-- Filtros -->
@@ -311,13 +322,14 @@
     private Presupuesto presupuestoSeleccionado = new();
     private Presupuesto? presupuestoDetalle;
     private Presupuesto? presupuestoAEliminar;
+    private string? errorMensaje;
 
     private string filtroBusqueda = "";
 
     private IEnumerable<Presupuesto> presupuestosFiltrados => presupuestos
         .Where(p => string.IsNullOrEmpty(filtroBusqueda) || 
                    (p.Proyecto != null && p.Proyecto.Nombre.Contains(filtroBusqueda, StringComparison.OrdinalIgnoreCase)) ||
-                   p.Observaciones.Contains(filtroBusqueda, StringComparison.OrdinalIgnoreCase));
+                   (p.Observaciones != null && p.Observaciones.Contains(filtroBusqueda, StringComparison.OrdinalIgnoreCase)));
 
     protected override async Task OnInitializedAsync()
     {
@@ -327,49 +339,20 @@
     private async Task CargarDatos()
     {
         cargando = true;
-        await Task.Delay(500);
-
-        // Cargar proyectos disponibles
-        proyectosDisponibles = new List<Proyecto>
+        try
         {
-            new Proyecto { Id = 1, Nombre = "Edificio Residencial Centro", Municipio = "Madrid", Provincia = "Madrid" },
-            new Proyecto { Id = 2, Nombre = "Rehabilitación Edificio Histórico", Municipio = "Salamanca", Provincia = "Salamanca" },
-            new Proyecto { Id = 3, Nombre = "Nave Industrial Polígono Norte", Municipio = "Valencia", Provincia = "Valencia" }
-        };
-
-        // Cargar presupuestos con proyectos ya asignados
-        presupuestos = new List<Presupuesto>
+            presupuestos = await PresupuestoSvc.ObtenerTodosAsync();
+            proyectosDisponibles = await PresupuestoSvc.ObtenerProyectosAsync();
+        }
+        catch (Exception ex)
         {
-            new Presupuesto 
-            { 
-                Id = 1,
-                ProyectoId = 1,
-                Proyecto = proyectosDisponibles[0],
-                Total = 450000m,
-                FechaElaboracion = new DateTime(2024, 1, 10),
-                Observaciones = "Incluye estructura, albañilería, instalaciones básicas y acabados estándar. No incluye mobiliario ni decoración."
-            },
-            new Presupuesto 
-            { 
-                Id = 2,
-                ProyectoId = 2,
-                Proyecto = proyectosDisponibles[1],
-                Total = 680000m,
-                FechaElaboracion = new DateTime(2024, 1, 20),
-                Observaciones = "Rehabilitación integral con criterios de protección patrimonial. Incluye refuerzo estructural, nueva instalaciones y restauración de elementos originales."
-            },
-            new Presupuesto 
-            { 
-                Id = 3,
-                ProyectoId = 3,
-                Proyecto = proyectosDisponibles[2],
-                Total = 320000m,
-                FechaElaboracion = new DateTime(2024, 2, 1),
-                Observaciones = "Construcción de nave diáfana con oficinas auxiliares. Estructura metálica, cerramiento de panel sándwich e instalaciones industriales."
-            }
-        };
-
-        cargando = false;
+            Console.WriteLine($"Error al cargar presupuestos: {ex.Message}");
+            presupuestos = new();
+        }
+        finally
+        {
+            cargando = false;
+        }
     }
 
     private void AbrirModalNuevo()
@@ -379,6 +362,7 @@
             FechaElaboracion = DateTime.Today,
             Total = 0
         };
+        errorMensaje = null;
         mostrarModal = true;
     }
 
@@ -392,6 +376,7 @@
             FechaElaboracion = presupuesto.FechaElaboracion,
             Observaciones = presupuesto.Observaciones
         };
+        errorMensaje = null;
         mostrarModal = true;
     }
 
@@ -399,6 +384,7 @@
     {
         mostrarModal = false;
         presupuestoSeleccionado = new();
+        errorMensaje = null;
     }
 
     private void VerDetalle(Presupuesto presupuesto)
@@ -415,29 +401,19 @@
 
     private async Task GuardarPresupuesto()
     {
-        if (presupuestoSeleccionado.Id == 0)
+        try
         {
-            presupuestoSeleccionado.Id = presupuestos.Any() ? presupuestos.Max(p => p.Id) + 1 : 1;
-            
-            // Asignar el proyecto
-            presupuestoSeleccionado.Proyecto = proyectosDisponibles.FirstOrDefault(p => p.Id == presupuestoSeleccionado.ProyectoId);
-            
-            presupuestos.Add(presupuestoSeleccionado);
+            await PresupuestoSvc.GuardarAsync(presupuestoSeleccionado);
+            await CargarDatos();
         }
-        else
+        catch (Exception ex)
         {
-            var presupuesto = presupuestos.FirstOrDefault(p => p.Id == presupuestoSeleccionado.Id);
-            if (presupuesto != null)
-            {
-                presupuesto.ProyectoId = presupuestoSeleccionado.ProyectoId;
-                presupuesto.Proyecto = proyectosDisponibles.FirstOrDefault(p => p.Id == presupuestoSeleccionado.ProyectoId);
-                presupuesto.Total = presupuestoSeleccionado.Total;
-                presupuesto.FechaElaboracion = presupuestoSeleccionado.FechaElaboracion;
-                presupuesto.Observaciones = presupuestoSeleccionado.Observaciones;
-            }
+            errorMensaje = $"Error al guardar: {ex.Message}";
+            Console.WriteLine($"Error al guardar presupuesto: {ex.Message}");
+            return;
         }
+
         CerrarModal();
-        StateHasChanged();
     }
 
     private void ConfirmarEliminar(Presupuesto presupuesto)
@@ -456,14 +432,37 @@
     {
         if (presupuestoAEliminar != null)
         {
-            presupuestos.Remove(presupuestoAEliminar);
+            try
+            {
+                await PresupuestoSvc.EliminarAsync(presupuestoAEliminar.Id);
+                await CargarDatos();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al eliminar presupuesto: {ex.Message}");
+            }
         }
         CerrarModalEliminar();
-        StateHasChanged();
     }
 
     private void LimpiarFiltros()
     {
         filtroBusqueda = "";
+    }
+
+    private async Task ExportarPdf()
+    {
+        var datos = presupuestosFiltrados.ToList();
+        var bytes = ExportPdf.GenerarInformePresupuestos(datos);
+        var base64 = Convert.ToBase64String(bytes);
+        await JS.InvokeVoidAsync("descargarArchivo", $"Presupuestos_{DateTime.Now:yyyyMMdd}.pdf", "application/pdf", base64);
+    }
+
+    private async Task ExportarExcel()
+    {
+        var datos = presupuestosFiltrados.ToList();
+        var bytes = ExportExcel.GenerarExcelPresupuestos(datos);
+        var base64 = Convert.ToBase64String(bytes);
+        await JS.InvokeVoidAsync("descargarArchivo", $"Presupuestos_{DateTime.Now:yyyyMMdd}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", base64);
     }
 }

@@ -30,8 +30,8 @@ namespace GestionObras.Core.Entities
         public Proyecto? Proyecto { get; set; }
         public int? TareaId { get; set; }
         public Tarea? Tarea { get; set; }
-        public int ProveedorId { get; set; }
-        public Proveedor Proveedor { get; set; } = null!;
+        public int? ProveedorId { get; set; }
+        public Proveedor? Proveedor { get; set; }
     }
     
     public enum EstadoFactura

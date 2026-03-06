@@ -10,10 +10,9 @@
 @inject GestionObrasDbContext DbContext
 @inject AuthenticationStateProvider AuthStateProvider
 @inject UserManager<UsuarioObra> UserManager
-
-<!-- TODO: PENDIENTE - Los botones de la vista (Editar, Eliminar, Guardar) no responden a los clicks.
-     Problema identificado: Los eventos @onclick no se ejecutan después de abrir/cerrar modales.
-     Necesita revisión de la configuración de renderizado interactivo de Blazor Server. -->
+@inject GestionObras.Web.Services.ExportPdfService ExportPdf
+@inject GestionObras.Web.Services.ExportExcelService ExportExcel
+@inject IJSRuntime JS
 
 <PageTitle>Empleados - Gestión Obras</PageTitle>
 
@@ -22,9 +21,19 @@
         <h1 class="h3 mb-0">
             <i class="bi bi-people"></i> Gestión Jerárquica de Empleados
         </h1>
-        <button class="btn btn-primary" @onclick="AbrirModalNuevo">
-            <i class="bi bi-plus-circle"></i> Nuevo Empleado
-        </button>
+        <div class="d-flex gap-2">
+            <div class="btn-group">
+                <button class="btn btn-outline-danger" @onclick="ExportarPdf" title="Exportar a PDF">
+                    <i class="bi bi-file-earmark-pdf"></i> PDF
+                </button>
+                <button class="btn btn-outline-success" @onclick="ExportarExcel" title="Exportar a Excel">
+                    <i class="bi bi-file-earmark-spreadsheet"></i> Excel
+                </button>
+            </div>
+            <button class="btn btn-primary" @onclick="AbrirModalNuevo">
+                <i class="bi bi-plus-circle"></i> Nuevo Empleado
+            </button>
+        </div>
     </div>
 
     <div class="alert alert-primary">
@@ -248,6 +257,10 @@
     private bool mostrarModalEliminar = false;
     private Empleado empleadoSeleccionado = new();
     private Empleado? empleadoAEliminar;
+    private string? errorMensaje;
+
+    // Mapeo de Id secuencial del Empleado al Id real de UsuarioObra
+    private Dictionary<int, string> empleadoUsuarioMap = new();
 
     private string filtroNombre = "";
     private string filtroEstado = "";
@@ -282,6 +295,7 @@
             .ToListAsync();
 
         var lista = new List<Empleado>();
+        empleadoUsuarioMap = new();
         var idSecuencial = 1;
 
         foreach (var usuario in usuarios)
@@ -295,9 +309,12 @@
             var (nombre, apellidos) = SepararNombreCompleto(usuario.NombreCompleto);
             var rolPrincipal = rolesEmpleado.FirstOrDefault() ?? "Sin rol";
 
+            var empId = idSecuencial++;
+            empleadoUsuarioMap[empId] = usuario.Id;
+
             lista.Add(new Empleado
             {
-                Id = idSecuencial++,
+                Id = empId,
                 Nombre = nombre,
                 Apellidos = apellidos,
                 DNI = usuario.DNI,
@@ -323,8 +340,8 @@
             FechaContratacion = DateTime.Today,
             Activo = true
         };
+        errorMensaje = null;
         mostrarModal = true;
-        StateHasChanged();
     }
 
     private void AbrirModalEditar(Empleado empleado)
@@ -343,49 +360,91 @@
             Direccion = empleado.Direccion,
             Activo = empleado.Activo
         };
+        errorMensaje = null;
         mostrarModal = true;
-        StateHasChanged();
     }
 
     private void CerrarModal()
     {
         mostrarModal = false;
         empleadoSeleccionado = new();
+        errorMensaje = null;
     }
 
     private async Task GuardarEmpleado()
     {
-        if (empleadoSeleccionado.Id == 0)
+        try
         {
-            empleadoSeleccionado.Id = empleados.Any() ? empleados.Max(e => e.Id) + 1 : 1;
-            empleados.Add(empleadoSeleccionado);
-        }
-        else
-        {
-            var empleado = empleados.FirstOrDefault(e => e.Id == empleadoSeleccionado.Id);
-            if (empleado != null)
+            if (empleadoSeleccionado.Id == 0)
             {
-                empleado.Nombre = empleadoSeleccionado.Nombre;
-                empleado.Apellidos = empleadoSeleccionado.Apellidos;
-                empleado.DNI = empleadoSeleccionado.DNI;
-                empleado.Email = empleadoSeleccionado.Email;
-                empleado.Telefono = empleadoSeleccionado.Telefono;
-                empleado.FechaContratacion = empleadoSeleccionado.FechaContratacion;
-                empleado.Departamento = empleadoSeleccionado.Departamento;
-                empleado.Cargo = empleadoSeleccionado.Cargo;
-                empleado.Direccion = empleadoSeleccionado.Direccion;
-                empleado.Activo = empleadoSeleccionado.Activo;
+                // Crear nuevo UsuarioObra
+                var nuevoUsuario = new UsuarioObra
+                {
+                    UserName = empleadoSeleccionado.Email,
+                    Email = empleadoSeleccionado.Email,
+                    NombreCompleto = $"{empleadoSeleccionado.Nombre} {empleadoSeleccionado.Apellidos}",
+                    DNI = empleadoSeleccionado.DNI,
+                    TelefonoMovil = empleadoSeleccionado.Telefono,
+                    Cargo = empleadoSeleccionado.Cargo,
+                    Activo = empleadoSeleccionado.Activo,
+                    FechaCreacion = empleadoSeleccionado.FechaContratacion
+                };
+
+                var result = await UserManager.CreateAsync(nuevoUsuario, "Temporal1");
+                if (!result.Succeeded)
+                {
+                    errorMensaje = string.Join(", ", result.Errors.Select(e => e.Description));
+                    return;
+                }
+
+                // Asignar rol si se especificó un departamento válido
+                if (!string.IsNullOrEmpty(empleadoSeleccionado.Departamento))
+                {
+                    await UserManager.AddToRoleAsync(nuevoUsuario, empleadoSeleccionado.Departamento);
+                }
             }
+            else
+            {
+                // Editar UsuarioObra existente
+                if (empleadoUsuarioMap.TryGetValue(empleadoSeleccionado.Id, out var usuarioId))
+                {
+                    var usuario = await UserManager.FindByIdAsync(usuarioId);
+                    if (usuario != null)
+                    {
+                        usuario.NombreCompleto = $"{empleadoSeleccionado.Nombre} {empleadoSeleccionado.Apellidos}";
+                        usuario.DNI = empleadoSeleccionado.DNI;
+                        usuario.Email = empleadoSeleccionado.Email;
+                        usuario.UserName = empleadoSeleccionado.Email;
+                        usuario.TelefonoMovil = empleadoSeleccionado.Telefono;
+                        usuario.Cargo = empleadoSeleccionado.Cargo;
+                        usuario.Activo = empleadoSeleccionado.Activo;
+
+                        var result = await UserManager.UpdateAsync(usuario);
+                        if (!result.Succeeded)
+                        {
+                            errorMensaje = string.Join(", ", result.Errors.Select(e => e.Description));
+                            return;
+                        }
+                    }
+                }
+            }
+
+            await CargarEmpleados();
         }
+        catch (Exception ex)
+        {
+            errorMensaje = $"Error al guardar: {ex.Message}";
+            Console.WriteLine($"Error al guardar empleado: {ex.Message}");
+            return;
+        }
+
         CerrarModal();
-        StateHasChanged();
     }
 
     private void ConfirmarEliminar(Empleado empleado)
     {
         empleadoAEliminar = empleado;
         mostrarModalEliminar = true;
-        StateHasChanged();
     }
 
     private void CerrarModalEliminar()
@@ -396,12 +455,25 @@
 
     private async Task EliminarEmpleado()
     {
-        if (empleadoAEliminar != null)
+        if (empleadoAEliminar != null && empleadoUsuarioMap.TryGetValue(empleadoAEliminar.Id, out var usuarioId))
         {
-            empleados.Remove(empleadoAEliminar);
+            try
+            {
+                var usuario = await UserManager.FindByIdAsync(usuarioId);
+                if (usuario != null)
+                {
+                    // Desactivar en lugar de eliminar (soft delete)
+                    usuario.Activo = false;
+                    await UserManager.UpdateAsync(usuario);
+                    await CargarEmpleados();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al desactivar empleado: {ex.Message}");
+            }
         }
         CerrarModalEliminar();
-        StateHasChanged();
     }
 
     private void LimpiarFiltros()
@@ -476,5 +548,21 @@
         var inicialNombre = string.IsNullOrWhiteSpace(empleado.Nombre) ? "?" : empleado.Nombre.Substring(0, 1).ToUpper();
         var inicialApellido = string.IsNullOrWhiteSpace(empleado.Apellidos) ? "?" : empleado.Apellidos.Substring(0, 1).ToUpper();
         return $"{inicialNombre}{inicialApellido}";
+    }
+
+    private async Task ExportarPdf()
+    {
+        var datos = empleadosFiltrados.ToList();
+        var bytes = ExportPdf.GenerarInformeEmpleados(datos);
+        var base64 = Convert.ToBase64String(bytes);
+        await JS.InvokeVoidAsync("descargarArchivo", $"Empleados_{DateTime.Now:yyyyMMdd}.pdf", "application/pdf", base64);
+    }
+
+    private async Task ExportarExcel()
+    {
+        var datos = empleadosFiltrados.ToList();
+        var bytes = ExportExcel.GenerarExcelEmpleados(datos);
+        var base64 = Convert.ToBase64String(bytes);
+        await JS.InvokeVoidAsync("descargarArchivo", $"Empleados_{DateTime.Now:yyyyMMdd}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", base64);
     }
 }
