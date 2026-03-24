@@ -4,11 +4,15 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using GestionObras.Core.Entities
 @using GestionObras.Infrastructure.Data
+@using GestionObras.Web.Services
 @using Microsoft.EntityFrameworkCore
 @using Microsoft.AspNetCore.Identity
 @inject GestionObrasDbContext DbContext
 @inject UserManager<UsuarioObra> UserManager
 @inject AuthenticationStateProvider AuthStateProvider
+@inject ExportPdfService ExportPdf
+@inject ExportExcelService ExportExcel
+@inject IJSRuntime JS
 @rendermode InteractiveServer
 
 <PageTitle>Gestión de Contratos - RRHH</PageTitle>
@@ -27,9 +31,19 @@ else
                 <h1 class="text-primary">📋 Gestión de Contratos — RRHH</h1>
                 <p class="text-muted mb-0">Administración de contratos laborales de toda la plantilla</p>
             </div>
-            <button class="btn btn-primary" @onclick="AbrirFormularioNuevo">
-                <i class="bi bi-plus-circle"></i> Nuevo Contrato
-            </button>
+            <div class="d-flex gap-2">
+                <div class="btn-group">
+                    <button class="btn btn-outline-danger" @onclick="ExportarContratosPdf" title="Exportar a PDF">
+                        <i class="bi bi-file-earmark-pdf"></i> PDF
+                    </button>
+                    <button class="btn btn-outline-success" @onclick="ExportarContratosExcel" title="Exportar a Excel">
+                        <i class="bi bi-file-earmark-spreadsheet"></i> Excel
+                    </button>
+                </div>
+                <button class="btn btn-primary" @onclick="AbrirFormularioNuevo">
+                    <i class="bi bi-plus-circle"></i> Nuevo Contrato
+                </button>
+            </div>
         </div>
 
         <!-- Resumen -->
@@ -452,5 +466,21 @@ else
         mensaje = msg;
         esError = error;
         _ = Task.Delay(4000).ContinueWith(_ => { mensaje = null; InvokeAsync(StateHasChanged); });
+    }
+
+    private async Task ExportarContratosPdf()
+    {
+        var datos = contratosFiltrados.OrderBy(c => c.Usuario?.NombreCompleto).ToList();
+        var bytes = ExportPdf.GenerarInformeContratos(datos, "Contratos Laborales");
+        var base64 = Convert.ToBase64String(bytes);
+        await JS.InvokeVoidAsync("descargarArchivo", $"Contratos_{DateTime.Now:yyyyMMdd}.pdf", "application/pdf", base64);
+    }
+
+    private async Task ExportarContratosExcel()
+    {
+        var datos = contratosFiltrados.OrderBy(c => c.Usuario?.NombreCompleto).ToList();
+        var bytes = ExportExcel.GenerarExcelContratos(datos);
+        var base64 = Convert.ToBase64String(bytes);
+        await JS.InvokeVoidAsync("descargarArchivo", $"Contratos_{DateTime.Now:yyyyMMdd}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", base64);
     }
 }

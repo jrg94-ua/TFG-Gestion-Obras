@@ -5,12 +5,16 @@
 @using GestionObras.Core.Entities
 @using GestionObras.Infrastructure.Data
 @using GestionObras.Infrastructure.Repositories
+@using GestionObras.Web.Services
 @using Microsoft.EntityFrameworkCore
 @using Microsoft.AspNetCore.Identity
 @inject GestionObrasDbContext DbContext
 @inject IFichajeRepository FichajeRepo
 @inject UserManager<UsuarioObra> UserManager
 @inject AuthenticationStateProvider AuthStateProvider
+@inject ExportPdfService ExportPdf
+@inject ExportExcelService ExportExcel
+@inject IJSRuntime JS
 @rendermode InteractiveServer
 
 <PageTitle>Control de Fichajes - RRHH</PageTitle>
@@ -28,6 +32,14 @@ else
             <div>
                 <h1 class="text-primary">📊 Control de Fichajes — RRHH</h1>
                 <p class="text-muted mb-0">Gestión y validación de fichajes de toda la plantilla</p>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-outline-danger" @onclick="ExportarFichajesPdf" title="Exportar a PDF">
+                    <i class="bi bi-file-earmark-pdf"></i> PDF
+                </button>
+                <button class="btn btn-outline-success" @onclick="ExportarFichajosExcel" title="Exportar a Excel">
+                    <i class="bi bi-file-earmark-spreadsheet"></i> Excel
+                </button>
             </div>
         </div>
 
@@ -322,5 +334,21 @@ else
         mensaje = msg;
         esError = error;
         _ = Task.Delay(4000).ContinueWith(_ => { mensaje = null; InvokeAsync(StateHasChanged); });
+    }
+
+    private async Task ExportarFichajesPdf()
+    {
+        var datos = fichajesFiltrados.OrderBy(f => f.Usuario?.NombreCompleto).ThenByDescending(f => f.Fecha).ToList();
+        var bytes = ExportPdf.GenerarInformeFichajes(datos, "Fichajes de Empleados");
+        var base64 = Convert.ToBase64String(bytes);
+        await JS.InvokeVoidAsync("descargarArchivo", $"Fichajes_{DateTime.Now:yyyyMMdd}.pdf", "application/pdf", base64);
+    }
+
+    private async Task ExportarFichajosExcel()
+    {
+        var datos = fichajesFiltrados.OrderBy(f => f.Usuario?.NombreCompleto).ThenByDescending(f => f.Fecha).ToList();
+        var bytes = ExportExcel.GenerarExcelFichajes(datos);
+        var base64 = Convert.ToBase64String(bytes);
+        await JS.InvokeVoidAsync("descargarArchivo", $"Fichajes_{DateTime.Now:yyyyMMdd}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", base64);
     }
 }

@@ -1,8 +1,8 @@
 @using GestionObras.Core.Entities
 
 <div class="kanban-card" 
-     draggable="true" 
-     @ondragstart="@(() => OnDragStart.InvokeAsync(Tarea))">
+    draggable="@(PermitirArrastrar ? "true" : "false")" 
+    @ondragstart="IniciarArrastre">
     
     <!-- Badge de Prioridad -->
     <span class="badge @ObtenerClasePrioridad() position-absolute top-0 end-0 m-2">
@@ -17,7 +17,7 @@
     </div>
 
     <!-- Nivel jerárquico -->
-    @if (Tarea.TareaPadre != null)
+    @if (MostrarJerarquia && Tarea.TareaPadre != null)
     {
         <div class="subtarea-indicator">
             <i class="bi bi-arrow-return-right"></i> Subtarea de: @Tarea.TareaPadre.Nombre
@@ -46,7 +46,7 @@
     </div>
 
     <!-- Presupuesto -->
-    @if (Tarea.PresupuestoEstimado > 0)
+    @if (MostrarPresupuesto && Tarea.PresupuestoEstimado > 0)
     {
         <div class="card-budget mt-2">
             <small>
@@ -87,23 +87,44 @@
 
     <!-- Acciones -->
     <div class="card-actions mt-2">
-        <button class="btn btn-sm btn-outline-primary" @onclick="@(() => OnEditar.InvokeAsync(Tarea))"
-                @onclick:stopPropagation="true"
-                title="Actualizar estado">
-            <i class="bi bi-pencil"></i>
-        </button>
-        <button class="btn btn-sm btn-outline-info" @onclick="@(() => OnVerProyecto.InvokeAsync(Tarea.ProyectoId))"
-                @onclick:stopPropagation="true"
-                title="Ver proyecto">
-            <i class="bi bi-folder-fill"></i>
-        </button>
-        @if (Tarea.Estado == EstadoTarea.Bloqueado && OnDesbloquear.HasDelegate)
+        @if (ModoOperario)
         {
-            <button class="btn btn-sm btn-outline-warning" @onclick="@(() => OnDesbloquear.InvokeAsync(Tarea))"
+            @if (Tarea.Estado != EstadoTarea.Finalizado && OnMarcarFinalizada.HasDelegate)
+            {
+                <button class="btn btn-sm btn-success" @onclick="@(() => OnMarcarFinalizada.InvokeAsync(Tarea))"
+                        @onclick:stopPropagation="true"
+                        title="Marcar como terminada">
+                    <i class="bi bi-check2-circle"></i> Terminada
+                </button>
+            }
+            else
+            {
+                <span class="badge bg-success">Finalizada</span>
+            }
+        }
+        else
+        {
+            <button class="btn btn-sm btn-outline-primary" @onclick="@(() => OnEditar.InvokeAsync(Tarea))"
                     @onclick:stopPropagation="true"
-                    title="Desbloquear">
-                <i class="bi bi-unlock"></i>
+                    title="Actualizar estado">
+                <i class="bi bi-pencil"></i>
             </button>
+            @if (MostrarBotonVerProyecto)
+            {
+                <button class="btn btn-sm btn-outline-info" @onclick="@(() => OnVerProyecto.InvokeAsync(Tarea.ProyectoId))"
+                        @onclick:stopPropagation="true"
+                        title="Ver proyecto">
+                    <i class="bi bi-folder-fill"></i>
+                </button>
+            }
+            @if (Tarea.Estado == EstadoTarea.Bloqueado && OnDesbloquear.HasDelegate)
+            {
+                <button class="btn btn-sm btn-outline-warning" @onclick="@(() => OnDesbloquear.InvokeAsync(Tarea))"
+                        @onclick:stopPropagation="true"
+                        title="Desbloquear">
+                    <i class="bi bi-unlock"></i>
+                </button>
+            }
         }
     </div>
 </div>
@@ -123,6 +144,34 @@
 
     [Parameter]
     public EventCallback<Tarea> OnDesbloquear { get; set; }
+
+    [Parameter]
+    public EventCallback<Tarea> OnMarcarFinalizada { get; set; }
+
+    [Parameter]
+    public bool ModoOperario { get; set; }
+
+    [Parameter]
+    public bool MostrarPresupuesto { get; set; } = true;
+
+    [Parameter]
+    public bool MostrarBotonVerProyecto { get; set; } = true;
+
+    [Parameter]
+    public bool PermitirArrastrar { get; set; } = true;
+
+    [Parameter]
+    public bool MostrarJerarquia { get; set; } = true;
+
+    private Task IniciarArrastre()
+    {
+        if (!PermitirArrastrar || !OnDragStart.HasDelegate)
+        {
+            return Task.CompletedTask;
+        }
+
+        return OnDragStart.InvokeAsync(Tarea);
+    }
 
     private string ObtenerClasePrioridad()
     {

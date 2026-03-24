@@ -184,6 +184,16 @@
                                                 <i class="bi bi-pencil-square"></i>
                                             </button>
                                             <button class="btn btn-sm btn-outline-danger" 
+                                                    @onclick="() => ExportarFacturaPdf(factura)"
+                                                    title="Exportar a PDF">
+                                                <i class="bi bi-file-earmark-pdf"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-success" 
+                                                    @onclick="() => ExportarFacturaExcel(factura)"
+                                                    title="Exportar a Excel">
+                                                <i class="bi bi-file-earmark-spreadsheet"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger" 
                                                     @onclick="() => ConfirmarEliminar(factura)"
                                                     title="Eliminar">
                                                 <i class="bi bi-trash3"></i>
@@ -501,5 +511,31 @@
         var bytes = ExportExcel.GenerarExcelFacturas(datos);
         var base64 = Convert.ToBase64String(bytes);
         await JS.InvokeVoidAsync("descargarArchivo", $"Facturas_{DateTime.Now:yyyyMMdd}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", base64);
+    }
+
+    /// <summary>
+    /// Exporta una factura individual a PDF
+    /// </summary>
+    private async Task ExportarFacturaPdf(Factura factura)
+    {
+        var bytes = ExportPdf.GenerarInformeFacturaIndividual(factura);
+        var base64 = Convert.ToBase64String(bytes);
+        await JS.InvokeVoidAsync("descargarArchivo", 
+            $"Factura_{factura.NumeroFactura}_{DateTime.Now:yyyyMMdd}.pdf", 
+            "application/pdf", 
+            base64);
+    }
+
+    /// <summary>
+    /// Exporta una factura individual a Excel
+    /// </summary>
+    private async Task ExportarFacturaExcel(Factura factura)
+    {
+        var bytes = ExportExcel.GenerarExcelFacturaIndividual(factura, $"Factura {factura.NumeroFactura}");
+        var base64 = Convert.ToBase64String(bytes);
+        await JS.InvokeVoidAsync("descargarArchivo", 
+            $"Factura_{factura.NumeroFactura}_{DateTime.Now:yyyyMMdd}.xlsx", 
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
+            base64);
     }
 }

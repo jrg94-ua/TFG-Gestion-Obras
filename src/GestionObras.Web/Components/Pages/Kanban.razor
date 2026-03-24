@@ -15,6 +15,8 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @inject UserManager<UsuarioObra> UserManager
 @inject DocumentoService DocumentoService
+@inject ExportPdfService ExportPdf
+@inject ExportExcelService ExportExcel
 @rendermode InteractiveServer
 
 <PageTitle>Tablero Kanban - @proyecto?.Nombre</PageTitle>
@@ -54,9 +56,22 @@ else
                 </button>
                 <h1 class="d-inline-block ms-3">📋 Tablero Kanban: @proyecto.Nombre</h1>
             </div>
-            <button type="button" class="btn btn-success" @onclick="AbrirModalNuevaTarea">
-                <i class="bi bi-plus-lg"></i> Crear Tarea
-            </button>
+            <div class="d-flex gap-2">
+                @if (PuedeExportarTablero())
+                {
+                    <div class="btn-group" role="group" aria-label="Exportar tareas">
+                        <button class="btn btn-outline-danger" @onclick="ExportarPdfTareas" title="Exportar tareas a PDF">
+                            <i class="bi bi-file-earmark-pdf"></i> PDF
+                        </button>
+                        <button class="btn btn-outline-success" @onclick="ExportarExcelTareas" title="Exportar tareas a Excel">
+                            <i class="bi bi-file-earmark-spreadsheet"></i> Excel
+                        </button>
+                    </div>
+                }
+                <button type="button" class="btn btn-success" @onclick="AbrirModalNuevaTarea">
+                    <i class="bi bi-plus-lg"></i> Crear Tarea
+                </button>
+            </div>
         </div>
 
         <!-- Filtros -->
@@ -727,6 +742,7 @@ else
     private bool esResponsable = false;
     private string? usuarioActualId;
     private HashSet<string> rolesUsuarioActual = new();
+    private static readonly string[] RolesOperario = ["Operario", "OperarioObra", "OperarioOficinaT"];
 
     // Modal Tarea
     private bool mostrarModalTarea = false;
@@ -1474,6 +1490,47 @@ else
     private void VolverProyectos()
     {
         Navigation.NavigateTo("/proyectos");
+    }
+
+    private bool PuedeExportarTablero()
+    {
+        return !rolesUsuarioActual.Any(r => RolesOperario.Contains(r));
+    }
+
+    private async Task ExportarPdfTareas()
+    {
+        if (!PuedeExportarTablero())
+        {
+            await JS.InvokeVoidAsync("alert", "No tienes permisos para exportar tareas.");
+            return;
+        }
+
+        var datos = tareas
+            .OrderBy(t => t.Prioridad)
+            .ThenBy(t => t.FechaInicio)
+            .ToList();
+
+        var bytes = ExportPdf.GenerarInformeTareas(datos, $"Tareas Proyecto - {proyecto?.Nombre ?? $"#{ProyectoId}"}");
+        var base64 = Convert.ToBase64String(bytes);
+        await JS.InvokeVoidAsync("descargarArchivo", $"Tareas_Proyecto_{ProyectoId}_{DateTime.Now:yyyyMMdd}.pdf", "application/pdf", base64);
+    }
+
+    private async Task ExportarExcelTareas()
+    {
+        if (!PuedeExportarTablero())
+        {
+            await JS.InvokeVoidAsync("alert", "No tienes permisos para exportar tareas.");
+            return;
+        }
+
+        var datos = tareas
+            .OrderBy(t => t.Prioridad)
+            .ThenBy(t => t.FechaInicio)
+            .ToList();
+
+        var bytes = ExportExcel.GenerarExcelTareas(datos, $"Tareas Proyecto {ProyectoId}");
+        var base64 = Convert.ToBase64String(bytes);
+        await JS.InvokeVoidAsync("descargarArchivo", $"Tareas_Proyecto_{ProyectoId}_{DateTime.Now:yyyyMMdd}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", base64);
     }
 
     private bool UsuarioEsAsignableEnSubtarea(IList<string> rolesEmpleado)

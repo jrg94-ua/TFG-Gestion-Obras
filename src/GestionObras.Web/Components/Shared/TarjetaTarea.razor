@@ -1,4 +1,8 @@
 @using GestionObras.Core.Entities
+@using GestionObras.Web.Services
+@inject ExportPdfService ExportPdf
+@inject ExportExcelService ExportExcel
+@inject IJSRuntime JS
 
 <div class="kanban-card" 
      draggable="true" 
@@ -163,6 +167,16 @@
                 @onclick:stopPropagation="true"
                 title="Ver documentos">
             <i class="bi bi-paperclip"></i>
+        </button>
+        <button class="btn btn-sm btn-outline-danger" @onclick="ExportarPdf"
+                @onclick:stopPropagation="true"
+                title="Exportar a PDF">
+            <i class="bi bi-file-earmark-pdf"></i>
+        </button>
+        <button class="btn btn-sm btn-outline-success" @onclick="ExportarExcel"
+                @onclick:stopPropagation="true"
+                title="Exportar a Excel">
+            <i class="bi bi-file-earmark-spreadsheet"></i>
         </button>
         @if (Tarea.RequiereFirmaConjunta && Tarea.Estado == EstadoTarea.EnCurso && OnFirmarTarea.HasDelegate)
         {
@@ -334,5 +348,31 @@
             .Where(u => !string.IsNullOrWhiteSpace(u.Id) && firmas.TryGetValue(u.Id!, out var firma) && !firma.Aprobada)
             .Select(u => u.NombreCompleto)
             .ToList();
+    }
+
+    /// <summary>
+    /// Exporta la tarea individual a PDF
+    /// </summary>
+    private async Task ExportarPdf()
+    {
+        var bytes = ExportPdf.GenerarInformeTareaIndividual(Tarea);
+        var base64 = Convert.ToBase64String(bytes);
+        await JS.InvokeVoidAsync("descargarArchivo", 
+            $"Tarea_{Tarea.Nombre.Replace(" ", "_")}_{DateTime.Now:yyyyMMdd}.pdf", 
+            "application/pdf", 
+            base64);
+    }
+
+    /// <summary>
+    /// Exporta la tarea individual a Excel
+    /// </summary>
+    private async Task ExportarExcel()
+    {
+        var bytes = ExportExcel.GenerarExcelTareaIndividual(Tarea, Tarea.Nombre);
+        var base64 = Convert.ToBase64String(bytes);
+        await JS.InvokeVoidAsync("descargarArchivo", 
+            $"Tarea_{Tarea.Nombre.Replace(" ", "_")}_{DateTime.Now:yyyyMMdd}.xlsx", 
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
+            base64);
     }
 }

@@ -5,6 +5,7 @@
 @using GestionObras.Core.Entities
 @using GestionObras.Infrastructure.Data
 @using GestionObras.Web.Components.Shared
+@using GestionObras.Web.Services
 @using Microsoft.EntityFrameworkCore
 @using Microsoft.AspNetCore.Identity
 @inject GestionObrasDbContext DbContext
@@ -12,6 +13,8 @@
 @inject IJSRuntime JS
 @inject UserManager<UsuarioObra> UserManager
 @inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ExportPdfService ExportPdf
+@inject ExportExcelService ExportExcel
 @rendermode InteractiveServer
 
 <PageTitle>Mi Tablero Personal - Gestión de Obras</PageTitle>
@@ -31,8 +34,28 @@ else
         <div class="kanban-header">
             <div>
                 <h1>👤 Mi Tablero Personal</h1>
-                <p class="text-muted">@usuarioActual.NombreCompleto - Mis tareas de todos los proyectos</p>
+                <p class="text-muted">
+                    @if (esOperario)
+                    {
+                        <span>@usuarioActual.NombreCompleto - Visor simple de tareas asignadas</span>
+                    }
+                    else
+                    {
+                        <span>@usuarioActual.NombreCompleto - Mis tareas de todos los proyectos</span>
+                    }
+                </p>
             </div>
+            @if (!esOperario)
+            {
+                <div class="btn-group" role="group" aria-label="Exportar tareas">
+                    <button class="btn btn-outline-danger" @onclick="ExportarPdfTareas" title="Exportar tareas a PDF">
+                        <i class="bi bi-file-earmark-pdf"></i> PDF
+                    </button>
+                    <button class="btn btn-outline-success" @onclick="ExportarExcelTareas" title="Exportar tareas a Excel">
+                        <i class="bi bi-file-earmark-spreadsheet"></i> Excel
+                    </button>
+                </div>
+            }
         </div>
 
         <!-- Estadísticas -->
@@ -79,26 +102,29 @@ else
                     <input type="text" class="form-control" placeholder="Nombre o descripción..." 
                            @bind="busqueda" @bind:event="oninput" />
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label">Filtrar por proyecto:</label>
-                    <select class="form-select" @bind="proyectoFiltro">
-                        <option value="">Todos los proyectos</option>
-                        @foreach (var proyecto in proyectos)
-                        {
-                            <option value="@proyecto.Id">@proyecto.Nombre</option>
-                        }
-                    </select>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Prioridad:</label>
-                    <select class="form-select" @bind="prioridadFiltro">
-                        <option value="">Todas</option>
-                        <option value="@PrioridadTarea.Critica">Crítica</option>
-                        <option value="@PrioridadTarea.Alta">Alta</option>
-                        <option value="@PrioridadTarea.Media">Media</option>
-                        <option value="@PrioridadTarea.Baja">Baja</option>
-                    </select>
-                </div>
+                @if (!esOperario)
+                {
+                    <div class="col-md-4">
+                        <label class="form-label">Filtrar por proyecto:</label>
+                        <select class="form-select" @bind="proyectoFiltro">
+                            <option value="">Todos los proyectos</option>
+                            @foreach (var proyecto in proyectos)
+                            {
+                                <option value="@proyecto.Id">@proyecto.Nombre</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Prioridad:</label>
+                        <select class="form-select" @bind="prioridadFiltro">
+                            <option value="">Todas</option>
+                            <option value="@PrioridadTarea.Critica">Crítica</option>
+                            <option value="@PrioridadTarea.Alta">Alta</option>
+                            <option value="@PrioridadTarea.Media">Media</option>
+                            <option value="@PrioridadTarea.Baja">Baja</option>
+                        </select>
+                    </div>
+                }
             </div>
         </div>
 
@@ -118,7 +144,13 @@ else
                         <TarjetaTareaPersonal Tarea="@tarea" 
                                             OnDragStart="@DragStart"
                                             OnEditar="@AbrirModalEditarTarea"
-                                            OnVerProyecto="@VerProyecto" />
+                                            OnVerProyecto="@VerProyecto"
+                                            OnMarcarFinalizada="@MarcarComoFinalizada"
+                                            ModoOperario="@esOperario"
+                                            MostrarPresupuesto="@(!esOperario)"
+                                            MostrarBotonVerProyecto="@(!esOperario)"
+                                            PermitirArrastrar="@(!esOperario)"
+                                            MostrarJerarquia="@(!esOperario)" />
                     }
                 </div>
             </div>
@@ -137,7 +169,13 @@ else
                         <TarjetaTareaPersonal Tarea="@tarea" 
                                             OnDragStart="@DragStart"
                                             OnEditar="@AbrirModalEditarTarea"
-                                            OnVerProyecto="@VerProyecto" />
+                                            OnVerProyecto="@VerProyecto"
+                                            OnMarcarFinalizada="@MarcarComoFinalizada"
+                                            ModoOperario="@esOperario"
+                                            MostrarPresupuesto="@(!esOperario)"
+                                            MostrarBotonVerProyecto="@(!esOperario)"
+                                            PermitirArrastrar="@(!esOperario)"
+                                            MostrarJerarquia="@(!esOperario)" />
                     }
                 </div>
             </div>
@@ -157,7 +195,13 @@ else
                                             OnDragStart="@DragStart"
                                             OnEditar="@AbrirModalEditarTarea"
                                             OnVerProyecto="@VerProyecto"
-                                            OnDesbloquear="@AbrirModalDesbloquear" />
+                                            OnDesbloquear="@AbrirModalDesbloquear"
+                                            OnMarcarFinalizada="@MarcarComoFinalizada"
+                                            ModoOperario="@esOperario"
+                                            MostrarPresupuesto="@(!esOperario)"
+                                            MostrarBotonVerProyecto="@(!esOperario)"
+                                            PermitirArrastrar="@(!esOperario)"
+                                            MostrarJerarquia="@(!esOperario)" />
                     }
                 </div>
             </div>
@@ -176,7 +220,13 @@ else
                         <TarjetaTareaPersonal Tarea="@tarea" 
                                             OnDragStart="@DragStart"
                                             OnEditar="@AbrirModalEditarTarea"
-                                            OnVerProyecto="@VerProyecto" />
+                                            OnVerProyecto="@VerProyecto"
+                                            OnMarcarFinalizada="@MarcarComoFinalizada"
+                                            ModoOperario="@esOperario"
+                                            MostrarPresupuesto="@(!esOperario)"
+                                            MostrarBotonVerProyecto="@(!esOperario)"
+                                            PermitirArrastrar="@(!esOperario)"
+                                            MostrarJerarquia="@(!esOperario)" />
                     }
                 </div>
             </div>
@@ -352,9 +402,11 @@ else
 
 @code {
     private UsuarioObra? usuarioActual;
+    private bool esOperario;
     private List<Tarea> misTareas = new();
     private List<Tarea> tareasFiltradas = new();
     private List<Proyecto> proyectos = new();
+    private static readonly string[] RolesOperario = ["Operario", "OperarioObra", "OperarioOficinaT"];
     
     private string busqueda = "";
     private string proyectoFiltro = "";
@@ -385,10 +437,15 @@ else
         if (user.Identity?.IsAuthenticated == true)
         {
             var userName = user.Identity.Name;
-            usuarioActual = await UserManager.FindByNameAsync(userName);
+            if (!string.IsNullOrWhiteSpace(userName))
+            {
+                usuarioActual = await UserManager.FindByNameAsync(userName);
+            }
             
             if (usuarioActual != null)
             {
+                var roles = await UserManager.GetRolesAsync(usuarioActual);
+                esOperario = roles.Any(r => RolesOperario.Contains(r));
                 await CargarDatos();
             }
         }
@@ -398,14 +455,24 @@ else
     {
         if (usuarioActual == null) return;
 
-        // Cargar todas las tareas donde el usuario es responsable
-        misTareas = await DbContext.Tareas
+        // Cargar todas las tareas donde el usuario es responsable.
+        var consultaTareas = DbContext.Tareas
             .Include(t => t.Proyecto)
             .Include(t => t.UsuariosAsignados)
             .Include(t => t.Bloqueo)
             .Include(t => t.TareaPadre)
-            .Where(t => t.UsuariosAsignados.Any(r => r.Id == usuarioActual.Id))
+            .Where(t => t.UsuariosAsignados.Any(r => r.Id == usuarioActual.Id));
+
+        // Los operarios solo ven tareas atómicas (sin subtareas hijas) para reducir complejidad.
+        if (esOperario)
+        {
+            consultaTareas = consultaTareas
+                .Where(t => !DbContext.Tareas.Any(sub => sub.TareaPadreId == t.Id));
+        }
+
+        misTareas = await consultaTareas
             .OrderBy(t => t.Prioridad)
+            .ThenBy(t => t.FechaInicio)
             .ToListAsync();
 
         // Cargar lista de proyectos únicos
@@ -457,6 +524,7 @@ else
 
     private async Task Drop(EstadoTarea nuevoEstado)
     {
+        if (esOperario) return;
         if (tareaArrastrada == null) return;
 
         // Si se intenta mover a Bloqueado, mostrar modal de justificación
@@ -487,6 +555,8 @@ else
 
     private void AbrirModalEditarTarea(Tarea tarea)
     {
+        if (esOperario) return;
+
         try
         {
             tareaEditando = tarea;
@@ -501,6 +571,8 @@ else
 
     private async Task GuardarTarea()
     {
+        if (esOperario) return;
+
         try
         {
             // Si cambia a bloqueado, requerir justificación
@@ -534,6 +606,8 @@ else
     // Gestión de Bloqueos
     private async Task GuardarBloqueo()
     {
+        if (esOperario) return;
+
         if (tareaParaBloquear == null || string.IsNullOrWhiteSpace(justificacionBloqueo))
         {
             await JS.InvokeVoidAsync("alert", "Debe proporcionar una justificación técnica");
@@ -568,6 +642,8 @@ else
 
     private void AbrirModalDesbloquear(Tarea tarea)
     {
+        if (esOperario) return;
+
         tareaParaDesbloquear = tarea;
         mostrarModalDesbloqueo = true;
         StateHasChanged();
@@ -575,6 +651,8 @@ else
 
     private async Task DesbloquearTarea()
     {
+        if (esOperario) return;
+
         if (tareaParaDesbloquear?.Bloqueo != null)
         {
             tareaParaDesbloquear.Bloqueo.FechaResolucion = DateTime.Now;
@@ -597,6 +675,75 @@ else
 
     private void VerProyecto(int proyectoId)
     {
+        if (esOperario) return;
+
         Navigation.NavigateTo($"/proyectos/{proyectoId}/kanban");
+    }
+
+    private async Task MarcarComoFinalizada(Tarea tarea)
+    {
+        if (!esOperario || usuarioActual == null || tarea.Estado == EstadoTarea.Finalizado)
+        {
+            return;
+        }
+
+        var tareaEnDb = await DbContext.Tareas
+            .Include(t => t.Bloqueo)
+            .FirstOrDefaultAsync(t => t.Id == tarea.Id);
+
+        if (tareaEnDb == null)
+        {
+            return;
+        }
+
+        if (tareaEnDb.Bloqueo != null && tareaEnDb.Bloqueo.FechaResolucion == null)
+        {
+            tareaEnDb.Bloqueo.FechaResolucion = DateTime.Now;
+        }
+
+        tareaEnDb.Estado = EstadoTarea.Finalizado;
+        tareaEnDb.FechaFinalizacion = DateTime.Now;
+        tareaEnDb.CompletadaPorId = usuarioActual.Id;
+        tareaEnDb.ObservacionesFinalizacion = "Finalizada desde tablero de operario";
+
+        await DbContext.SaveChangesAsync();
+        await CargarDatos();
+        await JS.InvokeVoidAsync("alert", "Tarea marcada como terminada. Tu superior ya puede revisarla.");
+    }
+
+    private async Task ExportarPdfTareas()
+    {
+        if (esOperario)
+        {
+            await JS.InvokeVoidAsync("alert", "Los operarios no pueden exportar tareas.");
+            return;
+        }
+
+        var datos = tareasFiltradas
+            .OrderBy(t => t.Prioridad)
+            .ThenBy(t => t.FechaInicio)
+            .ToList();
+
+        var bytes = ExportPdf.GenerarInformeTareas(datos, "Mis Tareas");
+        var base64 = Convert.ToBase64String(bytes);
+        await JS.InvokeVoidAsync("descargarArchivo", $"MisTareas_{DateTime.Now:yyyyMMdd}.pdf", "application/pdf", base64);
+    }
+
+    private async Task ExportarExcelTareas()
+    {
+        if (esOperario)
+        {
+            await JS.InvokeVoidAsync("alert", "Los operarios no pueden exportar tareas.");
+            return;
+        }
+
+        var datos = tareasFiltradas
+            .OrderBy(t => t.Prioridad)
+            .ThenBy(t => t.FechaInicio)
+            .ToList();
+
+        var bytes = ExportExcel.GenerarExcelTareas(datos, "Mis Tareas");
+        var base64 = Convert.ToBase64String(bytes);
+        await JS.InvokeVoidAsync("descargarArchivo", $"MisTareas_{DateTime.Now:yyyyMMdd}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", base64);
     }
 }

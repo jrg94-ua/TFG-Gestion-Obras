@@ -5,12 +5,16 @@
 @using GestionObras.Core.Entities
 @using GestionObras.Infrastructure.Data
 @using GestionObras.Infrastructure.Repositories
+@using GestionObras.Web.Services
 @using Microsoft.EntityFrameworkCore
 @using Microsoft.AspNetCore.Identity
 @inject GestionObrasDbContext DbContext
 @inject IFichajeRepository FichajeRepo
 @inject UserManager<UsuarioObra> UserManager
 @inject AuthenticationStateProvider AuthStateProvider
+@inject ExportPdfService ExportPdf
+@inject ExportExcelService ExportExcel
+@inject IJSRuntime JS
 @rendermode InteractiveServer
 
 <PageTitle>Gestión de Horarios - RRHH</PageTitle>
@@ -105,9 +109,19 @@ else
                 <h1 class="text-primary mb-1">📅 Calendario de Horarios — RRHH</h1>
                 <p class="text-muted mb-0">Haz clic en una celda vacía para asignar turno</p>
             </div>
-            <button class="btn btn-primary btn-lg" @onclick="AbrirFormularioNuevo">
-                <i class="bi bi-plus-circle me-1"></i> Nuevo Horario
-            </button>
+            <div class="d-flex gap-2">
+                <div class="btn-group">
+                    <button class="btn btn-outline-danger" @onclick="ExportarHorariosPdf" title="Exportar a PDF">
+                        <i class="bi bi-file-earmark-pdf"></i> PDF
+                    </button>
+                    <button class="btn btn-outline-success" @onclick="ExportarHorariosExcel" title="Exportar a Excel">
+                        <i class="bi bi-file-earmark-spreadsheet"></i> Excel
+                    </button>
+                </div>
+                <button class="btn btn-primary btn-lg" @onclick="AbrirFormularioNuevo">
+                    <i class="bi bi-plus-circle me-1"></i> Nuevo Horario
+                </button>
+            </div>
         </div>
 
         <!-- Filtros + Leyenda -->
@@ -427,4 +441,20 @@ else
     }
 
     private void Msg(string m, bool err) { msg = m; msgErr = err; _ = Task.Delay(4000).ContinueWith(_ => { msg = null; InvokeAsync(StateHasChanged); }); }
+
+    private async Task ExportarHorariosPdf()
+    {
+        var datos = horarios.OrderBy(h => h.Usuario?.NombreCompleto).ThenBy(h => h.DiaSemana).ToList();
+        var bytes = ExportPdf.GenerarInformeHorarios(datos, "Horarios Asignados");
+        var base64 = Convert.ToBase64String(bytes);
+        await JS.InvokeVoidAsync("descargarArchivo", $"Horarios_{DateTime.Now:yyyyMMdd}.pdf", "application/pdf", base64);
+    }
+
+    private async Task ExportarHorariosExcel()
+    {
+        var datos = horarios.OrderBy(h => h.Usuario?.NombreCompleto).ThenBy(h => h.DiaSemana).ToList();
+        var bytes = ExportExcel.GenerarExcelHorarios(datos);
+        var base64 = Convert.ToBase64String(bytes);
+        await JS.InvokeVoidAsync("descargarArchivo", $"Horarios_{DateTime.Now:yyyyMMdd}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", base64);
+    }
 }
