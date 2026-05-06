@@ -1,0 +1,350 @@
+@page "/admin/catalogos"
+@attribute [Authorize(Roles = "Administrador")]
+@using GestionObras.Core.Contracts.Materiales
+@using GestionObras.Core.Entities
+@using GestionObras.Web.Services
+@using Microsoft.AspNetCore.Authorization
+@inject MaterialesApiClient MaterialesApi
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Catalogos - Gestion Obras</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0"><i class="bi bi-gear"></i> Catalogos de Administracion</h1>
+            <p class="text-muted mb-0">Gestion de proveedores, materiales y categorias</p>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-xl-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <strong>Proveedores</strong>
+                    <span class="badge bg-primary">@proveedores.Count</span>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3 mb-3">
+                        <div class="col-12">
+                            <input class="form-control" placeholder="Nombre" @bind="proveedorForm.Nombre" />
+                        </div>
+                        <div class="col-md-6">
+                            <input class="form-control" placeholder="CIF" @bind="proveedorForm.CIF" />
+                        </div>
+                        <div class="col-md-6">
+                            <input class="form-control" placeholder="Telefono" @bind="proveedorForm.Telefono" />
+                        </div>
+                        <div class="col-12">
+                            <input class="form-control" placeholder="Direccion" @bind="proveedorForm.Direccion" />
+                        </div>
+                        <div class="col-12">
+                            <input class="form-control" placeholder="Email" @bind="proveedorForm.Email" />
+                        </div>
+                        <div class="col-12 form-check">
+                            <input class="form-check-input" type="checkbox" id="proveedorActivo" @bind="proveedorForm.Activo" />
+                            <label class="form-check-label" for="proveedorActivo">Activo</label>
+                        </div>
+                        <div class="col-12 d-flex gap-2">
+                            <button class="btn btn-primary" @onclick="GuardarProveedor">Guardar proveedor</button>
+                            <button class="btn btn-outline-secondary" @onclick="NuevoProveedor">Limpiar</button>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Estado</th>
+                                    <th class="text-end"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var proveedor in proveedores)
+                                {
+                                    <tr>
+                                        <td>
+                                            <div class="fw-semibold">@proveedor.Nombre</div>
+                                            <small class="text-muted">@proveedor.CIF</small>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-@(proveedor.Activo ? "success" : "secondary")">@(proveedor.Activo ? "Activo" : "Inactivo")</span>
+                                        </td>
+                                        <td class="text-end">
+                                            <div class="btn-group btn-group-sm">
+                                                <button class="btn btn-outline-primary" @onclick="() => EditarProveedor(proveedor)">Editar</button>
+                                                <button class="btn btn-outline-@(proveedor.Activo ? "warning" : "success")" @onclick="() => AlternarProveedorActivo(proveedor)">@(proveedor.Activo ? "Desactivar" : "Activar")</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <strong>Materiales</strong>
+                    <span class="badge bg-secondary">@materiales.Count</span>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3 gap-2">
+                        <p class="text-muted mb-0">Activa o desactiva materiales sin salir de administracion.</p>
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="IrAMateriales">Abrir materiales</button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Material</th>
+                                    <th>Proveedor</th>
+                                    <th>Estado</th>
+                                    <th class="text-end"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var material in materiales)
+                                {
+                                    <tr>
+                                        <td>
+                                            <div class="fw-semibold">@material.Nombre</div>
+                                            <small class="text-muted">@material.Categoria</small>
+                                        </td>
+                                        <td>
+                                            <span class="text-muted">@(material.Proveedores.Any() ? string.Join(", ", material.Proveedores.Select(p => p.Nombre)) : (material.Proveedor?.Nombre ?? "Sin proveedor"))</span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-@(material.Activo ? "success" : "secondary")">@(material.Activo ? "Activo" : "Inactivo")</span>
+                                        </td>
+                                        <td class="text-end">
+                                            <button class="btn btn-sm btn-outline-@(material.Activo ? "warning" : "success")" @onclick="() => AlternarMaterialActivo(material)">@(material.Activo ? "Desactivar" : "Activar")</button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <strong>Categorias de Materiales</strong>
+                    <span class="badge bg-secondary">@categorias.Count</span>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3 mb-3">
+                        <div class="col-12">
+                            <input class="form-control" placeholder="Nombre" @bind="categoriaForm.Nombre" />
+                        </div>
+                        <div class="col-12">
+                            <input class="form-control" placeholder="Descripcion" @bind="categoriaForm.Descripcion" />
+                        </div>
+                        <div class="col-12 form-check">
+                            <input class="form-check-input" type="checkbox" id="categoriaActiva" @bind="categoriaForm.Activa" />
+                            <label class="form-check-label" for="categoriaActiva">Activa</label>
+                        </div>
+                        <div class="col-12 d-flex gap-2">
+                            <button class="btn btn-primary" @onclick="GuardarCategoria">Guardar categoria</button>
+                            <button class="btn btn-outline-secondary" @onclick="NuevaCategoria">Limpiar</button>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Estado</th>
+                                    <th class="text-end"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var categoria in categorias)
+                                {
+                                    <tr>
+                                        <td>
+                                            <div class="fw-semibold">@categoria.Nombre</div>
+                                            <small class="text-muted">@categoria.Descripcion</small>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-@(categoria.Activa ? "success" : "secondary")">@(categoria.Activa ? "Activa" : "Inactiva")</span>
+                                        </td>
+                                        <td class="text-end">
+                                            <button class="btn btn-sm btn-outline-@(categoria.Activa ? "warning" : "success")" @onclick="() => AlternarCategoriaActiva(categoria)">@(categoria.Activa ? "Desactivar" : "Activar")</button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(mensaje))
+    {
+        <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1050;">
+            <div class="toast show align-items-center text-bg-@(esError ? "danger" : "success") border-0" role="alert">
+                <div class="d-flex">
+                    <div class="toast-body">@mensaje</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" @onclick="() => mensaje = null"></button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<ProveedorResumenDto> proveedores = new();
+    private List<MaterialResumenDto> materiales = new();
+    private List<CategoriaMaterialResumenDto> categorias = new();
+    private Proveedor proveedorForm = new() { Activo = true };
+    private CategoriaMaterial categoriaForm = new() { Activa = true };
+    private string? mensaje;
+    private bool esError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        var response = await MaterialesApi.ObtenerCatalogosAsync();
+        proveedores = response.Proveedores;
+        materiales = response.Materiales;
+        categorias = response.Categorias;
+    }
+
+    private void NuevoProveedor() => proveedorForm = new Proveedor { Activo = true };
+    private void NuevaCategoria() => categoriaForm = new CategoriaMaterial { Activa = true };
+    private void IrAMateriales() => Navigation.NavigateTo("/materiales");
+
+    private void EditarProveedor(ProveedorResumenDto proveedor)
+    {
+        proveedorForm = new Proveedor
+        {
+            Id = proveedor.Id,
+            Nombre = proveedor.Nombre,
+            CIF = proveedor.CIF,
+            Direccion = proveedor.Direccion,
+            Telefono = proveedor.Telefono,
+            Email = proveedor.Email,
+            Activo = proveedor.Activo
+        };
+    }
+
+    private async Task GuardarProveedor()
+    {
+        if (string.IsNullOrWhiteSpace(proveedorForm.Nombre) || string.IsNullOrWhiteSpace(proveedorForm.CIF))
+        {
+            MostrarMensaje("Nombre y CIF son obligatorios.", true);
+            return;
+        }
+
+        var resultado = await MaterialesApi.GuardarProveedorAsync(new GuardarProveedorRequest
+        {
+            Id = proveedorForm.Id,
+            Nombre = proveedorForm.Nombre,
+            CIF = proveedorForm.CIF,
+            Direccion = proveedorForm.Direccion,
+            Telefono = proveedorForm.Telefono,
+            Email = proveedorForm.Email,
+            Activo = proveedorForm.Activo
+        });
+
+        if (!resultado.Correcto)
+        {
+            MostrarMensaje(resultado.Mensaje, true);
+            return;
+        }
+
+        await CargarDatos();
+        NuevoProveedor();
+        MostrarMensaje("Proveedor guardado correctamente.", false);
+    }
+
+    private async Task GuardarCategoria()
+    {
+        if (string.IsNullOrWhiteSpace(categoriaForm.Nombre))
+        {
+            MostrarMensaje("La categoria necesita un nombre.", true);
+            return;
+        }
+
+        var resultado = await MaterialesApi.GuardarCategoriaAsync(new GuardarCategoriaMaterialRequest
+        {
+            Id = categoriaForm.Id,
+            Nombre = categoriaForm.Nombre,
+            Descripcion = categoriaForm.Descripcion,
+            Activa = categoriaForm.Activa
+        });
+
+        if (!resultado.Correcto)
+        {
+            MostrarMensaje(resultado.Mensaje, true);
+            return;
+        }
+
+        await CargarDatos();
+        NuevaCategoria();
+        MostrarMensaje("Categoria guardada correctamente.", false);
+    }
+
+    private async Task AlternarProveedorActivo(ProveedorResumenDto proveedor)
+    {
+        var resultado = await MaterialesApi.AlternarProveedorAsync(proveedor.Id);
+        if (!resultado.Correcto)
+        {
+            MostrarMensaje(resultado.Mensaje, true);
+            return;
+        }
+
+        await CargarDatos();
+        MostrarMensaje($"Proveedor {(proveedor.Activo ? "desactivado" : "activado")}.", false);
+    }
+
+    private async Task AlternarMaterialActivo(MaterialResumenDto material)
+    {
+        var resultado = await MaterialesApi.AlternarMaterialAsync(material.Id);
+        if (!resultado.Correcto)
+        {
+            MostrarMensaje(resultado.Mensaje, true);
+            return;
+        }
+
+        await CargarDatos();
+        MostrarMensaje($"Material {(material.Activo ? "desactivado" : "activado")}.", false);
+    }
+
+    private async Task AlternarCategoriaActiva(CategoriaMaterialResumenDto categoria)
+    {
+        var resultado = await MaterialesApi.AlternarCategoriaAsync(categoria.Id);
+        if (!resultado.Correcto)
+        {
+            MostrarMensaje(resultado.Mensaje, true);
+            return;
+        }
+
+        await CargarDatos();
+        MostrarMensaje($"Categoria {(categoria.Activa ? "desactivada" : "activada")}.", false);
+    }
+
+    private void MostrarMensaje(string text, bool error)
+    {
+        mensaje = text;
+        esError = error;
+        _ = Task.Delay(3500).ContinueWith(_ => InvokeAsync(() => mensaje = null));
+    }
+}

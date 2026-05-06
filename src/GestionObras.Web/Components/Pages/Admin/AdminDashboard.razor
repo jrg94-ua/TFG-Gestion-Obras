@@ -1,10 +1,10 @@
 @page "/admin/dashboard"
 @attribute [Authorize(Roles = "Administrador")]
 @using Microsoft.AspNetCore.Authorization
-@using GestionObras.Infrastructure.Data
+@using GestionObras.Core.Contracts.Consultas
 @using GestionObras.Core.Entities
-@using Microsoft.EntityFrameworkCore
-@inject GestionObrasDbContext DbContext
+@using GestionObras.Web.Services
+@inject ConsultasApiClient ConsultasApi
 @inject NavigationManager Navigation
 @rendermode InteractiveServer
 
@@ -77,6 +77,10 @@
                 <i class="bi bi-receipt"></i>
                 <span>Ver Facturas</span>
             </button>
+            <button class="action-btn" @onclick="@(() => Navigation.NavigateTo("/admin/catalogos"))">
+                <i class="bi bi-gear-fill"></i>
+                <span>Catálogos</span>
+            </button>
         </div>
     </div>
 
@@ -119,7 +123,7 @@
     private int totalUsuarios;
     private int totalEmpleados;
     private int totalFacturas;
-    private List<GestionObras.Core.Entities.Proyecto> proyectosRecientes = new();
+    private List<ProyectoConsultaDto> proyectosRecientes = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -128,15 +132,12 @@
 
     private async Task CargarDatos()
     {
-        totalProyectos = await DbContext.Proyectos.CountAsync();
-        totalUsuarios = await DbContext.Users.CountAsync();
-        totalEmpleados = await DbContext.Empleados.CountAsync();
-        totalFacturas = await DbContext.Facturas.CountAsync();
-        
-        proyectosRecientes = await DbContext.Proyectos
-            .OrderByDescending(p => p.FechaInicio)
-            .Take(5)
-            .ToListAsync();
+        var response = await ConsultasApi.ObtenerDashboardAdminAsync();
+        totalProyectos = response.TotalProyectos;
+        totalUsuarios = response.TotalUsuarios;
+        totalEmpleados = response.TotalEmpleados;
+        totalFacturas = response.TotalFacturas;
+        proyectosRecientes = response.ProyectosRecientes;
     }
 
     private string GetEstadoBadge(EstadoProyecto estado)

@@ -71,7 +71,7 @@ docker compose down -v
 
 ### Requisitos
 
-- .NET SDK 8.0+
+- .NET SDK 10.0+
 - SQL Server local (o cadena de conexión equivalente)
 
 ### Pasos
@@ -84,6 +84,16 @@ dotnet build ..\TFG-JORGE.sln
 
 Después, ejecutar cada proyecto por separado si se necesita modo local.
 
+## Ejecucion de tests con Docker
+
+Cuando el equipo host no dispone del SDK `.NET 10.0`, la suite automatizada puede ejecutarse igualmente usando la imagen oficial del SDK dentro de Docker:
+
+```powershell
+docker run --rm -v "${PWD}:/workspace" -w /workspace mcr.microsoft.com/dotnet/sdk:10.0 dotnet test TFG-JORGE.sln
+```
+
+Este comando monta el repositorio dentro del contenedor y ejecuta la suite formal ubicada en `tests/` sin depender de la instalacion local de `.NET`.
+
 ---
 
 ## Configuración relevante
@@ -92,6 +102,7 @@ Después, ejecutar cada proyecto por separado si se necesita modo local.
 - Los `Dockerfile` están en:
   - `src/GestionObras.API/Dockerfile`
   - `src/GestionObras.Web/Dockerfile`
+- Ambas imágenes de aplicación utilizan `mcr.microsoft.com/dotnet/sdk:10.0` en fase de build y `mcr.microsoft.com/dotnet/aspnet:10.0` en runtime.
 - El seeding demo está habilitado en contenedores con `SeedDemoOnStartup=true` para el servicio `web`.
 
 ---

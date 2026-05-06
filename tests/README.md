@@ -1,54 +1,63 @@
 # Tests
 
-Esta carpeta contendrá las pruebas del proyecto:
+Esta carpeta contiene la suite formal de pruebas automatizadas del proyecto.
 
-## Estructura
+## Estructura real
 
-```
+```text
 tests/
-├── GestionObras.UnitTests/          # Pruebas unitarias del dominio
-├── GestionObras.IntegrationTests/   # Pruebas de integración de API
-└── GestionObras.E2ETests/           # Pruebas end-to-end de UI
+|-- GestionObras.UnitTests/
+|   |-- Domain/
+|   `-- Services/
+`-- GestionObras.IntegrationTests/
+    `-- Repositories/
 ```
 
-## Ejecutar Tests
+## Cobertura inicial
+
+La suite creada cubre actualmente:
+
+- reglas de dominio de `Proyecto` y `Tarea`,
+- calculo y persistencia de `FacturaService`,
+- generacion automatica de horarios en `PlanificacionHorarioService`,
+- y consultas/borrado del `FichajeRepository`.
+
+## Tecnologias de testing
+
+- `xUnit` como framework principal.
+- `FluentAssertions` para aserciones legibles.
+- `EF Core InMemory` para pruebas unitarias de servicios.
+- `SQLite in-memory` para pruebas de integracion de persistencia.
+
+## Ejecucion
 
 ```powershell
-# Ejecutar todos los tests
-dotnet test
-
-# Ejecutar con cobertura de código
-dotnet test /p:CollectCoverage=true
+dotnet test TFG-JORGE.sln
+dotnet test src/GestionObras.slnx
 ```
 
-## Frameworks de Testing
+Requisito: disponer del SDK de `.NET 10.0`, que es el `TargetFramework` del proyecto principal y de la suite de tests.
 
-- **xUnit**: Framework principal de testing
-- **Moq**: Para mocking de dependencias
-- **FluentAssertions**: Para assertions más legibles
-- **Testcontainers**: Para tests de integración con BD real
+Si el equipo local no tiene ese SDK, puede ejecutarse desde Docker:
 
-## Ejemplo de Test Unitario
-
-```csharp
-public class CalculadorROITests
-{
-    [Fact]
-    public void CalcularROI_ConPresupuestoYCostesReales_DebeCalcularCorrectamente()
-    {
-        // Arrange
-        var proyecto = new Proyecto
-        {
-            Presupuesto = new Presupuesto { Total = 100000m },
-            CostesReales = 80000m
-        };
-        var calculador = new CalculadorROI();
-        
-        // Act
-        var roi = calculador.CalcularROIActual(proyecto);
-        
-        // Assert
-        roi.Should().Be(25m); // (100k - 80k) / 80k * 100 = 25%
-    }
-}
+```powershell
+docker run --rm -v "${PWD}:/workspace" -w /workspace mcr.microsoft.com/dotnet/sdk:10.0 dotnet test TFG-JORGE.sln
 ```
+
+Resultado validado en contenedor:
+
+- `GestionObras.UnitTests`: `12/12` pruebas superadas.
+- `GestionObras.IntegrationTests`: `3/3` pruebas superadas.
+- Total actual: `15` pruebas superadas, `0` fallidas.
+
+## Limites actuales
+
+La suite todavia no cubre:
+
+- pruebas end-to-end de interfaz,
+- reglas avanzadas del kanban con drag and drop,
+- exportaciones PDF/Excel,
+- flujos completos de autenticacion por UI,
+- ni pruebas de carga o rendimiento.
+
+Estas areas deben figurar como trabajo futuro, no como cobertura ya alcanzada.

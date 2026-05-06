@@ -45,7 +45,7 @@ El aplicativo digitaliza los procesos clave de gestión de proyectos, desde la p
 ### Stack Tecnológico
 
 #### Backend
-- **ASP.NET Core 8.0** - Framework principal para API RESTful
+- **ASP.NET Core 10.0** - Framework principal para la API REST y el host web
 - **Entity Framework Core** - ORM para gestión de base de datos
 - **ASP.NET Core Identity** - Sistema de autenticación y autorización basado en roles (RBAC)
 
@@ -54,7 +54,7 @@ El aplicativo digitaliza los procesos clave de gestión de proyectos, desde la p
 - Garantiza integridad referencial y transacciones ACID
 
 #### Frontend
-- **Blazor Server/WebAssembly** - Framework para UI interactiva
+- **Blazor Server** - Framework para UI interactiva
 - **Bootstrap 5** - Diseño responsive para acceso multidispositivo
 - Optimizado para tablets y móviles en obra
 
@@ -155,7 +155,7 @@ TFG-JORGE/
 - **Git**
 
 ### Opción local (sin contenedores)
-- **.NET SDK 8.0 o superior** ([Descargar](https://dotnet.microsoft.com/download))
+- **.NET SDK 10.0 o superior** ([Descargar](https://dotnet.microsoft.com/download))
 - **SQL Server 2019+** o **SQL Server Express** ([Descargar](https://www.microsoft.com/sql-server/sql-server-downloads))
 
 ### Para Servicios de IA (opcional en desarrollo)
@@ -326,3 +326,6 @@ Para consultas sobre el proyecto:
 ---
 
 **Nota**: Este proyecto está en fase de desarrollo activo como parte de un TFG. La documentación y funcionalidades se actualizan regularmente.
+### Contexto de codigo
+
+- [Rastreo Integral de la Aplicacion](docs/arquitectura/RASTREO_APLICACION.md)

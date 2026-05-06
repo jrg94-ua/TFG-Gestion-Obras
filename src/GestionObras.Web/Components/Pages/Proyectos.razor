@@ -2,38 +2,36 @@
 @attribute [Authorize]
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
-@using Microsoft.AspNetCore.Identity
-@using GestionObras.Core.Entities
-@using GestionObras.Infrastructure.Repositories
-@using GestionObras.Infrastructure.Data
-@using Microsoft.EntityFrameworkCore
 @using System.Globalization
-@inject IProyectoRepository ProyectoRepository
-@inject GestionObrasDbContext DbContext
+@using System.Security.Claims
+@using GestionObras.Core.Contracts.JefeObra
+@using GestionObras.Core.Contracts.Proyectos
+@using GestionObras.Core.Contracts.RRHH
+@using GestionObras.Core.Entities
+@using GestionObras.Web.Services
+@inject ProyectosApiClient ProyectosApiClient
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 @inject AuthenticationStateProvider AuthStateProvider
-@inject UserManager<UsuarioObra> UserManager
 @rendermode InteractiveServer
 
-<PageTitle>Proyectos - Gestión de Obras</PageTitle>
+<PageTitle>Proyectos - Gestion de Obras</PageTitle>
 
 <div class="proyectos-container">
     <div class="page-header">
-        <h1>🏗️ Gestión de Proyectos</h1>
+        <h1>Gestion de Proyectos</h1>
         <button class="btn btn-primary" @onclick="AbrirModalNuevo">
             <i class="bi bi-plus-circle"></i> Nuevo Proyecto
         </button>
     </div>
 
-    <!-- Filtros -->
     <div class="filtros-section">
         <div class="row g-3">
             <div class="col-md-4">
                 <label class="form-label">Filtrar por estado:</label>
                 <select class="form-select" @onchange="FiltrarPorEstado">
                     <option value="">Todos los estados</option>
-                    <option value="@EstadoProyecto.Planificacion">Planificación</option>
+                    <option value="@EstadoProyecto.Planificacion">Planificacion</option>
                     <option value="@EstadoProyecto.EnCurso">En Curso</option>
                     <option value="@EstadoProyecto.Bloqueado">Bloqueado</option>
                     <option value="@EstadoProyecto.Finalizado">Finalizado</option>
@@ -47,15 +45,10 @@
         </div>
     </div>
 
-    <!-- Tabla de Proyectos -->
     <div class="proyectos-table-container">
-        @if (proyectosFiltrados == null)
+        @if (cargando)
         {
-            <div class="text-center p-5">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Cargando...</span>
-                </div>
-            </div>
+            <div class="text-center p-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div></div>
         }
         else if (!proyectosFiltrados.Any())
         {
@@ -63,9 +56,7 @@
                 <i class="bi bi-folder2-open"></i>
                 <h3>No hay proyectos</h3>
                 <p>Comienza creando tu primer proyecto</p>
-                <button class="btn btn-primary mt-3" @onclick="AbrirModalNuevo">
-                    <i class="bi bi-plus-circle"></i> Crear Proyecto
-                </button>
+                <button class="btn btn-primary mt-3" @onclick="AbrirModalNuevo"><i class="bi bi-plus-circle"></i> Crear Proyecto</button>
             </div>
         }
         else
@@ -73,12 +64,8 @@
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5 class="mb-0">Vista</h5>
                 <div class="btn-group" role="group" aria-label="Selector de vista">
-                    <button type="button" class="btn @(vistaGanttProyectos ? "btn-outline-primary" : "btn-primary")" @onclick='() => CambiarVistaProyectos(false)'>
-                        <i class="bi bi-table"></i> Tabla
-                    </button>
-                    <button type="button" class="btn @(vistaGanttProyectos ? "btn-primary" : "btn-outline-primary")" @onclick='() => CambiarVistaProyectos(true)'>
-                        <i class="bi bi-bar-chart-steps"></i> Gantt Proyectos
-                    </button>
+                    <button type="button" class="btn @(vistaGanttProyectos ? "btn-outline-primary" : "btn-primary")" @onclick='() => CambiarVistaProyectos(false)'><i class="bi bi-table"></i> Tabla</button>
+                    <button type="button" class="btn @(vistaGanttProyectos ? "btn-primary" : "btn-outline-primary")" @onclick='() => CambiarVistaProyectos(true)'><i class="bi bi-bar-chart-steps"></i> Gantt Proyectos</button>
                 </div>
             </div>
 
@@ -90,7 +77,7 @@
                             <tr>
                                 <th>Nombre</th>
                                 <th>Responsable</th>
-                                <th>Ubicación</th>
+                                <th>Ubicacion</th>
                                 <th>Estado</th>
                                 <th>Fecha Inicio</th>
                                 <th>Tareas</th>
@@ -101,53 +88,29 @@
                             @foreach (var proyecto in proyectosFiltrados)
                             {
                                 <tr>
+                                    <td><strong>@proyecto.Nombre</strong></td>
                                     <td>
-                                        <strong>@proyecto.Nombre</strong>
-                                    </td>
-                                    <td>
-                                        @if (proyecto.Responsable != null)
+                                        @if (!string.IsNullOrWhiteSpace(proyecto.ResponsableNombreCompleto))
                                         {
-                                            <span class="badge bg-primary">
-                                                <i class="bi bi-person-badge"></i> @proyecto.Responsable.NombreCompleto
-                                            </span>
+                                            <span class="badge bg-primary"><i class="bi bi-person-badge"></i> @proyecto.ResponsableNombreCompleto</span>
                                         }
                                         else
                                         {
-                                            <span class="text-muted"><i class="bi bi-dash"></i> Sin asignar</span>
+                                            <span class="text-muted">Sin asignar</span>
                                         }
                                     </td>
-                                    <td>
-                                        <i class="bi bi-geo-alt"></i> @proyecto.Municipio, @proyecto.Provincia
-                                    </td>
-                                    <td>
-                                        <span class="badge @GetEstadoBadgeClass(proyecto.Estado)">
-                                            @GetEstadoTexto(proyecto.Estado)
-                                        </span>
-                                    </td>
+                                    <td><i class="bi bi-geo-alt"></i> @proyecto.Municipio, @proyecto.Provincia</td>
+                                    <td><span class="badge @GetEstadoBadgeClass(proyecto.Estado)">@GetEstadoTexto(proyecto.Estado)</span></td>
                                     <td>@proyecto.FechaInicio.ToString("dd/MM/yyyy")</td>
-                                    <td>
-                                        <span class="badge bg-info">@proyecto.Tareas.Count tareas</span>
-                                    </td>
+                                    <td><span class="badge bg-info">@proyecto.NumeroTareas tareas</span></td>
                                     <td>
                                         <div class="btn-group" role="group">
-                                            <button class="btn btn-sm btn-outline-success" @onclick="() => AbrirKanban(proyecto.Id)" title="Tablero Kanban">
-                                                <i class="bi bi-kanban"></i>
-                                            </button>
-                                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => VerGantt(proyecto.Id)" title="Diagrama de Gantt">
-                                                <i class="bi bi-bar-chart-steps"></i>
-                                            </button>
-                                            <button class="btn btn-sm btn-outline-info" @onclick="() => VerHistorialMateriales(proyecto.Id)" title="Historial de Materiales">
-                                                <i class="bi bi-box-seam"></i>
-                                            </button>
-                                            <button class="btn btn-sm btn-outline-primary" @onclick="() => VerDetalle(proyecto.Id)">
-                                                <i class="bi bi-eye"></i>
-                                            </button>
-                                            <button class="btn btn-sm btn-outline-warning" @onclick="() => AbrirModalEditar(proyecto)">
-                                                <i class="bi bi-pencil"></i>
-                                            </button>
-                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmarEliminar(proyecto)">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
+                                            <button class="btn btn-sm btn-outline-success" @onclick="() => AbrirKanban(proyecto.Id)" title="Tablero Kanban"><i class="bi bi-kanban"></i></button>
+                                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => VerGantt(proyecto.Id)" title="Diagrama de Gantt"><i class="bi bi-bar-chart-steps"></i></button>
+                                            <button class="btn btn-sm btn-outline-info" @onclick="() => VerHistorialMateriales(proyecto.Id)" title="Historial de Materiales"><i class="bi bi-box-seam"></i></button>
+                                            <button class="btn btn-sm btn-outline-primary" @onclick="() => VerDetalle(proyecto.Id)"><i class="bi bi-eye"></i></button>
+                                            <button class="btn btn-sm btn-outline-warning" @onclick="() => AbrirModalEditar(proyecto)"><i class="bi bi-pencil"></i></button>
+                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmarEliminar(proyecto)"><i class="bi bi-trash"></i></button>
                                         </div>
                                     </td>
                                 </tr>
@@ -162,7 +125,7 @@
                     <div class="card-body p-0">
                         <div class="proyectos-gantt-legend">
                             <span class="legend-title">Leyenda:</span>
-                            <span class="legend-item"><span class="legend-dot bar-planificacion"></span> Planificación</span>
+                            <span class="legend-item"><span class="legend-dot bar-planificacion"></span> Planificacion</span>
                             <span class="legend-item"><span class="legend-dot bar-encurso"></span> En Curso</span>
                             <span class="legend-item"><span class="legend-dot bar-bloqueado"></span> Bloqueado</span>
                             <span class="legend-item"><span class="legend-dot bar-finalizado"></span> Finalizado</span>
@@ -176,9 +139,7 @@
                                 <div class="proyectos-gantt-right" style="width: @AnchoTimelineProyectosPx()px;">
                                     @foreach (var mes in mesesTimeline)
                                     {
-                                        <div class="proyectos-gantt-month" style="width:@($"{anchoMesPx}px");">
-                                            @mes.ToString("MMM yyyy", new CultureInfo("es-ES"))
-                                        </div>
+                                        <div class="proyectos-gantt-month" style="width:@($"{anchoMesPx}px");">@mes.ToString("MMM yyyy", new CultureInfo("es-ES"))</div>
                                     }
                                 </div>
                             </div>
@@ -187,7 +148,6 @@
                             {
                                 var barra = CalcularBarraProyecto(proyecto);
                                 var fechaFin = ObtenerFechaFinProyecto(proyecto);
-
                                 <div class="proyectos-gantt-row" style="min-width: @(220 + AnchoTimelineProyectosPx())px;">
                                     <div class="proyectos-gantt-left">
                                         <div class="fw-semibold text-truncate" title="@proyecto.Nombre">@proyecto.Nombre</div>
@@ -197,10 +157,7 @@
                                         <div class="proyectos-gantt-track"></div>
                                         <div class="proyectos-gantt-start-marker" style="left: @(barra.Left)px;" title="Inicio: @proyecto.FechaInicio.ToString("dd/MM/yyyy")"></div>
                                         <div class="proyectos-gantt-start-label" style="left: @(ObtenerLeftEtiquetaInicio(barra.Left))px;">@proyecto.FechaInicio.ToString("dd/MM")</div>
-                                        <div class="proyectos-gantt-bar @ObtenerClaseBarraProyecto(proyecto.Estado)"
-                                             style="left: @(barra.Left)px; width: @(barra.Width)px;"
-                                             title="@proyecto.Nombre&#10;Inicio: @proyecto.FechaInicio.ToString("dd/MM/yyyy")&#10;Fin: @fechaFin.ToString("dd/MM/yyyy")&#10;Estado: @GetEstadoTexto(proyecto.Estado)">
-                                        </div>
+                                        <div class="proyectos-gantt-bar @ObtenerClaseBarraProyecto(proyecto.Estado)" style="left: @(barra.Left)px; width: @(barra.Width)px;"></div>
                                     </div>
                                 </div>
                             }
@@ -213,152 +170,35 @@
 </div>
 
 <style>
-    .proyectos-gantt-legend {
-        display: flex;
-        align-items: center;
-        gap: 14px;
-        flex-wrap: wrap;
-        padding: 12px 14px;
-        border-bottom: 1px solid #eef1f6;
-        background: #ffffff;
-    }
-
-    .legend-title {
-        font-weight: 600;
-        color: #495057;
-    }
-
-    .legend-item {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 12px;
-        color: #5c6470;
-    }
-
-    .legend-dot {
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        display: inline-block;
-    }
-
-    .legend-marker {
-        width: 2px;
-        height: 14px;
-        background: #212529;
-        display: inline-block;
-        border-radius: 1px;
-    }
-
-    .proyectos-gantt-scroll {
-        overflow-x: auto;
-        overflow-y: hidden;
-    }
-
-    .proyectos-gantt-header,
-    .proyectos-gantt-row {
-        display: flex;
-        border-bottom: 1px solid #eef1f6;
-    }
-
-    .proyectos-gantt-header {
-        position: sticky;
-        top: 0;
-        background: #fff;
-        z-index: 2;
-    }
-
-    .proyectos-gantt-left {
-        width: 220px;
-        min-width: 220px;
-        padding: 12px;
-        border-right: 1px solid #eef1f6;
-        background: #fff;
-    }
-
-    .proyectos-gantt-right {
-        position: relative;
-        display: flex;
-        height: 72px;
-        min-height: 72px;
-    }
-
-    .proyectos-gantt-month {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 12px;
-        font-weight: 600;
-        color: #6c757d;
-        border-right: 1px solid #eef1f6;
-        text-transform: capitalize;
-    }
-
-    .proyectos-gantt-track {
-        position: absolute;
-        top: 58%;
-        left: 0;
-        width: 100%;
-        height: 8px;
-        transform: translateY(-50%);
-        background: #f1f4f9;
-        border-radius: 999px;
-    }
-
-    .proyectos-gantt-start-marker {
-        position: absolute;
-        top: 18px;
-        height: 38px;
-        width: 2px;
-        background: #212529;
-        border-radius: 2px;
-        z-index: 3;
-    }
-
-    .proyectos-gantt-start-label {
-        position: absolute;
-        top: 2px;
-        transform: translateX(-50%);
-        font-size: 11px;
-        font-weight: 600;
-        color: #212529;
-        background: #ffffff;
-        border: 1px solid #dee2e6;
-        border-radius: 999px;
-        padding: 1px 6px;
-        line-height: 1.2;
-        z-index: 4;
-        white-space: nowrap;
-    }
-
-    .proyectos-gantt-bar {
-        position: absolute;
-        top: 58%;
-        height: 20px;
-        transform: translateY(-50%);
-        border-radius: 999px;
-        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
-        z-index: 2;
-    }
-
-    .bar-planificacion { background: #0dcaf0; }
-    .bar-encurso { background: #198754; }
-    .bar-bloqueado { background: #ffc107; }
-    .bar-finalizado { background: #6c757d; }
-    .bar-cancelado { background: #dc3545; }
+    .proyectos-gantt-legend { display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:12px 14px; border-bottom:1px solid #eef1f6; background:#ffffff; }
+    .legend-title { font-weight:600; color:#495057; }
+    .legend-item { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:#5c6470; }
+    .legend-dot { width:12px; height:12px; border-radius:50%; display:inline-block; }
+    .legend-marker { width:2px; height:14px; background:#212529; display:inline-block; border-radius:1px; }
+    .proyectos-gantt-scroll { overflow-x:auto; overflow-y:hidden; }
+    .proyectos-gantt-header, .proyectos-gantt-row { display:flex; border-bottom:1px solid #eef1f6; }
+    .proyectos-gantt-header { position:sticky; top:0; background:#fff; z-index:2; }
+    .proyectos-gantt-left { width:220px; min-width:220px; padding:12px; border-right:1px solid #eef1f6; background:#fff; }
+    .proyectos-gantt-right { position:relative; display:flex; height:72px; min-height:72px; }
+    .proyectos-gantt-month { display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:600; color:#6c757d; border-right:1px solid #eef1f6; text-transform:capitalize; }
+    .proyectos-gantt-track { position:absolute; top:58%; left:0; width:100%; height:8px; transform:translateY(-50%); background:#f1f4f9; border-radius:999px; }
+    .proyectos-gantt-start-marker { position:absolute; top:18px; height:38px; width:2px; background:#212529; border-radius:2px; z-index:3; }
+    .proyectos-gantt-start-label { position:absolute; top:2px; transform:translateX(-50%); font-size:11px; font-weight:600; color:#212529; background:#ffffff; border:1px solid #dee2e6; border-radius:999px; padding:1px 6px; line-height:1.2; z-index:4; white-space:nowrap; }
+    .proyectos-gantt-bar { position:absolute; top:58%; height:20px; transform:translateY(-50%); border-radius:999px; box-shadow:0 3px 8px rgba(0, 0, 0, 0.15); z-index:2; }
+    .bar-planificacion { background:#0dcaf0; }
+    .bar-encurso { background:#198754; }
+    .bar-bloqueado { background:#ffc107; }
+    .bar-finalizado { background:#6c757d; }
+    .bar-cancelado { background:#dc3545; }
 </style>
 
-<!-- Modal Crear/Editar Proyecto -->
 @if (mostrarModal)
 {
     <div class="modal fade show" style="display: block; background: rgba(0,0,0,0.5);" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">
-                        @(proyectoSeleccionado?.Id > 0 ? "Editar Proyecto" : "Nuevo Proyecto")
-                    </h5>
+                    <h5 class="modal-title">@(proyectoSeleccionado?.Id > 0 ? "Editar Proyecto" : "Nuevo Proyecto")</h5>
                     <button type="button" class="btn-close" @onclick="CerrarModal"></button>
                 </div>
                 <EditForm Model="@proyectoForm" OnValidSubmit="@GuardarProyecto">
@@ -367,62 +207,45 @@
                         <div class="row g-3">
                             <div class="col-md-12">
                                 <label class="form-label">Nombre del Proyecto*</label>
-                                <InputText class="form-control" @bind-Value="proyectoForm.Nombre" placeholder="Ej: Construcción Edificio Residencial" />
+                                <InputText class="form-control" @bind-Value="proyectoForm.Nombre" />
                                 <ValidationMessage For="@(() => proyectoForm.Nombre)" />
                             </div>
-
                             <div class="col-md-6">
                                 <label class="form-label">Provincia*</label>
-                                <InputSelect class="form-select" @bind-Value="proyectoForm.Provincia">
-                                    <option value="">Seleccionar...</option>
-                                    <option value="Madrid">Madrid</option>
-                                    <option value="Barcelona">Barcelona</option>
-                                    <option value="Valencia">Valencia</option>
-                                    <option value="Sevilla">Sevilla</option>
-                                    <option value="Málaga">Málaga</option>
-                                    <option value="Murcia">Murcia</option>
-                                    <option value="Alicante">Alicante</option>
-                                    <option value="Zaragoza">Zaragoza</option>
-                                </InputSelect>
+                                <InputText class="form-control" @bind-Value="proyectoForm.Provincia" />
                                 <ValidationMessage For="@(() => proyectoForm.Provincia)" />
                             </div>
-
                             <div class="col-md-6">
                                 <label class="form-label">Municipio*</label>
-                                <InputText class="form-control" @bind-Value="proyectoForm.Municipio" placeholder="Nombre del municipio" />
+                                <InputText class="form-control" @bind-Value="proyectoForm.Municipio" />
                                 <ValidationMessage For="@(() => proyectoForm.Municipio)" />
                             </div>
-
                             <div class="col-md-6">
                                 <label class="form-label">Tipo de Suelo*</label>
                                 <InputSelect class="form-select" @bind-Value="proyectoForm.TipoSuelo">
                                     <option value="@TipoSuelo.Urbano">Urbano</option>
-                                    <option value="@TipoSuelo.Rustico">Rústico</option>
+                                    <option value="@TipoSuelo.Rustico">Rustico</option>
                                 </InputSelect>
                             </div>
-
                             <div class="col-md-6">
-                                <label class="form-label">Zona Climática*</label>
+                                <label class="form-label">Zona Climatica*</label>
                                 <InputSelect class="form-select" @bind-Value="proyectoForm.ZonaClimatica">
-                                    <option value="@ZonaClimatica.A3">A3 - Cádiz, Málaga</option>
-                                    <option value="@ZonaClimatica.B3">B3 - Valencia, Murcia</option>
-                                    <option value="@ZonaClimatica.C3">C3 - Madrid</option>
-                                    <option value="@ZonaClimatica.D3">D3 - Zaragoza</option>
-                                    <option value="@ZonaClimatica.E1">E1 - Burgos, León</option>
+                                    <option value="@ZonaClimatica.A3">A3</option>
+                                    <option value="@ZonaClimatica.B3">B3</option>
+                                    <option value="@ZonaClimatica.C3">C3</option>
+                                    <option value="@ZonaClimatica.D3">D3</option>
+                                    <option value="@ZonaClimatica.E1">E1</option>
                                 </InputSelect>
                             </div>
-
                             <div class="col-md-6">
                                 <label class="form-label">Fecha de Inicio*</label>
                                 <InputDate class="form-control" @bind-Value="proyectoForm.FechaInicio" />
                                 <ValidationMessage For="@(() => proyectoForm.FechaInicio)" />
                             </div>
-
                             <div class="col-md-6">
                                 <label class="form-label">Fecha Fin Estimada</label>
                                 <InputDate class="form-control" @bind-Value="proyectoForm.FechaFin" />
                             </div>
-
                             <div class="col-md-6">
                                 <label class="form-label">Responsable del Proyecto*</label>
                                 <InputSelect class="form-select" @bind-Value="proyectoForm.ResponsableId">
@@ -432,14 +255,12 @@
                                         <option value="@usuario.Id">@usuario.NombreCompleto - @usuario.Cargo</option>
                                     }
                                 </InputSelect>
-                                <small class="form-text text-muted">Solo usuarios con rol Oficina Técnica o Jefe de Obra</small>
                                 <ValidationMessage For="@(() => proyectoForm.ResponsableId)" />
                             </div>
-
                             <div class="col-md-6">
                                 <label class="form-label">Estado</label>
                                 <InputSelect class="form-select" @bind-Value="proyectoForm.Estado">
-                                    <option value="@EstadoProyecto.Planificacion">Planificación</option>
+                                    <option value="@EstadoProyecto.Planificacion">Planificacion</option>
                                     <option value="@EstadoProyecto.EnCurso">En Curso</option>
                                     <option value="@EstadoProyecto.Bloqueado">Bloqueado</option>
                                     <option value="@EstadoProyecto.Finalizado">Finalizado</option>
@@ -465,107 +286,70 @@
 }
 
 @code {
-    private List<Proyecto> proyectos = new();
-    private List<Proyecto> proyectosFiltrados = new();
-    private List<UsuarioObra> usuariosResponsables = new();
-    private Proyecto? proyectoSeleccionado;
+    private List<ProyectoResumenGestionDto> proyectos = new();
+    private List<ProyectoResumenGestionDto> proyectosFiltrados = new();
+    private List<UsuarioResumenDto> usuariosResponsables = new();
+    private ProyectoResumenGestionDto? proyectoSeleccionado;
     private ProyectoFormModel proyectoForm = new();
-    private bool mostrarModal = false;
-    private bool guardando = false;
-    private string busqueda = "";
+    private bool mostrarModal;
+    private bool guardando;
+    private bool cargando = true;
+    private string busqueda = string.Empty;
     private string? estadoFiltro;
-    private bool vistaGanttProyectos = false;
+    private bool vistaGanttProyectos;
     private readonly int anchoMesPx = 120;
     private DateTime ganttInicio = DateTime.Today;
     private DateTime ganttFin = DateTime.Today;
     private List<DateTime> mesesTimeline = new();
-
-    // Autenticación / filtro por rol
     private string? usuarioActualId;
     private HashSet<string> rolesUsuarioActual = new();
-    private bool esAdmin = false;
+    private bool esAdmin;
 
     protected override async Task OnInitializedAsync()
     {
         await ObtenerUsuarioActual();
-        await CargarProyectos();
-        await CargarUsuariosResponsables();
+        await CargarDatos();
+        cargando = false;
     }
 
     private async Task ObtenerUsuarioActual()
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var claimsPrincipal = authState.User;
-        if (claimsPrincipal.Identity?.IsAuthenticated == true)
-        {
-            var usuario = await UserManager.GetUserAsync(claimsPrincipal);
-            usuarioActualId = usuario?.Id;
-            if (usuario != null)
-            {
-                var roles = await UserManager.GetRolesAsync(usuario);
-                rolesUsuarioActual = roles.ToHashSet();
-                esAdmin = rolesUsuarioActual.Contains("Administrador");
-            }
-        }
+        usuarioActualId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
     }
 
-    private async Task CargarProyectos()
+    private async Task CargarDatos()
     {
-        var todos = await ProyectoRepository.GetAllAsync();
-
-        if (esAdmin)
+        if (string.IsNullOrWhiteSpace(usuarioActualId))
         {
-            // Administrador ve todos los proyectos
-            proyectos = todos;
-        }
-        else if (rolesUsuarioActual.Contains("JefeObra") || rolesUsuarioActual.Contains("OficinaTecnica"))
-        {
-            // Jefe de Obra / Oficina Técnica solo ven proyectos donde son responsables
-            proyectos = todos.Where(p => p.ResponsableId == usuarioActualId).ToList();
-        }
-        else
-        {
-            // Operario u otro rol: solo proyectos en los que tiene tareas asignadas
-            proyectos = todos
-                .Where(p => p.Tareas.Any(t => t.UsuariosAsignados != null
-                    && t.UsuariosAsignados.Any(u => u.Id == usuarioActualId)))
-                .ToList();
+            proyectos = new();
+            proyectosFiltrados = new();
+            usuariosResponsables = new();
+            return;
         }
 
+        var response = await ProyectosApiClient.ObtenerProyectosAsync(usuarioActualId);
+        proyectos = response.Proyectos;
+        usuariosResponsables = response.ResponsablesDisponibles;
+        rolesUsuarioActual = response.RolesUsuarioActual.ToHashSet();
+        esAdmin = response.EsAdministrador;
         AplicarFiltros();
-    }
-
-    private async Task CargarUsuariosResponsables()
-    {
-        // Solo usuarios con rol OficinaTecnica o JefeObra
-        var roles = new[] { "OficinaTecnica", "JefeObra" };
-        
-        usuariosResponsables = await DbContext.Users
-            .Where(u => DbContext.UserRoles
-                .Any(ur => ur.UserId == u.Id && 
-                     DbContext.Roles.Any(r => r.Id == ur.RoleId && roles.Contains(r.Name))))
-            .OrderBy(u => u.NombreCompleto)
-            .ToListAsync();
     }
 
     private void AplicarFiltros()
     {
-        proyectosFiltrados = proyectos;
+        proyectosFiltrados = proyectos.ToList();
 
-        if (!string.IsNullOrWhiteSpace(estadoFiltro))
+        if (!string.IsNullOrWhiteSpace(estadoFiltro) && Enum.TryParse<EstadoProyecto>(estadoFiltro, out var estado))
         {
-            if (Enum.TryParse<EstadoProyecto>(estadoFiltro, out var estado))
-            {
-                proyectosFiltrados = proyectosFiltrados.Where(p => p.Estado == estado).ToList();
-            }
+            proyectosFiltrados = proyectosFiltrados.Where(p => p.Estado == estado).ToList();
         }
 
         if (!string.IsNullOrWhiteSpace(busqueda))
         {
-            proyectosFiltrados = proyectosFiltrados
-                .Where(p => p.Nombre.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ||
-                           p.Municipio.Contains(busqueda, StringComparison.OrdinalIgnoreCase))
-                .ToList();
+            proyectosFiltrados = proyectosFiltrados.Where(p =>
+                p.Nombre.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ||
+                p.Municipio.Contains(busqueda, StringComparison.OrdinalIgnoreCase)).ToList();
         }
 
         RecalcularTimelineProyectos();
@@ -589,7 +373,6 @@
     private void RecalcularTimelineProyectos()
     {
         mesesTimeline = new();
-
         if (!proyectosFiltrados.Any())
         {
             ganttInicio = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
@@ -600,7 +383,6 @@
 
         var inicioMin = proyectosFiltrados.Min(p => p.FechaInicio);
         var finMax = proyectosFiltrados.Max(p => ObtenerFechaFinProyecto(p));
-
         ganttInicio = new DateTime(inicioMin.Year, inicioMin.Month, 1);
         ganttFin = new DateTime(finMax.Year, finMax.Month, 1).AddMonths(1).AddDays(-1);
 
@@ -612,41 +394,20 @@
         }
     }
 
-    private int AnchoTimelineProyectosPx()
-    {
-        var meses = Math.Max(mesesTimeline.Count, 1);
-        return meses * anchoMesPx;
-    }
+    private int AnchoTimelineProyectosPx() => Math.Max(mesesTimeline.Count, 1) * anchoMesPx;
 
-    private DateTime ObtenerFechaFinProyecto(Proyecto proyecto)
-    {
-        if (proyecto.FechaFin.HasValue)
-        {
-            return proyecto.FechaFin.Value;
-        }
+    private static DateTime ObtenerFechaFinProyecto(ProyectoResumenGestionDto proyecto) =>
+        proyecto.FechaFin ?? proyecto.FechaInicio.AddDays(30);
 
-        if (proyecto.Tareas != null && proyecto.Tareas.Any())
-        {
-            return proyecto.Tareas
-                .Select(t => t.FechaFin ?? t.FechaInicio)
-                .Max();
-        }
-
-        return proyecto.FechaInicio.AddDays(30);
-    }
-
-    private (int Left, int Width) CalcularBarraProyecto(Proyecto proyecto)
+    private (int Left, int Width) CalcularBarraProyecto(ProyectoResumenGestionDto proyecto)
     {
         var inicio = proyecto.FechaInicio;
         var fin = ObtenerFechaFinProyecto(proyecto);
-
         var totalDias = Math.Max((ganttFin - ganttInicio).TotalDays + 1, 1);
         var leftRatio = Math.Max((inicio - ganttInicio).TotalDays, 0) / totalDias;
         var widthRatio = Math.Max((fin - inicio).TotalDays + 1, 1) / totalDias;
-
         var left = (int)Math.Round(leftRatio * AnchoTimelineProyectosPx());
         var width = (int)Math.Round(widthRatio * AnchoTimelineProyectosPx());
-
         return (left, Math.Max(width, 10));
     }
 
@@ -658,65 +419,45 @@
         return Math.Clamp(leftBarra, minimo, maximo);
     }
 
-    private string ObtenerClaseBarraProyecto(EstadoProyecto estado)
+    private static string ObtenerClaseBarraProyecto(EstadoProyecto estado) => estado switch
     {
-        return estado switch
-        {
-            EstadoProyecto.Planificacion => "bar-planificacion",
-            EstadoProyecto.EnCurso => "bar-encurso",
-            EstadoProyecto.Bloqueado => "bar-bloqueado",
-            EstadoProyecto.Finalizado => "bar-finalizado",
-            EstadoProyecto.Cancelado => "bar-cancelado",
-            _ => "bar-planificacion"
-        };
-    }
+        EstadoProyecto.Planificacion => "bar-planificacion",
+        EstadoProyecto.EnCurso => "bar-encurso",
+        EstadoProyecto.Bloqueado => "bar-bloqueado",
+        EstadoProyecto.Finalizado => "bar-finalizado",
+        EstadoProyecto.Cancelado => "bar-cancelado",
+        _ => "bar-planificacion"
+    };
 
     private void AbrirModalNuevo()
     {
-        try
+        proyectoSeleccionado = null;
+        proyectoForm = new ProyectoFormModel
         {
-            proyectoSeleccionado = null;
-            proyectoForm = new ProyectoFormModel
-            {
-                FechaInicio = DateTime.Now,
-                Estado = EstadoProyecto.Planificacion,
-                TipoSuelo = TipoSuelo.Urbano,
-                ZonaClimatica = ZonaClimatica.C3,
-                ResponsableId = null
-            };
-            mostrarModal = true;
-            StateHasChanged();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error en AbrirModalNuevo: {ex.Message}");
-        }
+            FechaInicio = DateTime.Now,
+            Estado = EstadoProyecto.Planificacion,
+            TipoSuelo = TipoSuelo.Urbano,
+            ZonaClimatica = ZonaClimatica.C3
+        };
+        mostrarModal = true;
     }
 
-    private void AbrirModalEditar(Proyecto proyecto)
+    private void AbrirModalEditar(ProyectoResumenGestionDto proyecto)
     {
-        try
+        proyectoSeleccionado = proyecto;
+        proyectoForm = new ProyectoFormModel
         {
-            proyectoSeleccionado = proyecto;
-            proyectoForm = new ProyectoFormModel
-            {
-                Nombre = proyecto.Nombre,
-                Provincia = proyecto.Provincia,
-                Municipio = proyecto.Municipio,
-                TipoSuelo = proyecto.TipoSuelo,
-                ZonaClimatica = proyecto.ZonaClimatica,
-                FechaInicio = proyecto.FechaInicio,
-                FechaFin = proyecto.FechaFin,
-                Estado = proyecto.Estado,
-                ResponsableId = proyecto.ResponsableId
-            };
-            mostrarModal = true;
-            StateHasChanged();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error en AbrirModalEditar: {ex.Message}");
-        }
+            Nombre = proyecto.Nombre,
+            Provincia = proyecto.Provincia,
+            Municipio = proyecto.Municipio,
+            TipoSuelo = proyecto.TipoSuelo,
+            ZonaClimatica = proyecto.ZonaClimatica,
+            FechaInicio = proyecto.FechaInicio,
+            FechaFin = proyecto.FechaFin,
+            Estado = proyecto.Estado,
+            ResponsableId = proyecto.ResponsableId
+        };
+        mostrarModal = true;
     }
 
     private void CerrarModal()
@@ -728,44 +469,29 @@
     private async Task GuardarProyecto()
     {
         guardando = true;
-
         try
         {
-            if (proyectoSeleccionado == null)
+            var resultado = await ProyectosApiClient.GuardarProyectoAsync(new GuardarProyectoRequest
             {
-                // Crear nuevo
-                var nuevoProyecto = new Proyecto
-                {
-                    Nombre = proyectoForm.Nombre,
-                    Provincia = proyectoForm.Provincia,
-                    Municipio = proyectoForm.Municipio,
-                    TipoSuelo = proyectoForm.TipoSuelo,
-                    ZonaClimatica = proyectoForm.ZonaClimatica,
-                    FechaInicio = proyectoForm.FechaInicio,
-                    FechaFin = proyectoForm.FechaFin,
-                    Estado = proyectoForm.Estado,
-                    ResponsableId = proyectoForm.ResponsableId
-                };
+                Id = proyectoSeleccionado?.Id ?? 0,
+                Nombre = proyectoForm.Nombre,
+                Provincia = proyectoForm.Provincia,
+                Municipio = proyectoForm.Municipio,
+                TipoSuelo = proyectoForm.TipoSuelo,
+                ZonaClimatica = proyectoForm.ZonaClimatica,
+                FechaInicio = proyectoForm.FechaInicio,
+                FechaFin = proyectoForm.FechaFin,
+                Estado = proyectoForm.Estado,
+                ResponsableId = proyectoForm.ResponsableId
+            });
 
-                await ProyectoRepository.AddAsync(nuevoProyecto);
-            }
-            else
+            if (!resultado.Correcto)
             {
-                // Editar existente
-                proyectoSeleccionado.Nombre = proyectoForm.Nombre;
-                proyectoSeleccionado.Provincia = proyectoForm.Provincia;
-                proyectoSeleccionado.Municipio = proyectoForm.Municipio;
-                proyectoSeleccionado.TipoSuelo = proyectoForm.TipoSuelo;
-                proyectoSeleccionado.ZonaClimatica = proyectoForm.ZonaClimatica;
-                proyectoSeleccionado.FechaInicio = proyectoForm.FechaInicio;
-                proyectoSeleccionado.FechaFin = proyectoForm.FechaFin;
-                proyectoSeleccionado.Estado = proyectoForm.Estado;
-                proyectoSeleccionado.ResponsableId = proyectoForm.ResponsableId;
-
-                await ProyectoRepository.UpdateAsync(proyectoSeleccionado);
+                await JS.InvokeVoidAsync("alert", resultado.Mensaje);
+                return;
             }
 
-            await CargarProyectos();
+            await CargarDatos();
             CerrarModal();
         }
         finally
@@ -774,62 +500,48 @@
         }
     }
 
-    private async Task ConfirmarEliminar(Proyecto proyecto)
+    private async Task ConfirmarEliminar(ProyectoResumenGestionDto proyecto)
     {
-        bool confirmado = await JS.InvokeAsync<bool>("confirm", $"¿Estás seguro de eliminar el proyecto '{proyecto.Nombre}'?");
-
-        if (confirmado)
+        var confirmado = await JS.InvokeAsync<bool>("confirm", $"¿Estas seguro de eliminar el proyecto '{proyecto.Nombre}'?");
+        if (!confirmado)
         {
-            await ProyectoRepository.DeleteAsync(proyecto.Id);
-            await CargarProyectos();
+            return;
         }
-    }
 
-    private void VerDetalle(int id)
-    {
-        Navigation.NavigateTo($"/proyectos/{id}");
-    }
-
-    private void AbrirKanban(int proyectoId)
-    {
-        Navigation.NavigateTo($"/proyectos/{proyectoId}/kanban");
-    }
-
-    private void VerGantt(int proyectoId)
-    {
-        Navigation.NavigateTo($"/proyectos/{proyectoId}/gantt");
-    }
-
-    private void VerHistorialMateriales(int proyectoId)
-    {
-        Navigation.NavigateTo($"/proyectos/{proyectoId}/historial-materiales");
-    }
-
-    private string GetEstadoBadgeClass(EstadoProyecto estado)
-    {
-        return estado switch
+        var resultado = await ProyectosApiClient.EliminarProyectoAsync(proyecto.Id);
+        if (!resultado.Correcto)
         {
-            EstadoProyecto.EnCurso => "bg-success",
-            EstadoProyecto.Planificacion => "bg-info",
-            EstadoProyecto.Finalizado => "bg-secondary",
-            EstadoProyecto.Bloqueado => "bg-warning",
-            EstadoProyecto.Cancelado => "bg-danger",
-            _ => "bg-primary"
-        };
+            await JS.InvokeVoidAsync("alert", resultado.Mensaje);
+            return;
+        }
+
+        await CargarDatos();
     }
 
-    private string GetEstadoTexto(EstadoProyecto estado)
+    private void VerDetalle(int id) => Navigation.NavigateTo($"/proyectos/{id}");
+    private void AbrirKanban(int proyectoId) => Navigation.NavigateTo($"/proyectos/{proyectoId}/kanban");
+    private void VerGantt(int proyectoId) => Navigation.NavigateTo($"/proyectos/{proyectoId}/gantt");
+    private void VerHistorialMateriales(int proyectoId) => Navigation.NavigateTo($"/proyectos/{proyectoId}/historial-materiales");
+
+    private static string GetEstadoBadgeClass(EstadoProyecto estado) => estado switch
     {
-        return estado switch
-        {
-            EstadoProyecto.EnCurso => "En Curso",
-            EstadoProyecto.Planificacion => "Planificación",
-            EstadoProyecto.Finalizado => "Finalizado",
-            EstadoProyecto.Bloqueado => "Bloqueado",
-            EstadoProyecto.Cancelado => "Cancelado",
-            _ => estado.ToString()
-        };
-    }
+        EstadoProyecto.EnCurso => "bg-success",
+        EstadoProyecto.Planificacion => "bg-info",
+        EstadoProyecto.Finalizado => "bg-secondary",
+        EstadoProyecto.Bloqueado => "bg-warning",
+        EstadoProyecto.Cancelado => "bg-danger",
+        _ => "bg-primary"
+    };
+
+    private static string GetEstadoTexto(EstadoProyecto estado) => estado switch
+    {
+        EstadoProyecto.EnCurso => "En Curso",
+        EstadoProyecto.Planificacion => "Planificacion",
+        EstadoProyecto.Finalizado => "Finalizado",
+        EstadoProyecto.Bloqueado => "Bloqueado",
+        EstadoProyecto.Cancelado => "Cancelado",
+        _ => estado.ToString()
+    };
 
     public class ProyectoFormModel
     {
@@ -851,7 +563,7 @@
 
         public DateTime? FechaFin { get; set; }
         public EstadoProyecto Estado { get; set; }
-        
+
         [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Debe seleccionar un responsable")]
         public string? ResponsableId { get; set; }
     }

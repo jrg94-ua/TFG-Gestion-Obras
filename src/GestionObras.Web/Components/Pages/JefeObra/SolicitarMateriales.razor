@@ -1,18 +1,18 @@
 @page "/jefe-obra/solicitar-materiales"
+@using System.Security.Claims
+@using GestionObras.Core.Contracts.Materiales
+@using GestionObras.Core.Contracts.JefeObra
 @using GestionObras.Core.Entities
 @using Microsoft.AspNetCore.Authorization
-@using Microsoft.AspNetCore.Identity
 @using Microsoft.AspNetCore.Components.Authorization
-@using Microsoft.EntityFrameworkCore
-@using GestionObras.Infrastructure.Data
-@inject GestionObrasDbContext DbContext
-@inject UserManager<UsuarioObra> UserManager
+@using GestionObras.Web.Services
+@inject MaterialesApiClient MaterialesApi
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager Navigation
 @attribute [Authorize(Roles = "JefeObra")]
 @rendermode InteractiveServer
 
-<PageTitle>Solicitar Materiales - Gestión Obras</PageTitle>
+<PageTitle>Solicitar Materiales - Gestion Obras</PageTitle>
 
 <div class="container-fluid py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -33,7 +33,6 @@
         </div>
     }
 
-    <!-- Filtros -->
     <div class="card mb-4">
         <div class="card-body">
             <div class="row g-3">
@@ -49,13 +48,13 @@
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Buscar Material</label>
-                    <input type="text" class="form-control" placeholder="🔍 Buscar..."
+                    <input type="text" class="form-control" placeholder="Buscar..."
                            @bind="filtroNombre" @bind:event="oninput" />
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label">Categoría</label>
+                    <label class="form-label">Categoria</label>
                     <select class="form-select" @bind="filtroCategoria">
-                        <option value="">Todas las categorías</option>
+                        <option value="">Todas las categorias</option>
                         <option value="Estructural">Estructural</option>
                         <option value="Aislamiento">Aislamiento</option>
                         <option value="Acabados">Acabados</option>
@@ -74,10 +73,9 @@
     }
     else
     {
-        <!-- Catálogo de materiales -->
         <div class="card">
             <div class="card-header">
-                <h5 class="mb-0">Catálogo de Materiales Disponibles</h5>
+                <h5 class="mb-0">Catalogo de Materiales Disponibles</h5>
             </div>
             <div class="card-body">
                 @if (cargando)
@@ -99,12 +97,12 @@
                         <table class="table table-hover">
                             <thead>
                                 <tr>
-                                    <th>Código</th>
+                                    <th>Codigo</th>
                                     <th>Material</th>
-                                    <th>Categoría</th>
+                                    <th>Categoria</th>
                                     <th>Stock</th>
                                     <th>Precio/Ud</th>
-                                    <th class="text-end">Acción</th>
+                                    <th class="text-end">Accion</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -151,7 +149,6 @@
     }
 </div>
 
-<!-- Modal para solicitar material -->
 @if (mostrarModal && materialSeleccionado != null)
 {
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
@@ -170,7 +167,7 @@
                             <p>@materialSeleccionado.Nombre</p>
                         </div>
                         <div class="col-md-6">
-                            <strong>Código:</strong>
+                            <strong>Codigo:</strong>
                             <p><code>@materialSeleccionado.Codigo</code></p>
                         </div>
                     </div>
@@ -192,8 +189,7 @@
                             <strong>Cantidad Solicitada</strong> <span class="text-danger">*</span>
                         </label>
                         <div class="input-group">
-                            <input type="number" class="form-control" @bind="nuevaSolicitud.CantidadSolicitada" 
-                                   step="0.01" min="0.01" />
+                            <input type="number" class="form-control" @bind="nuevaSolicitud.CantidadSolicitada" step="0.01" min="0.01" />
                             <span class="input-group-text">@materialSeleccionado.UnidadMedida</span>
                         </div>
                         @if (nuevaSolicitud.CantidadSolicitada > 0)
@@ -220,17 +216,16 @@
                         <label class="form-label">
                             <strong>Fecha en que se necesita</strong>
                         </label>
-                        <input type="date" class="form-control" @bind="nuevaSolicitud.FechaNecesaria" 
-                               min="@DateTime.Now.ToString("yyyy-MM-dd")" />
+                        <input type="date" class="form-control" @bind="fechaNecesariaInput" min="@DateTime.Today" />
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label">
-                            <strong>Justificación</strong> <span class="text-danger">*</span>
+                            <strong>Justificacion</strong> <span class="text-danger">*</span>
                         </label>
                         <textarea class="form-control" rows="4" @bind="nuevaSolicitud.Justificacion"
-                                  placeholder="Explique para qué necesita este material y por qué es necesario..."></textarea>
-                        <small class="text-muted">Máximo 1000 caracteres</small>
+                                  placeholder="Explique para que necesita este material y por que es necesario..."></textarea>
+                        <small class="text-muted">Maximo 1000 caracteres</small>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -249,25 +244,25 @@
 
 @code {
     private bool cargando = true;
-    private List<Material> materiales = new();
-    private List<Proyecto> misProyectos = new();
-    private int proyectoSeleccionadoId = 0;
+    private List<MaterialResumenDto> materiales = new();
+    private List<ProyectoResumenDto> misProyectos = new();
+    private int proyectoSeleccionadoId;
     private string filtroNombre = string.Empty;
     private string filtroCategoria = string.Empty;
     private string mensaje = string.Empty;
-    private bool mensajeExito = false;
+    private bool mensajeExito;
     private string usuarioActualId = string.Empty;
+    private DateTime? fechaNecesariaInput;
 
-    private bool mostrarModal = false;
-    private Material? materialSeleccionado;
+    private bool mostrarModal;
+    private MaterialResumenDto? materialSeleccionado;
     private SolicitudMaterial nuevaSolicitud = new();
 
-    private IEnumerable<Material> materialesFiltrados =>
+    private IEnumerable<MaterialResumenDto> materialesFiltrados =>
         materiales.Where(m =>
-            (string.IsNullOrEmpty(filtroNombre) || m.Nombre.Contains(filtroNombre, StringComparison.OrdinalIgnoreCase) || 
+            (string.IsNullOrEmpty(filtroNombre) || m.Nombre.Contains(filtroNombre, StringComparison.OrdinalIgnoreCase) ||
              m.Codigo.Contains(filtroNombre, StringComparison.OrdinalIgnoreCase)) &&
-            (string.IsNullOrEmpty(filtroCategoria) || m.Categoria == filtroCategoria)
-        );
+            (string.IsNullOrEmpty(filtroCategoria) || m.Categoria == filtroCategoria));
 
     protected override async Task OnInitializedAsync()
     {
@@ -278,34 +273,18 @@
     {
         cargando = true;
         StateHasChanged();
-        
+
         try
         {
             var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-            var user = authState.User;
-            
-            if (user.Identity?.IsAuthenticated == true)
-            {
-                var usuario = await UserManager.GetUserAsync(user);
-                if (usuario != null)
-                {
-                    usuarioActualId = usuario.Id;
-                    
-                    // Cargar proyectos donde soy responsable o estoy asignado
-                    misProyectos = await DbContext.Proyectos
-                        .Where(p => p.ResponsableId == usuarioActualId && p.Estado != EstadoProyecto.Finalizado)
-                        .OrderBy(p => p.Nombre)
-                        .ToListAsync();
-                }
-            }
+            usuarioActualId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
 
-            // Cargar todos los materiales disponibles
-            materiales = await DbContext.Materiales
-                .AsNoTracking()
-                .OrderBy(m => m.Nombre)
-                .ToListAsync();
-                
-            Console.WriteLine($"Materiales cargados: {materiales.Count}");
+            if (!string.IsNullOrWhiteSpace(usuarioActualId))
+            {
+                var response = await MaterialesApi.ObtenerDatosSolicitudAsync(usuarioActualId);
+                misProyectos = response.MisProyectos;
+                materiales = response.Materiales;
+            }
         }
         catch (Exception ex)
         {
@@ -319,7 +298,7 @@
         }
     }
 
-    private void AbrirModalSolicitud(Material material)
+    private void AbrirModalSolicitud(MaterialResumenDto material)
     {
         materialSeleccionado = material;
         nuevaSolicitud = new SolicitudMaterial
@@ -332,6 +311,7 @@
             Prioridad = PrioridadSolicitud.Media,
             CantidadSolicitada = 0
         };
+        fechaNecesariaInput = null;
         mostrarModal = true;
     }
 
@@ -340,6 +320,7 @@
         mostrarModal = false;
         materialSeleccionado = null;
         nuevaSolicitud = new();
+        fechaNecesariaInput = null;
     }
 
     private async Task GuardarSolicitud()
@@ -355,18 +336,31 @@
 
             if (string.IsNullOrWhiteSpace(nuevaSolicitud.Justificacion))
             {
-                mensaje = "Debe proporcionar una justificación";
+                mensaje = "Debe proporcionar una justificacion";
                 mensajeExito = false;
                 return;
             }
 
-            DbContext.SolicitudesMateriales.Add(nuevaSolicitud);
-            await DbContext.SaveChangesAsync();
+            var resultado = await MaterialesApi.CrearSolicitudAsync(new CrearSolicitudMaterialRequest
+            {
+                MaterialId = nuevaSolicitud.MaterialId,
+                ProyectoId = proyectoSeleccionadoId,
+                CantidadSolicitada = nuevaSolicitud.CantidadSolicitada,
+                Justificacion = nuevaSolicitud.Justificacion,
+                SolicitadoPorId = usuarioActualId,
+                Prioridad = nuevaSolicitud.Prioridad,
+                FechaNecesaria = fechaNecesariaInput
+            });
 
-            mensaje = "Solicitud enviada correctamente. Quedará pendiente de aprobación por el administrador.";
-            mensajeExito = true;
+            mensaje = resultado.Mensaje;
+            mensajeExito = resultado.Correcto;
+
+            if (!resultado.Correcto)
+            {
+                return;
+            }
+
             CerrarModal();
-            
             StateHasChanged();
         }
         catch (Exception ex)

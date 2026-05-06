@@ -1,42 +1,37 @@
+@using GestionObras.Core.Contracts.Administracion
 @using GestionObras.Core.Entities
 
-<div class="kanban-card" 
-    draggable="@(PermitirArrastrar ? "true" : "false")" 
+<div class="kanban-card"
+    draggable="@(PermitirArrastrar ? "true" : "false")"
     @ondragstart="IniciarArrastre">
-    
-    <!-- Badge de Prioridad -->
+
     <span class="badge @ObtenerClasePrioridad() position-absolute top-0 end-0 m-2">
         @Tarea.Prioridad
     </span>
 
-    <!-- Proyecto -->
     <div class="tarea-proyecto mb-2">
         <small class="text-muted">
-            <i class="bi bi-folder"></i> @Tarea.Proyecto?.Nombre
+            <i class="bi bi-folder"></i> @Tarea.Proyecto.Nombre
         </small>
     </div>
 
-    <!-- Nivel jerárquico -->
-    @if (MostrarJerarquia && Tarea.TareaPadre != null)
+    @if (MostrarJerarquia && !string.IsNullOrWhiteSpace(Tarea.TareaPadreNombre))
     {
         <div class="subtarea-indicator">
-            <i class="bi bi-arrow-return-right"></i> Subtarea de: @Tarea.TareaPadre.Nombre
+            <i class="bi bi-arrow-return-right"></i> Subtarea de: @Tarea.TareaPadreNombre
         </div>
     }
 
-    <!-- Título -->
     <h5 class="card-title">@Tarea.Nombre</h5>
 
-    <!-- Descripción -->
     @if (!string.IsNullOrWhiteSpace(Tarea.Descripcion))
     {
         <p class="card-text text-muted small">@Tarea.Descripcion</p>
     }
 
-    <!-- Fechas -->
     <div class="card-dates">
         <small>
-            <i class="bi bi-calendar-event"></i> 
+            <i class="bi bi-calendar-event"></i>
             @Tarea.FechaInicio.ToString("dd/MM/yyyy")
             @if (Tarea.FechaFin.HasValue)
             {
@@ -45,7 +40,6 @@
         </small>
     </div>
 
-    <!-- Presupuesto -->
     @if (MostrarPresupuesto && Tarea.PresupuestoEstimado > 0)
     {
         <div class="card-budget mt-2">
@@ -63,29 +57,26 @@
         </div>
     }
 
-    <!-- Información de bloqueo -->
     @if (Tarea.Bloqueo != null && Tarea.Estado == EstadoTarea.Bloqueado)
     {
         <div class="alert alert-warning p-2 mt-2 mb-0">
             <small>
-                <strong>🚫 @Tarea.Bloqueo.Tipo</strong><br />
+                <strong>Bloqueo: @Tarea.Bloqueo.Tipo</strong><br />
                 @Tarea.Bloqueo.JustificacionTecnica
             </small>
         </div>
     }
 
-    <!-- Otros usuarios asignados -->
-    @if (Tarea.UsuariosAsignados?.Count() > 1)
+    @if (Tarea.UsuariosAsignadosCount > 1)
     {
         <div class="card-responsables mt-2">
             <small class="text-muted">
                 <i class="bi bi-people-fill"></i>
-                +@(Tarea.UsuariosAsignados.Count - 1) colaborador(es)
+                +@(Tarea.UsuariosAsignadosCount - 1) colaborador(es)
             </small>
         </div>
     }
 
-    <!-- Acciones -->
     <div class="card-actions mt-2">
         @if (ModoOperario)
         {
@@ -131,22 +122,22 @@
 
 @code {
     [Parameter, EditorRequired]
-    public Tarea Tarea { get; set; } = null!;
+    public TareaPersonalDto Tarea { get; set; } = null!;
 
     [Parameter]
-    public EventCallback<Tarea> OnDragStart { get; set; }
+    public EventCallback<TareaPersonalDto> OnDragStart { get; set; }
 
     [Parameter]
-    public EventCallback<Tarea> OnEditar { get; set; }
+    public EventCallback<TareaPersonalDto> OnEditar { get; set; }
 
     [Parameter]
     public EventCallback<int> OnVerProyecto { get; set; }
 
     [Parameter]
-    public EventCallback<Tarea> OnDesbloquear { get; set; }
+    public EventCallback<TareaPersonalDto> OnDesbloquear { get; set; }
 
     [Parameter]
-    public EventCallback<Tarea> OnMarcarFinalizada { get; set; }
+    public EventCallback<TareaPersonalDto> OnMarcarFinalizada { get; set; }
 
     [Parameter]
     public bool ModoOperario { get; set; }

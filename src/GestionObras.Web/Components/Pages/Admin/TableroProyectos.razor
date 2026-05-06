@@ -1,11 +1,11 @@
 @page "/admin/tablero-proyectos"
 @attribute [Authorize(Roles = "Administrador")]
 @using Microsoft.AspNetCore.Authorization
+@using GestionObras.Core.Contracts.Administracion
 @using GestionObras.Core.Entities
-@using GestionObras.Infrastructure.Data
 @using GestionObras.Web.Components.Shared
-@using Microsoft.EntityFrameworkCore
-@inject GestionObrasDbContext DbContext
+@using GestionObras.Web.Services
+@inject AdministracionApiClient AdministracionApi
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 @rendermode InteractiveServer
@@ -81,10 +81,10 @@
         <div class="row g-3">
             <div class="col-md-6">
                 <input type="text" class="form-control" placeholder="Buscar proyecto..." 
-                       @bind="busqueda" @bind:event="oninput" />
+                       @bind="busqueda" @bind:event="oninput" @bind:after="AplicarFiltros" />
             </div>
             <div class="col-md-3">
-                <select class="form-select" @bind="filtroZona">
+                <select class="form-select" @bind="filtroZona" @bind:after="AplicarFiltros">
                     <option value="">Todas las zonas</option>
                     @foreach (var zona in zonasDisponibles)
                     {
@@ -93,7 +93,7 @@
                 </select>
             </div>
             <div class="col-md-3">
-                <select class="form-select" @bind="ordenamiento">
+                <select class="form-select" @bind="ordenamiento" @bind:after="AplicarFiltros">
                     <option value="fecha">Por fecha inicio</option>
                     <option value="nombre">Por nombre</option>
                     <option value="tareas">Por tareas pendientes</option>
@@ -202,8 +202,8 @@
 </div>
 
 @code {
-    private List<Proyecto> proyectos = new();
-    private List<Proyecto> proyectosFiltrados = new();
+    private List<ProyectoTableroDto> proyectos = new();
+    private List<ProyectoTableroDto> proyectosFiltrados = new();
     private List<string> zonasDisponibles = new();
     
     private string busqueda = "";
@@ -211,7 +211,7 @@
     private string ordenamiento = "fecha";
 
     // Drag and Drop
-    private Proyecto? proyectoArrastrado = null;
+    private ProyectoTableroDto? proyectoArrastrado = null;
 
     protected override async Task OnInitializedAsync()
     {
@@ -220,11 +220,8 @@
 
     private async Task CargarDatos()
     {
-        proyectos = await DbContext.Proyectos
-            .Include(p => p.Tareas)
-            .Include(p => p.EmpleadosAsignados)
-            .OrderByDescending(p => p.FechaInicio)
-            .ToListAsync();
+        var response = await AdministracionApi.ObtenerTableroProyectosAsync();
+        proyectos = response.Proyectos;
 
         zonasDisponibles = proyectos
             .Select(p => p.Provincia)
@@ -261,18 +258,18 @@
         proyectosFiltrados = ordenamiento switch
         {
             "nombre" => proyectosFiltrados.OrderBy(p => p.Nombre).ToList(),
-            "tareas" => proyectosFiltrados.OrderByDescending(p => p.Tareas.Count(t => t.Estado != EstadoTarea.Finalizado)).ToList(),
+            "tareas" => proyectosFiltrados.OrderByDescending(p => p.TareasPendientes + p.TareasEnCurso + p.TareasBloqueadas).ToList(),
             _ => proyectosFiltrados.OrderByDescending(p => p.FechaInicio).ToList()
         };
     }
 
-    private List<Proyecto> ObtenerProyectosPorEstado(EstadoProyecto estado)
+    private List<ProyectoTableroDto> ObtenerProyectosPorEstado(EstadoProyecto estado)
     {
         return proyectosFiltrados.Where(p => p.Estado == estado).ToList();
     }
 
     // Drag and Drop
-    private void DragStart(Proyecto proyecto)
+    private void DragStart(ProyectoTableroDto proyecto)
     {
         proyectoArrastrado = proyecto;
     }
@@ -282,19 +279,18 @@
         if (proyectoArrastrado == null) return;
 
         var estadoAnterior = proyectoArrastrado.Estado;
-        proyectoArrastrado.Estado = nuevoEstado;
-
-        // Si se marca como finalizado, establecer fecha fin
-        if (nuevoEstado == EstadoProyecto.Finalizado && proyectoArrastrado.FechaFin == null)
+        var nombre = proyectoArrastrado.Nombre;
+        var resultado = await AdministracionApi.CambiarEstadoProyectoAsync(proyectoArrastrado.Id, nuevoEstado);
+        if (!resultado.Correcto)
         {
-            proyectoArrastrado.FechaFin = DateTime.Today;
+            await JS.InvokeVoidAsync("alert", resultado.Mensaje);
+            proyectoArrastrado = null;
+            return;
         }
 
-        DbContext.Update(proyectoArrastrado);
-        await DbContext.SaveChangesAsync();
         await CargarDatos();
 
-        await JS.InvokeVoidAsync("alert", $"Proyecto '{proyectoArrastrado.Nombre}' cambiado de {estadoAnterior} a {nuevoEstado}");
+        await JS.InvokeVoidAsync("alert", $"Proyecto '{nombre}' cambiado de {estadoAnterior} a {nuevoEstado}");
         
         proyectoArrastrado = null;
     }

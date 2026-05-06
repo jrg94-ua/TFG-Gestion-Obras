@@ -127,6 +127,7 @@
                                 <th>Proveedor</th>
                                 <th>Base</th>
                                 <th>IVA</th>
+                                <th>Dto.</th>
                                 <th>Total</th>
                                 <th>Estado</th>
                                 <th class="text-end">Acciones</th>
@@ -157,6 +158,7 @@
                                     </td>
                                     <td>@factura.BaseImponible.ToString("C2")</td>
                                     <td>@factura.IVA.ToString("C2")</td>
+                                    <td>@factura.DescuentoPorcentaje.ToString("0.##")%</td>
                                     <td><strong>@factura.ImporteTotal.ToString("C2")</strong></td>
                                     <td>
                                         @if (factura.Estado == EstadoFactura.Pendiente)
@@ -230,7 +232,7 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Estado *</label>
-                            <select class="form-select" @bind="facturaSeleccionada.Estado">
+                            <select class="form-select" @bind="facturaSeleccionada.Estado" disabled="@EsEdicion">
                                 <option value="@EstadoFactura.Pendiente">Pendiente</option>
                                 <option value="@EstadoFactura.Pagada">Pagada</option>
                                 <option value="@EstadoFactura.Vencida">Vencida</option>
@@ -239,26 +241,34 @@
                         </div>
                         <div class="col-md-12">
                             <label class="form-label">Concepto *</label>
-                            <input class="form-control" @bind="facturaSeleccionada.Concepto" />
+                            <input class="form-control" @bind="facturaSeleccionada.Concepto" readonly="@EsEdicion" />
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Fecha Emisión *</label>
-                            <input type="date" class="form-control" @bind="facturaSeleccionada.FechaEmision" />
+                            <input type="date" class="form-control" @bind="facturaSeleccionada.FechaEmision" readonly="@EsEdicion" />
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Fecha Vencimiento *</label>
-                            <input type="date" class="form-control" @bind="facturaSeleccionada.FechaVencimiento" />
+                            <input type="date" class="form-control" @bind="facturaSeleccionada.FechaVencimiento" readonly="@EsEdicion" />
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Base Imponible *</label>
                             <input type="number" step="0.01" class="form-control" 
                                    @bind="facturaSeleccionada.BaseImponible" 
+                                   readonly="@EsEdicion"
                                    @oninput="CalcularTotales" />
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">IVA (%) *</label>
                             <input type="number" step="0.01" class="form-control" 
                                    @bind="facturaSeleccionada.PorcentajeIVA"
+                                   readonly="@EsEdicion"
+                                   @oninput="CalcularTotales" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Descuento (%)</label>
+                            <input type="number" step="0.01" class="form-control" 
+                                   @bind="facturaSeleccionada.DescuentoPorcentaje"
                                    @oninput="CalcularTotales" />
                         </div>
                         <div class="col-md-4">
@@ -273,19 +283,19 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Nombre Proyecto</label>
-                            <input class="form-control" @bind="facturaSeleccionada.NombreProyecto" />
+                            <input class="form-control" @bind="facturaSeleccionada.NombreProyecto" readonly="@EsEdicion" />
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Método de Pago</label>
-                            <input class="form-control" @bind="facturaSeleccionada.MetodoPago" placeholder="Transferencia, Efectivo..." />
+                            <input class="form-control" @bind="facturaSeleccionada.MetodoPago" placeholder="Transferencia, Efectivo..." readonly="@EsEdicion" />
                         </div>
                         <div class="col-md-12">
                             <label class="form-label">Observaciones</label>
-                            <textarea class="form-control" rows="2" @bind="facturaSeleccionada.Observaciones"></textarea>
+                            <textarea class="form-control" rows="2" @bind="facturaSeleccionada.Observaciones" readonly="@EsEdicion"></textarea>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Proveedor</label>
-                            <select class="form-select" @bind="facturaSeleccionada.ProveedorId">
+                            <select class="form-select" @bind="facturaSeleccionada.ProveedorId" disabled="@EsEdicion">
                                 <option value="">Sin proveedor</option>
                                 @foreach (var prov in proveedoresDisponibles)
                                 {
@@ -295,7 +305,7 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Proyecto</label>
-                            <select class="form-select" @bind="facturaSeleccionada.ProyectoId">
+                            <select class="form-select" @bind="facturaSeleccionada.ProyectoId" disabled="@EsEdicion">
                                 <option value="">Sin proyecto</option>
                                 @foreach (var proy in proyectosDisponibles)
                                 {
@@ -368,6 +378,7 @@
     private IEnumerable<Factura> facturasPendientes => facturas.Where(f => f.Estado == EstadoFactura.Pendiente);
     private IEnumerable<Factura> facturasPagadas => facturas.Where(f => f.Estado == EstadoFactura.Pagada);
     private IEnumerable<Factura> facturasVencidas => facturas.Where(f => f.Estado == EstadoFactura.Vencida);
+    private bool EsEdicion => facturaSeleccionada.Id != 0;
 
     protected override async Task OnInitializedAsync()
     {
@@ -401,7 +412,8 @@
             FechaEmision = DateTime.Today,
             FechaVencimiento = DateTime.Today.AddDays(30),
             Estado = EstadoFactura.Pendiente,
-            PorcentajeIVA = 21m
+            PorcentajeIVA = 21m,
+            DescuentoPorcentaje = 0m
         };
         errorMensaje = null;
         mostrarModal = true;
@@ -419,6 +431,7 @@
             FechaPago = factura.FechaPago,
             BaseImponible = factura.BaseImponible,
             PorcentajeIVA = factura.PorcentajeIVA,
+            DescuentoPorcentaje = factura.DescuentoPorcentaje,
             IVA = factura.IVA,
             ImporteTotal = factura.ImporteTotal,
             Estado = factura.Estado,
@@ -441,8 +454,10 @@
 
     private void CalcularTotales(ChangeEventArgs e)
     {
-        facturaSeleccionada.IVA = facturaSeleccionada.BaseImponible * (facturaSeleccionada.PorcentajeIVA / 100);
-        facturaSeleccionada.ImporteTotal = facturaSeleccionada.BaseImponible + facturaSeleccionada.IVA;
+        var descuento = facturaSeleccionada.BaseImponible * (facturaSeleccionada.DescuentoPorcentaje / 100);
+        var baseNeta = facturaSeleccionada.BaseImponible - descuento;
+        facturaSeleccionada.IVA = baseNeta * (facturaSeleccionada.PorcentajeIVA / 100);
+        facturaSeleccionada.ImporteTotal = baseNeta + facturaSeleccionada.IVA;
     }
 
     private async Task GuardarFactura()

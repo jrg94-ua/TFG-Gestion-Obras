@@ -606,7 +606,7 @@ public class ExportExcelService
         ws.Cell(fila + 1, 1).Value = "Total fichajes:";
         ws.Cell(fila + 1, 2).Value = fichajes.Count;
         ws.Cell(fila + 2, 1).Value = "Horas totales:";
-        ws.Cell(fila + 2, 2).Value = fichajes.Where(f => f.TotalHoras.HasValue).Sum(f => f.TotalHoras.Value);
+        ws.Cell(fila + 2, 2).Value = fichajes.Sum(f => f.TotalHoras ?? 0);
         ws.Cell(fila + 2, 2).Style.NumberFormat.Format = "0.00";
         ws.Cell(fila + 3, 1).Value = "Pendientes de validar:";
         ws.Cell(fila + 3, 2).Value = fichajes.Count(f => f.Estado == EstadoFichaje.Pendiente);

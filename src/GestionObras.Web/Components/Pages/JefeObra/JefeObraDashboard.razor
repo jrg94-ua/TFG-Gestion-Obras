@@ -1,15 +1,14 @@
 @page "/jefe-obra/dashboard"
 @attribute [Authorize(Roles = "JefeObra,Administrador")]
 @using Microsoft.AspNetCore.Authorization
-@using GestionObras.Infrastructure.Data
+@using System.Security.Claims
+@using GestionObras.Core.Contracts.Consultas
 @using GestionObras.Core.Entities
-@using Microsoft.EntityFrameworkCore
 @using Microsoft.AspNetCore.Components.Authorization
-@using Microsoft.AspNetCore.Identity
-@inject GestionObrasDbContext DbContext
+@using GestionObras.Web.Services
+@inject ConsultasApiClient ConsultasApi
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthStateProvider
-@inject UserManager<UsuarioObra> UserManager
 @rendermode InteractiveServer
 
 <PageTitle>Panel de Jefe de Obra - Gestión de Obras</PageTitle>
@@ -100,7 +99,7 @@
                             <td>@proyecto.Nombre</td>
                             <td>@proyecto.Municipio</td>
                             <td><span class="badge @GetEstadoBadge(proyecto.Estado)">@proyecto.Estado</span></td>
-                            <td>@proyecto.Tareas?.Count ?? 0</td>
+                            <td>@proyecto.NumeroTareas</td>
                             <td>
                                 <button class="btn btn-sm btn-success me-1" @onclick="@(() => Navigation.NavigateTo($"/proyectos/{proyecto.Id}/kanban"))" title="Tablero Kanban">
                                     <i class="bi bi-kanban"></i>
@@ -122,42 +121,25 @@
     private int tareasPendientes;
     private int tareasBloqueadas;
     private int totalMateriales;
-    private List<GestionObras.Core.Entities.Proyecto> misProyectos = new();
-    private UsuarioObra? usuarioActual;
+    private List<ProyectoConsultaDto> misProyectos = new();
+    private string usuarioActualId = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        usuarioActual = await UserManager.GetUserAsync(authState.User);
-        if (usuarioActual != null)
+        usuarioActualId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(usuarioActualId))
             await CargarDatos();
     }
 
     private async Task CargarDatos()
     {
-        var userId = usuarioActual!.Id;
-        var roles = await UserManager.GetRolesAsync(usuarioActual);
-        var esAdmin = roles.Contains("Administrador");
-
-        // Si es Admin ve todo, si es JefeObra solo sus proyectos
-        IQueryable<Proyecto> queryProyectos = DbContext.Proyectos.Include(p => p.Tareas);
-
-        if (!esAdmin)
-        {
-            queryProyectos = queryProyectos.Where(p => p.ResponsableId == userId);
-        }
-
-        misProyectos = await queryProyectos
-            .OrderByDescending(p => p.FechaInicio)
-            .Take(10)
-            .ToListAsync();
-
-        var proyectoIds = misProyectos.Select(p => p.Id).ToList();
-
-        proyectosActivos = misProyectos.Count(p => p.Estado == EstadoProyecto.EnCurso);
-        tareasPendientes = await DbContext.Tareas.CountAsync(t => proyectoIds.Contains(t.ProyectoId) && t.Estado == EstadoTarea.Pendiente);
-        tareasBloqueadas = await DbContext.Tareas.CountAsync(t => proyectoIds.Contains(t.ProyectoId) && t.Estado == EstadoTarea.Bloqueado);
-        totalMateriales = await DbContext.Materiales.CountAsync();
+        var response = await ConsultasApi.ObtenerDashboardJefeObraAsync(usuarioActualId);
+        misProyectos = response.MisProyectos;
+        proyectosActivos = response.ProyectosActivos;
+        tareasPendientes = response.TareasPendientes;
+        tareasBloqueadas = response.TareasBloqueadas;
+        totalMateriales = response.TotalMateriales;
     }
 
     private string GetEstadoBadge(EstadoProyecto estado)

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace GestionObras.Core.Entities
 {
@@ -11,6 +12,7 @@ namespace GestionObras.Core.Entities
         public string Codigo { get; set; } = string.Empty;
         public string Nombre { get; set; } = string.Empty;
         public string Descripcion { get; set; } = string.Empty;
+        public bool Activo { get; set; } = true;
         
         // Propiedades técnicas del CTE
         public decimal? TransmitanciaTermica { get; set; } // W/m²K
@@ -30,6 +32,7 @@ namespace GestionObras.Core.Entities
         // Proveedor
         public int? ProveedorId { get; set; }
         public Proveedor? Proveedor { get; set; }
+        public ICollection<Proveedor> Proveedores { get; set; } = new List<Proveedor>();
         
         /// <summary>
         /// Valida si el material cumple con el DB-HE del CTE para una zona climática
@@ -65,5 +68,7 @@ namespace GestionObras.Core.Entities
         public string Direccion { get; set; } = string.Empty;
         public string Telefono { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
+        public bool Activo { get; set; } = true;
+        public ICollection<Material> Materiales { get; set; } = new List<Material>();
     }
 }

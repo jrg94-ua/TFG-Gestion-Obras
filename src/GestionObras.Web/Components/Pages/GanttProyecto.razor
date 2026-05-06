@@ -1,11 +1,11 @@
 @page "/proyectos/{ProyectoId:int}/gantt"
 @attribute [Authorize]
 @using Microsoft.AspNetCore.Authorization
+@using GestionObras.Core.Contracts.Consultas
 @using GestionObras.Core.Entities
-@using GestionObras.Infrastructure.Data
-@using Microsoft.EntityFrameworkCore
 @using System.Text.Json
-@inject GestionObrasDbContext DbContext
+@using GestionObras.Web.Services
+@inject ConsultasApiClient ConsultasApi
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 @rendermode InteractiveServer
@@ -448,9 +448,9 @@
     [Parameter]
     public int ProyectoId { get; set; }
 
-    private Proyecto? proyecto;
-    private List<Tarea> tareas = new();
-    private List<Tarea> tareasFiltradas = new();
+    private ProyectoGanttDto? proyecto;
+    private List<TareaGanttDto> tareas = new();
+    private List<TareaGanttDto> tareasFiltradas = new();
     
     private string vistaSeleccionada = "semana";
     private string filtroEstado = "";
@@ -477,16 +477,12 @@
 
     private async Task CargarDatos()
     {
-        proyecto = await DbContext.Proyectos
-            .FirstOrDefaultAsync(p => p.Id == ProyectoId);
+        var response = await ConsultasApi.ObtenerGanttProyectoAsync(ProyectoId);
+        proyecto = response.Proyecto;
 
         if (proyecto != null)
         {
-            tareas = await DbContext.Tareas
-                .Where(t => t.ProyectoId == ProyectoId)
-                .OrderBy(t => t.FechaInicio)
-                .ToListAsync();
-
+            tareas = response.Tareas;
             AplicarFiltros();
             CalcularRangoFechas();
             RecalcularTimeline();
@@ -608,7 +604,7 @@
         return culture.Calendar.GetWeekOfYear(date, System.Globalization.CalendarWeekRule.FirstDay, DayOfWeek.Monday);
     }
 
-    private (int Left, int Width) CalcularPosicionBarra(Tarea tarea)
+    private (int Left, int Width) CalcularPosicionBarra(TareaGanttDto tarea)
     {
         var anchoCelda = anchoColumnaPx;
         var diasPorCelda = DiasPorCelda();
@@ -706,7 +702,7 @@
         RecalcularTimeline();
     }
 
-    private void MostrarDetallesTarea(Tarea tarea)
+    private void MostrarDetallesTarea(TareaGanttDto tarea)
     {
         // Navegar a los detalles de la tarea o mostrar modal
         Navigation.NavigateTo($"/proyectos/{ProyectoId}/kanban");
@@ -745,7 +741,7 @@
         Navigation.NavigateTo("/proyectos");
     }
 
-    private int ObtenerDuracionDias(Tarea tarea)
+    private int ObtenerDuracionDias(TareaGanttDto tarea)
     {
         if (!tarea.FechaFin.HasValue)
         {
@@ -756,7 +752,7 @@
         return Math.Max(1, dias);
     }
 
-    private int ObtenerProgresoTarea(Tarea tarea)
+    private int ObtenerProgresoTarea(TareaGanttDto tarea)
     {
         return tarea.Estado switch
         {

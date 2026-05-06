@@ -69,6 +69,17 @@
         </div>
     }
 
+    @if (Tarea.ResponsableFinal != null)
+    {
+        <div class="card-responsables mt-2">
+            <small>
+                <i class="bi bi-person-check"></i>
+                <strong>Final:</strong> @Tarea.ResponsableFinal.NombreCompleto
+                <span class="text-muted">(@Tarea.HorasSemanalesEstimadas.ToString("F1") h/sem)</span>
+            </small>
+        </div>
+    }
+
     <!-- Responsables -->
     @if (Tarea.Responsables?.Any() == true)
     {

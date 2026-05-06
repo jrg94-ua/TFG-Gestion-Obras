@@ -733,7 +733,7 @@ public class ExportPdfService
                 resumen.Item().PaddingTop(5).Row(row =>
                 {
                     row.RelativeItem().Text($"Total fichajes: {fichajes.Count}").FontSize(9);
-                    row.RelativeItem().Text($"Horas totales: {fichajes.Where(f => f.TotalHoras.HasValue).Sum(f => f.TotalHoras.Value):F1}h").FontSize(9);
+                    row.RelativeItem().Text($"Horas totales: {fichajes.Sum(f => f.TotalHoras ?? 0):F1}h").FontSize(9);
                     row.RelativeItem().Text($"Pendientes: {fichajes.Count(f => f.Estado == EstadoFichaje.Pendiente)}").FontSize(9);
                 });
             });

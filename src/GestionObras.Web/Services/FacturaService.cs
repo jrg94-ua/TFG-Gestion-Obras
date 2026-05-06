@@ -25,6 +25,7 @@ public class FacturaService
     public async Task<List<Proveedor>> ObtenerProveedoresAsync()
     {
         return await _db.Proveedores
+            .Where(p => p.Activo)
             .OrderBy(p => p.Nombre)
             .ToListAsync();
     }
@@ -38,10 +39,7 @@ public class FacturaService
 
     public async Task GuardarAsync(Factura factura)
     {
-        // Recalcular importes
-        factura.IVA = factura.BaseImponible * (factura.PorcentajeIVA / 100);
-        factura.ImporteTotal = factura.BaseImponible + factura.IVA;
-        factura.Importe = factura.ImporteTotal;
+        RecalcularImportes(factura);
 
         if (factura.Id == 0)
         {
@@ -52,26 +50,22 @@ public class FacturaService
             var existente = await _db.Facturas.FindAsync(factura.Id);
             if (existente != null)
             {
-                existente.NumeroFactura = factura.NumeroFactura;
-                existente.Concepto = factura.Concepto;
-                existente.FechaEmision = factura.FechaEmision;
-                existente.FechaVencimiento = factura.FechaVencimiento;
-                existente.FechaPago = factura.FechaPago;
-                existente.BaseImponible = factura.BaseImponible;
-                existente.PorcentajeIVA = factura.PorcentajeIVA;
-                existente.IVA = factura.IVA;
-                existente.ImporteTotal = factura.ImporteTotal;
-                existente.Importe = factura.ImporteTotal;
-                existente.Estado = factura.Estado;
-                existente.NombreProyecto = factura.NombreProyecto;
-                existente.MetodoPago = factura.MetodoPago;
-                existente.Observaciones = factura.Observaciones;
-                existente.ProveedorId = factura.ProveedorId;
-                existente.ProyectoId = factura.ProyectoId;
+                existente.DescuentoPorcentaje = factura.DescuentoPorcentaje;
+                RecalcularImportes(existente);
             }
         }
 
         await _db.SaveChangesAsync();
+    }
+
+    private static void RecalcularImportes(Factura factura)
+    {
+        var descuento = factura.BaseImponible * (factura.DescuentoPorcentaje / 100);
+        var baseNeta = factura.BaseImponible - descuento;
+
+        factura.IVA = baseNeta * (factura.PorcentajeIVA / 100);
+        factura.ImporteTotal = baseNeta + factura.IVA;
+        factura.Importe = factura.ImporteTotal;
     }
 
     public async Task EliminarAsync(int id)

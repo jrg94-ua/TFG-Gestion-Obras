@@ -53,6 +53,48 @@ builder.Services.AddCascadingAuthenticationState();
 
 // Agregar HttpContextAccessor para acceder al contexto HTTP en componentes
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddHttpClient<GestionObras.Web.Services.JefeObraApiClient>((sp, client) =>
+{
+    var configuration = sp.GetRequiredService<IConfiguration>();
+    var baseUrl = configuration["ApiSettings:BaseUrl"] ?? "http://localhost:5000";
+    client.BaseAddress = new Uri(baseUrl);
+});
+builder.Services.AddHttpClient<GestionObras.Web.Services.OperarioApiClient>((sp, client) =>
+{
+    var configuration = sp.GetRequiredService<IConfiguration>();
+    var baseUrl = configuration["ApiSettings:BaseUrl"] ?? "http://localhost:5000";
+    client.BaseAddress = new Uri(baseUrl);
+});
+builder.Services.AddHttpClient<GestionObras.Web.Services.RRHHApiClient>((sp, client) =>
+{
+    var configuration = sp.GetRequiredService<IConfiguration>();
+    var baseUrl = configuration["ApiSettings:BaseUrl"] ?? "http://localhost:5000";
+    client.BaseAddress = new Uri(baseUrl);
+});
+builder.Services.AddHttpClient<GestionObras.Web.Services.ProyectosApiClient>((sp, client) =>
+{
+    var configuration = sp.GetRequiredService<IConfiguration>();
+    var baseUrl = configuration["ApiSettings:BaseUrl"] ?? "http://localhost:5000";
+    client.BaseAddress = new Uri(baseUrl);
+});
+builder.Services.AddHttpClient<GestionObras.Web.Services.MaterialesApiClient>((sp, client) =>
+{
+    var configuration = sp.GetRequiredService<IConfiguration>();
+    var baseUrl = configuration["ApiSettings:BaseUrl"] ?? "http://localhost:5000";
+    client.BaseAddress = new Uri(baseUrl);
+});
+builder.Services.AddHttpClient<GestionObras.Web.Services.ConsultasApiClient>((sp, client) =>
+{
+    var configuration = sp.GetRequiredService<IConfiguration>();
+    var baseUrl = configuration["ApiSettings:BaseUrl"] ?? "http://localhost:5000";
+    client.BaseAddress = new Uri(baseUrl);
+});
+builder.Services.AddHttpClient<GestionObras.Web.Services.AdministracionApiClient>((sp, client) =>
+{
+    var configuration = sp.GetRequiredService<IConfiguration>();
+    var baseUrl = configuration["ApiSettings:BaseUrl"] ?? "http://localhost:5000";
+    client.BaseAddress = new Uri(baseUrl);
+});
 
 // Registrar repositorios
 builder.Services.AddScoped<GestionObras.Infrastructure.Repositories.IProyectoRepository, GestionObras.Infrastructure.Repositories.ProyectoRepository>();
@@ -65,8 +107,11 @@ builder.Services.AddScoped<GestionObras.Web.Services.DocumentoService>();
 builder.Services.AddScoped<GestionObras.Web.Services.ExportPdfService>();
 builder.Services.AddScoped<GestionObras.Web.Services.ExportExcelService>();
 builder.Services.AddScoped<GestionObras.Web.Services.FacturaService>();
+builder.Services.AddScoped<GestionObras.Web.Services.KanbanService>();
 builder.Services.AddScoped<GestionObras.Web.Services.PresupuestoService>();
 builder.Services.AddScoped<GestionObras.Web.Services.MaterialService>();
+builder.Services.AddScoped<GestionObras.Web.Services.RRHHHorariosService>();
+builder.Services.AddScoped<GestionObras.Web.Services.PlanificacionHorarioService>();
 builder.Services.AddScoped<GestionObras.Web.Services.DashboardService>();
 
 // Add services to the container.
@@ -98,6 +143,7 @@ using (var scope = app.Services.CreateScope())
         // Crear la base de datos con el esquema actual
         await dbContext.Database.EnsureCreatedAsync();
         await AsegurarEsquemaDependenciasAsync(dbContext);
+        await AsegurarEsquemaCatalogosAsync(dbContext);
         
         var userManager = services.GetRequiredService<UserManager<UsuarioObra>>();
         var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
@@ -231,6 +277,107 @@ BEGIN
     CREATE INDEX [IX_TareaDependencias_PredecesoraId]
         ON [dbo].[TareaDependencias]([PredecesoraId]);
 END";
+
+    await dbContext.Database.ExecuteSqlRawAsync(sql);
+}
+
+static async Task AsegurarEsquemaCatalogosAsync(GestionObrasDbContext dbContext)
+{
+    const string sql = @"
+IF COL_LENGTH('dbo.Facturas', 'DescuentoPorcentaje') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[Facturas]
+    ADD [DescuentoPorcentaje] decimal(5,2) NOT NULL CONSTRAINT [DF_Facturas_DescuentoPorcentaje] DEFAULT (0);
+END;
+
+IF OBJECT_ID(N'[dbo].[CategoriasMateriales]', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[CategoriasMateriales]
+    (
+        [Id] INT IDENTITY(1,1) NOT NULL CONSTRAINT [PK_CategoriasMateriales] PRIMARY KEY,
+        [Nombre] NVARCHAR(100) NOT NULL,
+        [Descripcion] NVARCHAR(300) NULL,
+        [Activa] BIT NOT NULL CONSTRAINT [DF_CategoriasMateriales_Activa] DEFAULT (1)
+    );
+
+    CREATE UNIQUE INDEX [IX_CategoriasMateriales_Nombre]
+        ON [dbo].[CategoriasMateriales]([Nombre]);
+
+    INSERT INTO [dbo].[CategoriasMateriales] ([Nombre], [Descripcion], [Activa])
+    VALUES
+        (N'Estructura', N'Materiales estructurales y portantes', 1),
+        (N'Albañilería', N'Ladrillos, bloques y fábrica', 1),
+        (N'Instalaciones', N'Fontanería, electricidad y climatización', 1),
+        (N'Aislamientos', N'Elementos aislantes térmicos y acústicos', 1),
+        (N'Acabados', N'Revestimientos y terminaciones', 1),
+        (N'Prefabricados', N'Elementos fabricados fuera de obra', 1);
+END;
+
+IF COL_LENGTH('dbo.Proveedores', 'Activo') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[Proveedores]
+    ADD [Activo] bit NOT NULL CONSTRAINT [DF_Proveedores_Activo] DEFAULT (1);
+END;
+
+IF COL_LENGTH('dbo.Materiales', 'Activo') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[Materiales]
+    ADD [Activo] bit NOT NULL CONSTRAINT [DF_Materiales_Activo] DEFAULT (1);
+END;
+
+IF COL_LENGTH('dbo.Tareas', 'HorasSemanalesEstimadas') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[Tareas]
+    ADD [HorasSemanalesEstimadas] decimal(5,2) NOT NULL CONSTRAINT [DF_Tareas_HorasSemanalesEstimadas] DEFAULT (8);
+END;
+
+IF COL_LENGTH('dbo.Tareas', 'ResponsableFinalId') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[Tareas]
+    ADD [ResponsableFinalId] nvarchar(450) NULL;
+END;
+
+IF OBJECT_ID(N'[dbo].[FK_Tareas_AspNetUsers_ResponsableFinalId]', N'F') IS NULL
+   AND COL_LENGTH('dbo.Tareas', 'ResponsableFinalId') IS NOT NULL
+BEGIN
+    ALTER TABLE [dbo].[Tareas] WITH CHECK
+    ADD CONSTRAINT [FK_Tareas_AspNetUsers_ResponsableFinalId]
+        FOREIGN KEY ([ResponsableFinalId]) REFERENCES [dbo].[AspNetUsers]([Id]) ON DELETE SET NULL;
+END;
+
+IF OBJECT_ID(N'[dbo].[MaterialProveedor]', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[MaterialProveedor]
+    (
+        [MaterialId] INT NOT NULL,
+        [ProveedorId] INT NOT NULL,
+        CONSTRAINT [PK_MaterialProveedor] PRIMARY KEY ([MaterialId], [ProveedorId]),
+        CONSTRAINT [FK_MaterialProveedor_Materiales_MaterialId]
+            FOREIGN KEY ([MaterialId]) REFERENCES [dbo].[Materiales]([Id]) ON DELETE CASCADE,
+        CONSTRAINT [FK_MaterialProveedor_Proveedores_ProveedorId]
+            FOREIGN KEY ([ProveedorId]) REFERENCES [dbo].[Proveedores]([Id]) ON DELETE CASCADE
+    );
+
+    INSERT INTO [dbo].[MaterialProveedor] ([MaterialId], [ProveedorId])
+    SELECT m.[Id], m.[ProveedorId]
+    FROM [dbo].[Materiales] m
+    WHERE m.[ProveedorId] IS NOT NULL;
+END;
+
+IF OBJECT_ID(N'[dbo].[MaterialProveedor]', N'U') IS NOT NULL
+BEGIN
+    INSERT INTO [dbo].[MaterialProveedor] ([MaterialId], [ProveedorId])
+    SELECT m.[Id], m.[ProveedorId]
+    FROM [dbo].[Materiales] m
+    WHERE m.[ProveedorId] IS NOT NULL
+      AND NOT EXISTS (
+          SELECT 1
+          FROM [dbo].[MaterialProveedor] mp
+          WHERE mp.[MaterialId] = m.[Id]
+            AND mp.[ProveedorId] = m.[ProveedorId]
+      );
+END;
+";
 
     await dbContext.Database.ExecuteSqlRawAsync(sql);
 }

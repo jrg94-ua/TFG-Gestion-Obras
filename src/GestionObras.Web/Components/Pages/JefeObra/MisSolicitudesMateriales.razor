@@ -1,18 +1,18 @@
 @page "/jefe-obra/mis-solicitudes-materiales"
+@using System.Security.Claims
+@using GestionObras.Core.Contracts.Materiales
+@using GestionObras.Core.Contracts.JefeObra
 @using GestionObras.Core.Entities
 @using Microsoft.AspNetCore.Authorization
-@using Microsoft.AspNetCore.Identity
 @using Microsoft.AspNetCore.Components.Authorization
-@using Microsoft.EntityFrameworkCore
-@using GestionObras.Infrastructure.Data
-@inject GestionObrasDbContext DbContext
-@inject UserManager<UsuarioObra> UserManager
+@using GestionObras.Web.Services
+@inject MaterialesApiClient MaterialesApi
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager Navigation
 @attribute [Authorize(Roles = "JefeObra")]
 @rendermode InteractiveServer
 
-<PageTitle>Mis Solicitudes de Materiales - Gestión Obras</PageTitle>
+<PageTitle>Mis Solicitudes de Materiales - Gestion Obras</PageTitle>
 
 <div class="container-fluid py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -24,7 +24,6 @@
         </button>
     </div>
 
-    <!-- Filtros -->
     <div class="card mb-4">
         <div class="card-body">
             <div class="row g-3">
@@ -50,7 +49,6 @@
         </div>
     </div>
 
-    <!-- Estadísticas -->
     <div class="row mb-4">
         <div class="col-md-3">
             <div class="card border-warning">
@@ -86,7 +84,6 @@
         </div>
     </div>
 
-    <!-- Lista de solicitudes -->
     <div class="card">
         <div class="card-body">
             @if (cargando)
@@ -196,7 +193,6 @@
     </div>
 </div>
 
-<!-- Modal detalle -->
 @if (mostrarModal && solicitudSeleccionada != null)
 {
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
@@ -276,7 +272,7 @@
                     }
 
                     <div class="mb-3">
-                        <strong>Justificación:</strong>
+                        <strong>Justificacion:</strong>
                         <p class="border p-2 rounded">@solicitudSeleccionada.Justificacion</p>
                     </div>
 
@@ -315,20 +311,19 @@
 
 @code {
     private bool cargando = true;
-    private List<SolicitudMaterial> solicitudes = new();
-    private List<Proyecto> proyectos = new();
+    private List<SolicitudMaterialResumenDto> solicitudes = new();
+    private List<ProyectoResumenDto> proyectos = new();
     private string filtroEstado = string.Empty;
-    private int filtroProyectoId = 0;
+    private int filtroProyectoId;
     private string usuarioActualId = string.Empty;
 
-    private bool mostrarModal = false;
-    private SolicitudMaterial? solicitudSeleccionada;
+    private bool mostrarModal;
+    private SolicitudMaterialResumenDto? solicitudSeleccionada;
 
-    private IEnumerable<SolicitudMaterial> solicitudesFiltradas =>
+    private IEnumerable<SolicitudMaterialResumenDto> solicitudesFiltradas =>
         solicitudes.Where(s =>
             (string.IsNullOrEmpty(filtroEstado) || s.Estado.ToString() == filtroEstado) &&
-            (filtroProyectoId == 0 || s.ProyectoId == filtroProyectoId)
-        );
+            (filtroProyectoId == 0 || s.ProyectoId == filtroProyectoId));
 
     protected override async Task OnInitializedAsync()
     {
@@ -341,32 +336,14 @@
         try
         {
             var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-            var user = authState.User;
-            
-            if (user.Identity?.IsAuthenticated == true)
+            usuarioActualId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+
+            if (!string.IsNullOrWhiteSpace(usuarioActualId))
             {
-                var usuario = await UserManager.GetUserAsync(user);
-                if (usuario != null)
-                {
-                    usuarioActualId = usuario.Id;
-                }
+                var response = await MaterialesApi.ObtenerMisSolicitudesAsync(usuarioActualId);
+                solicitudes = response.Solicitudes;
+                proyectos = response.Proyectos;
             }
-
-            solicitudes = await DbContext.SolicitudesMateriales
-                .Include(s => s.Material)
-                .Include(s => s.Proyecto)
-                .Include(s => s.SolicitadoPor)
-                .Include(s => s.RevisadoPor)
-                .Where(s => s.SolicitadoPorId == usuarioActualId)
-                .ToListAsync();
-
-            proyectos = await DbContext.Proyectos
-                .Where(p => p.ResponsableId == usuarioActualId)
-                .ToListAsync();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error: {ex.Message}");
         }
         finally
         {
@@ -374,7 +351,7 @@
         }
     }
 
-    private void VerDetalle(SolicitudMaterial solicitud)
+    private void VerDetalle(SolicitudMaterialResumenDto solicitud)
     {
         solicitudSeleccionada = solicitud;
         mostrarModal = true;
@@ -386,18 +363,15 @@
         solicitudSeleccionada = null;
     }
 
-    private async Task CancelarSolicitud(SolicitudMaterial solicitud)
+    private async Task CancelarSolicitud(SolicitudMaterialResumenDto solicitud)
     {
-        try
+        var resultado = await MaterialesApi.CancelarSolicitudAsync(solicitud.Id);
+        if (!resultado.Correcto)
         {
-            solicitud.Estado = EstadoSolicitudMaterial.Cancelada;
-            await DbContext.SaveChangesAsync();
-            await CargarDatos();
+            return;
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error: {ex.Message}");
-        }
+
+        await CargarDatos();
     }
 
     private void NuevaSolicitud()

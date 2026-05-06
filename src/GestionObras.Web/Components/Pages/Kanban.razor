@@ -8,12 +8,11 @@
 @using GestionObras.Infrastructure.Data
 @using GestionObras.Web.Components.Shared
 @using GestionObras.Web.Services
-@using Microsoft.EntityFrameworkCore
-@inject GestionObrasDbContext DbContext
+@using System.Security.Claims
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 @inject AuthenticationStateProvider AuthStateProvider
-@inject UserManager<UsuarioObra> UserManager
+@inject KanbanService KanbanService
 @inject DocumentoService DocumentoService
 @inject ExportPdfService ExportPdf
 @inject ExportExcelService ExportExcel
@@ -57,6 +56,9 @@ else
                 <h1 class="d-inline-block ms-3">📋 Tablero Kanban: @proyecto.Nombre</h1>
             </div>
             <div class="d-flex gap-2">
+                <span class="badge bg-light text-dark align-self-center border">
+                    @HorasSemanalesProyecto().ToString("F0") h/sem estimadas
+                </span>
                 @if (PuedeExportarTablero())
                 {
                     <div class="btn-group" role="group" aria-label="Exportar tareas">
@@ -266,6 +268,26 @@ else
                                 <div class="col-md-6 mb-3">
                                     <label class="form-label">Costes Reales (€)</label>
                                     <InputNumber class="form-control" @bind-Value="tareaEditando.CostesReales" />
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Horas semanales estimadas *</label>
+                                    <InputNumber class="form-control" step="0.5" @bind-Value="tareaEditando.HorasSemanalesEstimadas" />
+                                    <small class="text-muted">Se usa para calcular la carga semanal del proyecto y el horario automático.</small>
+                                </div>
+
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Trabajador final *</label>
+                                    <InputSelect class="form-select" @bind-Value="tareaEditando.ResponsableFinalId">
+                                        <option value="">— Seleccionar —</option>
+                                        @foreach (var trabajador in trabajadoresFinalesDisponibles)
+                                        {
+                                            <option value="@trabajador.Id">@trabajador.NombreCompleto (@trabajador.Cargo)</option>
+                                        }
+                                    </InputSelect>
+                                    <small class="text-muted">Operario de obra o de oficina técnica que ejecutará la tarea.</small>
                                 </div>
                             </div>
 
@@ -735,6 +757,7 @@ else
     private List<Tarea> tareasFiltradas = new();
     private List<UsuarioObra> empleadosDisponibles = new();
     private List<UsuarioObra> empleadosDisponiblesParaModal = new();
+    private List<UsuarioObra> trabajadoresFinalesDisponibles = new();
     private List<string> responsablesSeleccionados = new();
     private List<int> dependenciasSeleccionadas = new();
     private string busqueda = "";
@@ -774,52 +797,22 @@ else
 
     private async Task CargarDatos()
     {
-        // Obtener usuario actual
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         var user = authState.User;
-        if (user.Identity?.IsAuthenticated == true)
-        {
-            var usuario = await UserManager.GetUserAsync(user);
-            usuarioActualId = usuario?.Id;
-        }
+        usuarioActualId = user.FindFirstValue(ClaimTypes.NameIdentifier);
 
-        proyecto = await DbContext.Proyectos
-            .Include(p => p.Responsable)
-            .Include(p => p.Tareas)
-                .ThenInclude(t => t.SubTareas)
-            .Include(p => p.Tareas)
-                .ThenInclude(t => t.Bloqueo)
-            .Include(p => p.Tareas)
-                .ThenInclude(t => t.UsuariosAsignados)
-            .Include(p => p.Tareas)
-                .ThenInclude(t => t.Predecesoras)
-            .Include(p => p.Tareas)
-                .ThenInclude(t => t.Firmas)
-            .Include(p => p.Tareas)
-                .ThenInclude(t => t.Documentos)
-            .Include(p => p.Tareas)
-                .ThenInclude(t => t.CompletadaPor)
-            .FirstOrDefaultAsync(p => p.Id == ProyectoId);
+        var contexto = await KanbanService.CargarTableroAsync(ProyectoId, usuarioActualId);
+        proyecto = contexto.Proyecto;
+        tareas = contexto.Tareas;
+        empleadosDisponibles = contexto.EmpleadosDisponibles;
+        trabajadoresFinalesDisponibles = contexto.TrabajadoresFinalesDisponibles;
+        rolesUsuarioActual = contexto.RolesUsuarioActual;
+        esResponsable = contexto.EsResponsable;
 
         if (proyecto != null)
         {
-            // Verificar si el usuario actual es el responsable del proyecto o es administrador
-            var usuarioActual = await UserManager.FindByIdAsync(usuarioActualId ?? "");
-            var roles = usuarioActual != null
-                ? await UserManager.GetRolesAsync(usuarioActual)
-                : new List<string>();
-            rolesUsuarioActual = roles.ToHashSet();
-            esResponsable = proyecto.ResponsableId == usuarioActualId || rolesUsuarioActual.Contains("Administrador");
-            
-            tareas = proyecto.Tareas.ToList();
             AplicarFiltros();
         }
-
-        // Cargar empleados disponibles (usuarios del sistema)
-        empleadosDisponibles = await DbContext.Users
-            .Where(u => u.Activo)
-            .OrderBy(u => u.NombreCompleto)
-            .ToListAsync();
     }
 
     private void AplicarFiltros()
@@ -866,18 +859,7 @@ else
             return;
         }
 
-        // Si se desbloquea arrastrando fuera de Bloqueado
-        if (tareaArrastrada.Estado == EstadoTarea.Bloqueado && nuevoEstado != EstadoTarea.Bloqueado)
-        {
-            if (tareaArrastrada.Bloqueo != null)
-            {
-                tareaArrastrada.Bloqueo.FechaResolucion = DateTime.Now;
-            }
-        }
-
-        tareaArrastrada.Estado = nuevoEstado;
-        DbContext.Update(tareaArrastrada);
-        await DbContext.SaveChangesAsync();
+        await KanbanService.ActualizarEstadoTareaAsync(tareaArrastrada.Id, nuevoEstado);
         await CargarDatos();
         
         tareaArrastrada = null;
@@ -892,7 +874,8 @@ else
             FechaInicio = DateTime.Today,
             Estado = EstadoTarea.Pendiente,
             Prioridad = PrioridadTarea.Media,
-            Nivel = 0
+            Nivel = 0,
+            HorasSemanalesEstimadas = 8
         };
         tareaPadreTemp = null;
         responsablesSeleccionados = new();
@@ -910,7 +893,8 @@ else
             FechaInicio = DateTime.Today,
             Estado = EstadoTarea.Pendiente,
             Prioridad = PrioridadTarea.Media,
-            Nivel = tareaPadre.Nivel + 1
+            Nivel = tareaPadre.Nivel + 1,
+            HorasSemanalesEstimadas = 8
         };
         tareaPadreTemp = tareaPadre;
         responsablesSeleccionados = new();
@@ -972,42 +956,11 @@ else
 
     private async Task CargarEmpleadosDisponiblesParaModal()
     {
-        // Si es una subtarea (tiene tarea padre), mostrar todos los usuarios activos
-        if (tareaPadreTemp != null || tareaEditando.TareaPadreId != null)
-        {
-            var listaSubtarea = new List<UsuarioObra>();
-
-            foreach (var empleado in empleadosDisponibles)
-            {
-                var rolesEmpleado = await UserManager.GetRolesAsync(empleado);
-
-                if (!UsuarioEsAsignableEnSubtarea(rolesEmpleado))
-                {
-                    continue;
-                }
-
-                listaSubtarea.Add(empleado);
-            }
-
-            empleadosDisponiblesParaModal = listaSubtarea;
-            return;
-        }
-        
-        // Si es una tarea principal, solo mostrar Admin, JefeObra y OficinaTecnica
-        var filtrados = new List<UsuarioObra>();
-        foreach (var empleado in empleadosDisponibles)
-        {
-            var roles = await UserManager.GetRolesAsync(empleado);
-
-            if (roles.Contains("Administrador") ||
-                roles.Contains("JefeObra") ||
-                roles.Contains("OficinaTecnica"))
-            {
-                filtrados.Add(empleado);
-            }
-        }
-
-        empleadosDisponiblesParaModal = filtrados;
+        var esSubtarea = tareaPadreTemp != null || tareaEditando.TareaPadreId != null;
+        empleadosDisponiblesParaModal = await KanbanService.ObtenerResponsablesDisponiblesAsync(
+            empleadosDisponibles,
+            esSubtarea,
+            rolesUsuarioActual);
     }
 
     private async Task GuardarTarea()
@@ -1020,48 +973,16 @@ else
                 return;
             }
 
-            var idsDependencias = dependenciasSeleccionadas
-                .Where(id => id != tareaEditando.Id)
-                .Distinct()
-                .ToList();
-
-            var dependencias = await DbContext.Tareas
-                .Where(t => idsDependencias.Contains(t.Id))
-                .ToListAsync();
-
-            // Asignar usuarios responsables
-            if (responsablesSeleccionados.Any())
+            if (string.IsNullOrWhiteSpace(tareaEditando.ResponsableFinalId))
             {
-                var responsables = await DbContext.Users
-                    .Where(u => responsablesSeleccionados.Contains(u.Id))
-                    .ToListAsync();
-                tareaEditando.UsuariosAsignados = responsables;
+                await JS.InvokeVoidAsync("alert", "Selecciona un trabajador final para esta tarea.");
+                return;
             }
 
-            if (tareaEditando.Id > 0)
-            {
-                await DbContext.Entry(tareaEditando).Collection(t => t.Predecesoras).LoadAsync();
-                tareaEditando.Predecesoras.Clear();
-                foreach (var dependencia in dependencias)
-                {
-                    tareaEditando.Predecesoras.Add(dependencia);
-                }
-            }
-            else
-            {
-                tareaEditando.Predecesoras = dependencias;
-            }
-
-            if (tareaEditando.Id == 0)
-            {
-                DbContext.Tareas.Add(tareaEditando);
-            }
-            else
-            {
-                DbContext.Update(tareaEditando);
-            }
-
-            await DbContext.SaveChangesAsync();
+            await KanbanService.GuardarTareaAsync(
+                tareaEditando,
+                responsablesSeleccionados,
+                dependenciasSeleccionadas);
             await CargarDatos();
             CerrarModal();
             await JS.InvokeVoidAsync("alert", "Tarea guardada correctamente");
@@ -1069,7 +990,6 @@ else
         catch (Exception ex)
         {
             await JS.InvokeVoidAsync("alert", $"Error al guardar: {ex.Message}");
-        responsablesSeleccionados = new();
         }
     }
 
@@ -1078,8 +998,7 @@ else
         var confirmado = await JS.InvokeAsync<bool>("confirm", $"¿Está seguro de eliminar la tarea '{tarea.Nombre}'?");
         if (confirmado)
         {
-            DbContext.Tareas.Remove(tarea);
-            await DbContext.SaveChangesAsync();
+            await KanbanService.EliminarTareaAsync(tarea.Id);
             await CargarDatos();
             await JS.InvokeVoidAsync("alert", "Tarea eliminada correctamente");
         }
@@ -1104,50 +1023,7 @@ else
             return;
         }
 
-        var bloqueo = new BloqueoTarea
-        {
-            TareaId = tareaParaBloquear.Id,
-            Tipo = tipoBloqueoSeleccionado,
-            JustificacionTecnica = justificacionBloqueo,
-            FechaBloqueo = DateTime.Now
-        };
-
-        tareaParaBloquear.Estado = EstadoTarea.Bloqueado;
-        tareaParaBloquear.Bloqueo = bloqueo;
-
-        // Si es tarea padre, aplicar bloqueo en cascada a subtareas descendientes no finalizadas
-        if (tareaParaBloquear.TareaPadreId == null)
-        {
-            var subtareasDescendientes = ObtenerSubtareasDescendientes(tareaParaBloquear.Id)
-                .Where(t => t.Estado != EstadoTarea.Finalizado)
-                .ToList();
-
-            foreach (var subtarea in subtareasDescendientes)
-            {
-                subtarea.Estado = EstadoTarea.Bloqueado;
-
-                if (subtarea.Bloqueo == null)
-                {
-                    subtarea.Bloqueo = new BloqueoTarea
-                    {
-                        TareaId = subtarea.Id,
-                        Tipo = tipoBloqueoSeleccionado,
-                        JustificacionTecnica = $"Bloqueo heredado de tarea padre '{tareaParaBloquear.Nombre}'. Motivo: {justificacionBloqueo}",
-                        FechaBloqueo = DateTime.Now
-                    };
-                }
-                else
-                {
-                    subtarea.Bloqueo.Tipo = tipoBloqueoSeleccionado;
-                    subtarea.Bloqueo.JustificacionTecnica = $"Bloqueo heredado de tarea padre '{tareaParaBloquear.Nombre}'. Motivo: {justificacionBloqueo}";
-                    subtarea.Bloqueo.FechaBloqueo = DateTime.Now;
-                    subtarea.Bloqueo.FechaResolucion = null;
-                }
-            }
-        }
-
-        DbContext.Update(tareaParaBloquear);
-        await DbContext.SaveChangesAsync();
+        await KanbanService.BloquearTareaAsync(tareaParaBloquear.Id, tipoBloqueoSeleccionado, justificacionBloqueo);
         await CargarDatos();
 
         CerrarModalBloqueo();
@@ -1172,11 +1048,7 @@ else
     {
         if (tareaParaDesbloquear?.Bloqueo != null)
         {
-            tareaParaDesbloquear.Bloqueo.FechaResolucion = DateTime.Now;
-            tareaParaDesbloquear.Estado = EstadoTarea.Pendiente;
-            
-            DbContext.Update(tareaParaDesbloquear);
-            await DbContext.SaveChangesAsync();
+            await KanbanService.DesbloquearTareaAsync(tareaParaDesbloquear.Id);
             await CargarDatos();
 
             CerrarModalDesbloqueo();
@@ -1213,11 +1085,7 @@ else
     
     private async Task CargarDocumentosTarea(int tareaId)
     {
-        documentosTarea = await DbContext.DocumentosTareas
-            .Include(d => d.UsuarioSubida)
-            .Where(d => d.TareaId == tareaId)
-            .OrderByDescending(d => d.FechaSubida)
-            .ToListAsync();
+        documentosTarea = await DocumentoService.ObtenerDocumentosPorTareaAsync(tareaId);
     }
 
     private void SeleccionarArchivo(InputFileChangeEventArgs e)
@@ -1342,13 +1210,10 @@ else
                 }
             }
             
-            tareaParaCompletar.Estado = EstadoTarea.Finalizado;
-            tareaParaCompletar.FechaFinalizacion = DateTime.Now;
-            tareaParaCompletar.CompletadaPorId = usuarioActualId;
-            tareaParaCompletar.ObservacionesFinalizacion = observacionesFinalizacion;
-            
-            DbContext.Update(tareaParaCompletar);
-            await DbContext.SaveChangesAsync();
+            await KanbanService.CompletarTareaAsync(
+                tareaParaCompletar.Id,
+                usuarioActualId!,
+                observacionesFinalizacion);
             await CargarDatos();
             
             CerrarModalCompletarTarea();
@@ -1421,59 +1286,24 @@ else
                 return;
             }
 
-            var firmaExistente = await DbContext.FirmasTareas
-                .AsNoTracking()
-                .FirstOrDefaultAsync(f => f.TareaId == tareaParaFirmar.Id && f.UsuarioId == usuarioActualId);
-
-            if (firmaExistente != null)
-            {
-                await JS.InvokeVoidAsync("alert", "Ya has firmado esta tarea anteriormente");
-                CerrarModalFirmar();
-                await CargarDatos();
-                return;
-            }
-
-            var firma = new FirmaTarea
-            {
-                TareaId = tareaParaFirmar.Id,
-                UsuarioId = usuarioActualId,
-                FechaFirma = DateTime.Now,
-                Observaciones = observacionesFirma,
-                Aprobada = aprobada,
-                MotivoRechazo = null
-            };
-            
             try
             {
-                DbContext.FirmasTareas.Add(firma);
-                await DbContext.SaveChangesAsync();
+                await KanbanService.FirmarTareaAsync(
+                    tareaParaFirmar.Id,
+                    usuarioActualId,
+                    observacionesFirma,
+                    aprobada);
+
                 await CargarDatos();
 
                 CerrarModalFirmar();
 
                 var mensaje = aprobada ? "Tarea firmada correctamente" : "Tarea rechazada";
                 await JS.InvokeVoidAsync("alert", mensaje);
-
-                // Si se rechaza, bloquear la tarea
-                if (!aprobada && tareaParaFirmar != null)
-                {
-                    tareaParaFirmar.Estado = EstadoTarea.Bloqueado;
-                    var bloqueo = new BloqueoTarea
-                    {
-                        TareaId = tareaParaFirmar.Id,
-                        Tipo = TipoBloqueo.Otro,
-                        JustificacionTecnica = $"Rechazada por usuario {usuarioActualId}",
-                        FechaBloqueo = DateTime.Now
-                    };
-                    DbContext.BloqueosTareas.Add(bloqueo);
-                    DbContext.Update(tareaParaFirmar);
-                    await DbContext.SaveChangesAsync();
-                    await CargarDatos();
-                }
             }
-            catch (DbUpdateException)
+            catch (InvalidOperationException ex)
             {
-                await JS.InvokeVoidAsync("alert", "Ya existe una firma registrada para esta tarea y usuario");
+                await JS.InvokeVoidAsync("alert", ex.Message);
                 CerrarModalFirmar();
                 await CargarDatos();
             }
@@ -1571,7 +1401,25 @@ else
             return false;
         }
 
-        return tarea.UsuariosAsignados?.Any(u => u.Id == usuarioId) == true;
+        return tarea.UsuariosAsignados?.Any(u => u.Id == usuarioId) == true || tarea.ResponsableFinalId == usuarioId;
+    }
+
+    private bool UsuarioEsTrabajadorFinal(IList<string> rolesEmpleado)
+    {
+        return rolesEmpleado.Contains("OperarioObra") ||
+               rolesEmpleado.Contains("OperarioOficinaT") ||
+               rolesEmpleado.Contains("Operario");
+    }
+
+    private async Task<List<UsuarioObra>> FiltrarTrabajadoresFinalesAsync()
+    {
+        await Task.CompletedTask;
+        return trabajadoresFinalesDisponibles.ToList();
+    }
+
+    private decimal HorasSemanalesProyecto()
+    {
+        return proyecto?.Tareas.Sum(t => t.HorasSemanalesEstimadas) ?? 0m;
     }
 
     private bool TieneSubtareasNoFinalizadas(int tareaId)

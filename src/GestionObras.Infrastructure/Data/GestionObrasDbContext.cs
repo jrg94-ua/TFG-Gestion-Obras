@@ -21,7 +21,8 @@ public class GestionObrasDbContext : IdentityDbContext<UsuarioObra>
     public DbSet<DocumentoTarea> DocumentosTareas { get; set; }
     public DbSet<FirmaTarea> FirmasTareas { get; set; }
     public DbSet<Empleado> Empleados { get; set; }
-    public DbSet<Material> Materiales { get; set; }
+            public DbSet<Material> Materiales { get; set; }
+            public DbSet<CategoriaMaterial> CategoriasMateriales { get; set; }
     public DbSet<SolicitudMaterial> SolicitudesMateriales { get; set; }
     public DbSet<Factura> Facturas { get; set; }
     public DbSet<Presupuesto> Presupuestos { get; set; }
@@ -90,11 +91,17 @@ public class GestionObrasDbContext : IdentityDbContext<UsuarioObra>
             entity.Property(t => t.Descripcion).HasMaxLength(1000);
             entity.Property(t => t.PresupuestoEstimado).HasColumnType("decimal(18,2)");
             entity.Property(t => t.CostesReales).HasColumnType("decimal(18,2)");
+            entity.Property(t => t.HorasSemanalesEstimadas).HasColumnType("decimal(5,2)").HasDefaultValue(8);
             
             entity.HasOne(t => t.Proyecto)
                   .WithMany(p => p.Tareas)
                   .HasForeignKey(t => t.ProyectoId)
                   .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(t => t.ResponsableFinal)
+                  .WithMany()
+                  .HasForeignKey(t => t.ResponsableFinalId)
+                  .OnDelete(DeleteBehavior.NoAction);
                   
             // Configurar relación many-to-many con UsuarioObra
             entity.HasMany(t => t.UsuariosAsignados)
@@ -141,7 +148,7 @@ public class GestionObrasDbContext : IdentityDbContext<UsuarioObra>
             entity.HasOne(t => t.CompletadaPor)
                   .WithMany()
                   .HasForeignKey(t => t.CompletadaPorId)
-                  .OnDelete(DeleteBehavior.SetNull);
+                  .OnDelete(DeleteBehavior.NoAction);
         });
         
         // DocumentoTarea
@@ -214,12 +221,45 @@ public class GestionObrasDbContext : IdentityDbContext<UsuarioObra>
             entity.Property(m => m.Codigo).HasMaxLength(50);
             entity.Property(m => m.Descripcion).HasMaxLength(1000);
             entity.Property(m => m.PrecioUnitario).HasColumnType("decimal(18,2)");
+                  entity.Property(m => m.Activo).HasDefaultValue(true);
             
             // Propiedades técnicas CTE
             entity.Property(m => m.TransmitanciaTermica).HasColumnType("decimal(18,4)");
             entity.Property(m => m.Densidad).HasColumnType("decimal(18,4)");
             entity.Property(m => m.ResistenciaCompresion).HasColumnType("decimal(18,4)");
+
+            entity.HasOne(m => m.Proveedor)
+                  .WithMany()
+                  .HasForeignKey(m => m.ProveedorId)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasMany(m => m.Proveedores)
+                  .WithMany(p => p.Materiales)
+                  .UsingEntity<Dictionary<string, object>>(
+                      "MaterialProveedor",
+                      j => j.HasOne<Proveedor>()
+                            .WithMany()
+                            .HasForeignKey("ProveedorId")
+                            .OnDelete(DeleteBehavior.Cascade),
+                      j => j.HasOne<Material>()
+                            .WithMany()
+                            .HasForeignKey("MaterialId")
+                            .OnDelete(DeleteBehavior.Cascade),
+                      j =>
+                      {
+                          j.HasKey("MaterialId", "ProveedorId");
+                          j.ToTable("MaterialProveedor");
+                      }
+                  );
         });
+
+            builder.Entity<CategoriaMaterial>(entity =>
+            {
+                  entity.HasKey(c => c.Id);
+                  entity.Property(c => c.Nombre).HasMaxLength(100).IsRequired();
+                  entity.Property(c => c.Descripcion).HasMaxLength(300);
+                  entity.HasIndex(c => c.Nombre).IsUnique();
+            });
 
         // Factura
         builder.Entity<Factura>(entity =>
@@ -227,6 +267,7 @@ public class GestionObrasDbContext : IdentityDbContext<UsuarioObra>
             entity.HasKey(f => f.Id);
             entity.Property(f => f.Importe).HasColumnType("decimal(18,2)");
             entity.Property(f => f.Concepto).HasMaxLength(500);
+                  entity.Property(f => f.DescuentoPorcentaje).HasColumnType("decimal(5,2)");
             
             entity.HasOne(f => f.Proveedor)
                   .WithMany()
@@ -248,8 +289,9 @@ public class GestionObrasDbContext : IdentityDbContext<UsuarioObra>
             entity.Property(p => p.Email).HasMaxLength(200);
             entity.Property(p => p.Telefono).HasMaxLength(20);
             entity.Property(p => p.Direccion).HasMaxLength(500);
-            
-            entity.HasIndex(p => p.CIF).IsUnique();
+                  entity.Property(p => p.Activo).HasDefaultValue(true);
+
+                  entity.HasIndex(p => p.CIF).IsUnique();
         });
 
         // Carpeta Legal

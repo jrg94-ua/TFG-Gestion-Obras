@@ -56,6 +56,19 @@ namespace GestionObras.Core.Entities
             }
             return total;
         }
+
+        /// <summary>
+        /// Calcula la carga semanal estimada del proyecto a partir de sus tareas.
+        /// </summary>
+        public decimal ObtenerHorasSemanalesEstimadas()
+        {
+            decimal total = 0;
+            foreach (var tarea in Tareas)
+            {
+                total += tarea.HorasSemanalesEstimadas;
+            }
+            return total;
+        }
         
         /// <summary>
         /// Verifica si una tarea puede iniciarse (validaciones de PRL, materiales, etc.)

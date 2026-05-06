@@ -2,18 +2,15 @@
 @attribute [Authorize(Roles = "JefeObra,OficinaTecnica,Administrador")]
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@using GestionObras.Core.Contracts.JefeObra
 @using GestionObras.Core.Entities
-@using GestionObras.Infrastructure.Data
-@using GestionObras.Infrastructure.Repositories
-@using Microsoft.EntityFrameworkCore
-@using Microsoft.AspNetCore.Identity
-@inject GestionObrasDbContext DbContext
-@inject IFichajeRepository FichajeRepo
-@inject UserManager<UsuarioObra> UserManager
+@using GestionObras.Web.Services
+@inject JefeObraApiClient JefeObraApiClient
 @inject AuthenticationStateProvider AuthStateProvider
 @rendermode InteractiveServer
 
-<PageTitle>Fichajes de mi equipo - Gestión de Obras</PageTitle>
+<PageTitle>Fichajes de mi equipo - Gestion de Obras</PageTitle>
 
 @if (cargando)
 {
@@ -26,13 +23,12 @@ else
     <div class="container-fluid px-4 py-3">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
-                <h1 class="text-primary">📊 Fichajes de mi equipo</h1>
+                <h1 class="text-primary">Fichajes de mi equipo</h1>
                 <p class="text-muted mb-0">Consulta la asistencia de los operarios en tus proyectos</p>
             </div>
-            <span class="badge bg-info fs-6">👁️ Solo lectura — La validación se realiza desde RRHH</span>
+            <span class="badge bg-info fs-6">Solo lectura - La validacion se realiza desde RRHH</span>
         </div>
 
-        <!-- Resumen -->
         <div class="row mb-4">
             <div class="col-md-3">
                 <div class="card border-success shadow-sm">
@@ -68,7 +64,6 @@ else
             </div>
         </div>
 
-        <!-- Filtros -->
         <div class="card shadow-sm mb-4">
             <div class="card-body">
                 <div class="row g-3 align-items-end">
@@ -76,9 +71,9 @@ else
                         <label class="form-label">Proyecto</label>
                         <select class="form-select" @bind="filtroProyectoId" @bind:after="CargarFichajes">
                             <option value="">Todos mis proyectos</option>
-                            @foreach (var p in misProyectos)
+                            @foreach (var proyecto in misProyectos)
                             {
-                                <option value="@p.Id">@p.Nombre</option>
+                                <option value="@proyecto.Id">@proyecto.Nombre</option>
                             }
                         </select>
                     </div>
@@ -103,7 +98,6 @@ else
             </div>
         </div>
 
-        <!-- Tabla (solo lectura) -->
         <div class="card shadow-sm">
             <div class="card-body p-0">
                 @if (!fichajesFiltrados.Any())
@@ -126,17 +120,17 @@ else
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach (var f in fichajesFiltrados)
+                                @foreach (var fichaje in fichajesFiltrados)
                                 {
-                                    <tr class="@(f.HoraSalida == null ? "table-success" : "")">
-                                        <td><strong>@f.Usuario?.NombreCompleto</strong></td>
-                                        <td>@f.Fecha.ToString("dd/MM/yyyy")</td>
-                                        <td>@f.HoraEntrada.ToString("HH:mm")</td>
-                                        <td>@(f.HoraSalida?.ToString("HH:mm") ?? "🔵 En curso")</td>
-                                        <td>@(f.Proyecto?.Nombre ?? "—")</td>
-                                        <td>@(f.TotalHoras.HasValue ? $"{f.TotalHoras:F1} h" : "—")</td>
+                                    <tr class="@(fichaje.HoraSalida == null ? "table-success" : "")">
+                                        <td><strong>@fichaje.UsuarioNombreCompleto</strong></td>
+                                        <td>@fichaje.Fecha.ToString("dd/MM/yyyy")</td>
+                                        <td>@fichaje.HoraEntrada.ToString("HH:mm")</td>
+                                        <td>@(fichaje.HoraSalida?.ToString("HH:mm") ?? "En curso")</td>
+                                        <td>@(fichaje.ProyectoNombre ?? "-")</td>
+                                        <td>@(fichaje.TotalHoras.HasValue ? $"{fichaje.TotalHoras:F1} h" : "-")</td>
                                         <td>
-                                            @switch (f.Estado)
+                                            @switch (fichaje.Estado)
                                             {
                                                 case EstadoFichaje.Pendiente:
                                                     <span class="badge bg-warning text-dark">Pendiente</span>
@@ -162,69 +156,51 @@ else
 
 @code {
     private bool cargando = true;
-    private UsuarioObra? usuarioActual;
+    private string? usuarioActualId;
+    private List<ProyectoResumenDto> misProyectos = new();
+    private List<RegistroFichajeDto> fichajes = new();
+    private List<RegistroFichajeDto> fichajesFiltrados = new();
 
-    private List<Proyecto> misProyectos = new();
-    private List<RegistroFichaje> fichajes = new();
-    private List<RegistroFichaje> fichajesFiltrados = new();
-
-    // Filtros
-    private string filtroProyectoId = "";
+    private string filtroProyectoId = string.Empty;
     private DateTime fechaDesde = DateTime.Today.AddDays(-7);
     private DateTime fechaHasta = DateTime.Today;
-    private string filtroEstado = "";
+    private string filtroEstado = string.Empty;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    protected override async Task OnInitializedAsync()
     {
-        if (firstRender)
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        usuarioActualId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!string.IsNullOrWhiteSpace(usuarioActualId))
         {
-            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-            usuarioActual = await UserManager.GetUserAsync(authState.User);
-            if (usuarioActual != null)
-            {
-                await CargarDatosIniciales();
-                await CargarFichajes();
-            }
-            cargando = false;
-            StateHasChanged();
+            await CargarFichajes();
         }
-    }
 
-    private async Task CargarDatosIniciales()
-    {
-        // Solo mis proyectos (donde soy responsable)
-        misProyectos = await DbContext.Proyectos
-            .Where(p => p.ResponsableId == usuarioActual!.Id)
-            .OrderBy(p => p.Nombre)
-            .ToListAsync();
+        cargando = false;
     }
 
     private async Task CargarFichajes()
     {
+        if (string.IsNullOrWhiteSpace(usuarioActualId))
+        {
+            misProyectos = new();
+            fichajes = new();
+            fichajesFiltrados = new();
+            return;
+        }
+
         var desde = DateOnly.FromDateTime(fechaDesde);
         var hasta = DateOnly.FromDateTime(fechaHasta);
-        var proyectoIds = misProyectos.Select(p => p.Id).ToList();
+        int? proyectoId = int.TryParse(filtroProyectoId, out var pid) ? pid : null;
 
-        IQueryable<RegistroFichaje> query = DbContext.RegistrosFichaje
-            .Include(f => f.Usuario)
-            .Include(f => f.Proyecto)
-            .Where(f => f.Fecha >= desde && f.Fecha <= hasta)
-            .Where(f => f.ProyectoId != null && proyectoIds.Contains(f.ProyectoId.Value));
-
-        if (!string.IsNullOrEmpty(filtroProyectoId) && int.TryParse(filtroProyectoId, out int pid))
-            query = query.Where(f => f.ProyectoId == pid);
-
-        fichajes = await query
-            .OrderByDescending(f => f.Fecha)
-            .ThenByDescending(f => f.HoraEntrada)
-            .ToListAsync();
-
+        var respuesta = await JefeObraApiClient.ObtenerFichajesAsync(usuarioActualId, desde, hasta, proyectoId);
+        misProyectos = respuesta.Proyectos;
+        fichajes = respuesta.Fichajes;
         AplicarFiltroEstado();
     }
 
     private void AplicarFiltroEstado()
     {
-        fichajesFiltrados = string.IsNullOrEmpty(filtroEstado)
+        fichajesFiltrados = string.IsNullOrWhiteSpace(filtroEstado)
             ? fichajes
             : fichajes.Where(f => f.Estado.ToString() == filtroEstado).ToList();
     }

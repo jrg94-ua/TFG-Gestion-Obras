@@ -1,10 +1,11 @@
 @page "/proyectos/{ProyectoId:int}/historial-materiales"
 @attribute [Authorize]
 @using Microsoft.AspNetCore.Authorization
+@using GestionObras.Core.Contracts.Consultas
+@using GestionObras.Core.Contracts.Materiales
 @using GestionObras.Core.Entities
-@using GestionObras.Infrastructure.Data
-@using Microsoft.EntityFrameworkCore
-@inject GestionObrasDbContext DbContext
+@using GestionObras.Web.Services
+@inject ConsultasApiClient ConsultasApi
 @inject NavigationManager Navigation
 @rendermode InteractiveServer
 
@@ -241,7 +242,7 @@
                                 <div class="col-md-6">
                                     <h6 class="text-muted">Solicitado Por</h6>
                                     <p>@solicitudSeleccionada.SolicitadoPor.NombreCompleto</p>
-                                    <p class="text-muted small">@solicitudSeleccionada.SolicitadoPor.Email</p>
+                                    <p class="text-muted small">@solicitudSeleccionada.SolicitadoPor.Cargo</p>
                                 </div>
                                 @if (solicitudSeleccionada.FechaNecesaria.HasValue)
                                 {
@@ -318,16 +319,16 @@
     [Parameter]
     public int ProyectoId { get; set; }
 
-    private Proyecto? proyecto;
-    private List<SolicitudMaterial> solicitudes = new();
-    private List<SolicitudMaterial> solicitudesFiltradas = new();
+    private ProyectoGanttDto? proyecto;
+    private List<SolicitudMaterialResumenDto> solicitudes = new();
+    private List<SolicitudMaterialResumenDto> solicitudesFiltradas = new();
     
     private string filtroEstado = "";
     private string busqueda = "";
     private string ordenamiento = "FechaDesc";
 
     private bool mostrarModalDetalle = false;
-    private SolicitudMaterial? solicitudSeleccionada;
+    private SolicitudMaterialResumenDto? solicitudSeleccionada;
 
     protected override async Task OnInitializedAsync()
     {
@@ -336,25 +337,19 @@
 
     private async Task CargarDatos()
     {
-        proyecto = await DbContext.Proyectos
-            .FirstOrDefaultAsync(p => p.Id == ProyectoId);
+        var response = await ConsultasApi.ObtenerHistorialMaterialesProyectoAsync(ProyectoId);
+        proyecto = response.Proyecto;
 
         if (proyecto != null)
         {
-            solicitudes = await DbContext.SolicitudesMateriales
-                .Include(s => s.Material)
-                .Include(s => s.SolicitadoPor)
-                .Include(s => s.RevisadoPor)
-                .Where(s => s.ProyectoId == ProyectoId)
-                .ToListAsync();
-
+            solicitudes = response.Solicitudes;
             AplicarFiltros();
         }
     }
 
     private void AplicarFiltros()
     {
-        IEnumerable<SolicitudMaterial> resultado = solicitudes;
+        IEnumerable<SolicitudMaterialResumenDto> resultado = solicitudes;
 
         // Filtrar por estado
         if (!string.IsNullOrEmpty(filtroEstado) && Enum.TryParse<EstadoSolicitudMaterial>(filtroEstado, out var estado))
@@ -388,7 +383,7 @@
             .Sum(s => s.CantidadSolicitada * s.Material.PrecioUnitario);
     }
 
-    private void VerDetalle(SolicitudMaterial solicitud)
+    private void VerDetalle(SolicitudMaterialResumenDto solicitud)
     {
         solicitudSeleccionada = solicitud;
         mostrarModalDetalle = true;

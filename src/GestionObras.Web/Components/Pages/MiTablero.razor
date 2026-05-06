@@ -1,25 +1,23 @@
 @page "/mi-tablero"
 @attribute [Authorize]
+@using System.Security.Claims
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
+@using GestionObras.Core.Contracts.Administracion
 @using GestionObras.Core.Entities
-@using GestionObras.Infrastructure.Data
 @using GestionObras.Web.Components.Shared
 @using GestionObras.Web.Services
-@using Microsoft.EntityFrameworkCore
-@using Microsoft.AspNetCore.Identity
-@inject GestionObrasDbContext DbContext
+@inject AdministracionApiClient AdministracionApi
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
-@inject UserManager<UsuarioObra> UserManager
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject ExportPdfService ExportPdf
 @inject ExportExcelService ExportExcel
 @rendermode InteractiveServer
 
-<PageTitle>Mi Tablero Personal - Gestión de Obras</PageTitle>
+<PageTitle>Mi Tablero Personal - Gestion de Obras</PageTitle>
 
-@if (usuarioActual == null)
+@if (string.IsNullOrWhiteSpace(usuarioNombreCompleto))
 {
     <div class="text-center p-5">
         <div class="spinner-border text-primary" role="status">
@@ -30,18 +28,17 @@
 else
 {
     <div class="kanban-container">
-        <!-- Header -->
         <div class="kanban-header">
             <div>
-                <h1>👤 Mi Tablero Personal</h1>
+                <h1>Mi Tablero Personal</h1>
                 <p class="text-muted">
                     @if (esOperario)
                     {
-                        <span>@usuarioActual.NombreCompleto - Visor simple de tareas asignadas</span>
+                        <span>@usuarioNombreCompleto - Visor simple de tareas asignadas</span>
                     }
                     else
                     {
-                        <span>@usuarioActual.NombreCompleto - Mis tareas de todos los proyectos</span>
+                        <span>@usuarioNombreCompleto - Mis tareas de todos los proyectos</span>
                     }
                 </p>
             </div>
@@ -58,7 +55,6 @@ else
             }
         </div>
 
-        <!-- Estadísticas -->
         <div class="row mb-4">
             <div class="col-md-3">
                 <div class="card border-secondary">
@@ -94,19 +90,17 @@ else
             </div>
         </div>
 
-        <!-- Filtros -->
         <div class="kanban-filters">
             <div class="row g-3 w-100">
                 <div class="col-md-4">
                     <label class="form-label">Buscar tarea:</label>
-                    <input type="text" class="form-control" placeholder="Nombre o descripción..." 
-                           @bind="busqueda" @bind:event="oninput" />
+                    <input type="text" class="form-control" placeholder="Nombre o descripcion..." @bind="busqueda" @bind:event="oninput" @bind:after="AplicarFiltros" />
                 </div>
                 @if (!esOperario)
                 {
                     <div class="col-md-4">
                         <label class="form-label">Filtrar por proyecto:</label>
-                        <select class="form-select" @bind="proyectoFiltro">
+                        <select class="form-select" @bind="proyectoFiltro" @bind:after="AplicarFiltros">
                             <option value="">Todos los proyectos</option>
                             @foreach (var proyecto in proyectos)
                             {
@@ -116,9 +110,9 @@ else
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Prioridad:</label>
-                        <select class="form-select" @bind="prioridadFiltro">
+                        <select class="form-select" @bind="prioridadFiltro" @bind:after="AplicarFiltros">
                             <option value="">Todas</option>
-                            <option value="@PrioridadTarea.Critica">Crítica</option>
+                            <option value="@PrioridadTarea.Critica">Critica</option>
                             <option value="@PrioridadTarea.Alta">Alta</option>
                             <option value="@PrioridadTarea.Media">Media</option>
                             <option value="@PrioridadTarea.Baja">Baja</option>
@@ -128,112 +122,70 @@ else
             </div>
         </div>
 
-        <!-- Tablero Kanban -->
         <div class="kanban-board">
-            <!-- Columna Pendiente -->
-            <div class="kanban-column" 
-                 ondragover="event.preventDefault();" 
-                 @ondrop="@(() => Drop(EstadoTarea.Pendiente))">
+            <div class="kanban-column" ondragover="event.preventDefault();" @ondrop="@(() => Drop(EstadoTarea.Pendiente))">
                 <div class="kanban-column-header pendiente">
-                    <h3>📝 Pendiente</h3>
+                    <h3>Pendiente</h3>
                     <span class="badge bg-secondary">@ObtenerTareasPorEstado(EstadoTarea.Pendiente).Count()</span>
                 </div>
                 <div class="kanban-column-body">
                     @foreach (var tarea in ObtenerTareasPorEstado(EstadoTarea.Pendiente))
                     {
-                        <TarjetaTareaPersonal Tarea="@tarea" 
-                                            OnDragStart="@DragStart"
-                                            OnEditar="@AbrirModalEditarTarea"
-                                            OnVerProyecto="@VerProyecto"
-                                            OnMarcarFinalizada="@MarcarComoFinalizada"
-                                            ModoOperario="@esOperario"
-                                            MostrarPresupuesto="@(!esOperario)"
-                                            MostrarBotonVerProyecto="@(!esOperario)"
-                                            PermitirArrastrar="@(!esOperario)"
-                                            MostrarJerarquia="@(!esOperario)" />
+                        <TarjetaTareaPersonal Tarea="@tarea" OnDragStart="@DragStart" OnEditar="@AbrirModalEditarTarea" OnVerProyecto="@VerProyecto"
+                                              OnMarcarFinalizada="@MarcarComoFinalizada" ModoOperario="@esOperario" MostrarPresupuesto="@(!esOperario)"
+                                              MostrarBotonVerProyecto="@(!esOperario)" PermitirArrastrar="@(!esOperario)" MostrarJerarquia="@(!esOperario)" />
                     }
                 </div>
             </div>
 
-            <!-- Columna En Curso -->
-            <div class="kanban-column" 
-                 ondragover="event.preventDefault();" 
-                 @ondrop="@(() => Drop(EstadoTarea.EnCurso))">
+            <div class="kanban-column" ondragover="event.preventDefault();" @ondrop="@(() => Drop(EstadoTarea.EnCurso))">
                 <div class="kanban-column-header en-curso">
-                    <h3>⚙️ En Curso</h3>
+                    <h3>En Curso</h3>
                     <span class="badge bg-secondary">@ObtenerTareasPorEstado(EstadoTarea.EnCurso).Count()</span>
                 </div>
                 <div class="kanban-column-body">
                     @foreach (var tarea in ObtenerTareasPorEstado(EstadoTarea.EnCurso))
                     {
-                        <TarjetaTareaPersonal Tarea="@tarea" 
-                                            OnDragStart="@DragStart"
-                                            OnEditar="@AbrirModalEditarTarea"
-                                            OnVerProyecto="@VerProyecto"
-                                            OnMarcarFinalizada="@MarcarComoFinalizada"
-                                            ModoOperario="@esOperario"
-                                            MostrarPresupuesto="@(!esOperario)"
-                                            MostrarBotonVerProyecto="@(!esOperario)"
-                                            PermitirArrastrar="@(!esOperario)"
-                                            MostrarJerarquia="@(!esOperario)" />
+                        <TarjetaTareaPersonal Tarea="@tarea" OnDragStart="@DragStart" OnEditar="@AbrirModalEditarTarea" OnVerProyecto="@VerProyecto"
+                                              OnMarcarFinalizada="@MarcarComoFinalizada" ModoOperario="@esOperario" MostrarPresupuesto="@(!esOperario)"
+                                              MostrarBotonVerProyecto="@(!esOperario)" PermitirArrastrar="@(!esOperario)" MostrarJerarquia="@(!esOperario)" />
                     }
                 </div>
             </div>
 
-            <!-- Columna Bloqueado -->
-            <div class="kanban-column" 
-                 ondragover="event.preventDefault();" 
-                 @ondrop="@(() => Drop(EstadoTarea.Bloqueado))">
+            <div class="kanban-column" ondragover="event.preventDefault();" @ondrop="@(() => Drop(EstadoTarea.Bloqueado))">
                 <div class="kanban-column-header bloqueado">
-                    <h3>🚫 Bloqueado</h3>
+                    <h3>Bloqueado</h3>
                     <span class="badge bg-secondary">@ObtenerTareasPorEstado(EstadoTarea.Bloqueado).Count()</span>
                 </div>
                 <div class="kanban-column-body">
                     @foreach (var tarea in ObtenerTareasPorEstado(EstadoTarea.Bloqueado))
                     {
-                        <TarjetaTareaPersonal Tarea="@tarea" 
-                                            OnDragStart="@DragStart"
-                                            OnEditar="@AbrirModalEditarTarea"
-                                            OnVerProyecto="@VerProyecto"
-                                            OnDesbloquear="@AbrirModalDesbloquear"
-                                            OnMarcarFinalizada="@MarcarComoFinalizada"
-                                            ModoOperario="@esOperario"
-                                            MostrarPresupuesto="@(!esOperario)"
-                                            MostrarBotonVerProyecto="@(!esOperario)"
-                                            PermitirArrastrar="@(!esOperario)"
-                                            MostrarJerarquia="@(!esOperario)" />
+                        <TarjetaTareaPersonal Tarea="@tarea" OnDragStart="@DragStart" OnEditar="@AbrirModalEditarTarea" OnVerProyecto="@VerProyecto"
+                                              OnDesbloquear="@AbrirModalDesbloquear" OnMarcarFinalizada="@MarcarComoFinalizada" ModoOperario="@esOperario"
+                                              MostrarPresupuesto="@(!esOperario)" MostrarBotonVerProyecto="@(!esOperario)" PermitirArrastrar="@(!esOperario)"
+                                              MostrarJerarquia="@(!esOperario)" />
                     }
                 </div>
             </div>
 
-            <!-- Columna Finalizado -->
-            <div class="kanban-column" 
-                 ondragover="event.preventDefault();" 
-                 @ondrop="@(() => Drop(EstadoTarea.Finalizado))">
+            <div class="kanban-column" ondragover="event.preventDefault();" @ondrop="@(() => Drop(EstadoTarea.Finalizado))">
                 <div class="kanban-column-header finalizado">
-                    <h3>✅ Finalizado</h3>
+                    <h3>Finalizado</h3>
                     <span class="badge bg-secondary">@ObtenerTareasPorEstado(EstadoTarea.Finalizado).Count()</span>
                 </div>
                 <div class="kanban-column-body">
                     @foreach (var tarea in ObtenerTareasPorEstado(EstadoTarea.Finalizado))
                     {
-                        <TarjetaTareaPersonal Tarea="@tarea" 
-                                            OnDragStart="@DragStart"
-                                            OnEditar="@AbrirModalEditarTarea"
-                                            OnVerProyecto="@VerProyecto"
-                                            OnMarcarFinalizada="@MarcarComoFinalizada"
-                                            ModoOperario="@esOperario"
-                                            MostrarPresupuesto="@(!esOperario)"
-                                            MostrarBotonVerProyecto="@(!esOperario)"
-                                            PermitirArrastrar="@(!esOperario)"
-                                            MostrarJerarquia="@(!esOperario)" />
+                        <TarjetaTareaPersonal Tarea="@tarea" OnDragStart="@DragStart" OnEditar="@AbrirModalEditarTarea" OnVerProyecto="@VerProyecto"
+                                              OnMarcarFinalizada="@MarcarComoFinalizada" ModoOperario="@esOperario" MostrarPresupuesto="@(!esOperario)"
+                                              MostrarBotonVerProyecto="@(!esOperario)" PermitirArrastrar="@(!esOperario)" MostrarJerarquia="@(!esOperario)" />
                     }
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Modal de Edición -->
     @if (mostrarModalEditar)
     {
         <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
@@ -246,7 +198,7 @@ else
                     <div class="modal-body">
                         <EditForm Model="@tareaEditando" OnValidSubmit="GuardarTarea">
                             <div class="alert alert-info">
-                                <strong>Proyecto:</strong> @tareaEditando.Proyecto?.Nombre
+                                <strong>Proyecto:</strong> @tareaEditando.ProyectoNombre
                             </div>
 
                             <div class="mb-3">
@@ -255,7 +207,7 @@ else
                             </div>
 
                             <div class="mb-3">
-                                <label class="form-label">Descripción</label>
+                                <label class="form-label">Descripcion</label>
                                 <InputTextArea class="form-control" rows="3" @bind-Value="tareaEditando.Descripcion" readonly />
                             </div>
 
@@ -276,7 +228,7 @@ else
                                         <option value="@PrioridadTarea.Baja">Baja</option>
                                         <option value="@PrioridadTarea.Media">Media</option>
                                         <option value="@PrioridadTarea.Alta">Alta</option>
-                                        <option value="@PrioridadTarea.Critica">Crítica</option>
+                                        <option value="@PrioridadTarea.Critica">Critica</option>
                                     </InputSelect>
                                 </div>
                             </div>
@@ -307,40 +259,34 @@ else
         <div class="modal-backdrop fade show"></div>
     }
 
-    <!-- Modal de Bloqueo -->
     @if (mostrarModalBloqueo)
     {
         <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
             <div class="modal-dialog">
                 <div class="modal-content">
                     <div class="modal-header bg-warning">
-                        <h5 class="modal-title">🚫 Justificar Bloqueo de Tarea</h5>
+                        <h5 class="modal-title">Justificar Bloqueo de Tarea</h5>
                         <button type="button" class="btn-close" @onclick="CerrarModalBloqueo"></button>
                     </div>
                     <div class="modal-body">
                         <div class="alert alert-warning">
-                            <i class="bi bi-exclamation-triangle"></i>
                             <strong>RF-07:</strong> Es obligatorio justificar el bloqueo de una tarea.
                         </div>
-                        
                         <p><strong>Tarea:</strong> @tareaParaBloquear?.Nombre</p>
-                        <p><strong>Proyecto:</strong> @tareaParaBloquear?.Proyecto?.Nombre</p>
-                        
+                        <p><strong>Proyecto:</strong> @tareaParaBloquear?.Proyecto.Nombre</p>
                         <div class="mb-3">
                             <label class="form-label">Tipo de Bloqueo *</label>
                             <select class="form-select" @bind="tipoBloqueoSeleccionado">
                                 <option value="@TipoBloqueo.FaltaMaterial">Falta de Material</option>
-                                <option value="@TipoBloqueo.ErrorEjecucion">Error de Ejecución</option>
+                                <option value="@TipoBloqueo.ErrorEjecucion">Error de Ejecucion</option>
                                 <option value="@TipoBloqueo.IncidenciaNormativa">Incidencia Normativa</option>
-                                <option value="@TipoBloqueo.ClimatologiaAdversa">Climatología Adversa</option>
+                                <option value="@TipoBloqueo.ClimatologiaAdversa">Climatologia Adversa</option>
                                 <option value="@TipoBloqueo.Otro">Otro</option>
                             </select>
                         </div>
-
                         <div class="mb-3">
-                            <label class="form-label">Justificación Técnica *</label>
-                            <textarea class="form-control" rows="4" @bind="justificacionBloqueo"
-                                      placeholder="Describa detalladamente el motivo del bloqueo..."></textarea>
+                            <label class="form-label">Justificacion Tecnica *</label>
+                            <textarea class="form-control" rows="4" @bind="justificacionBloqueo" placeholder="Describa detalladamente el motivo del bloqueo..."></textarea>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -355,37 +301,25 @@ else
         <div class="modal-backdrop fade show"></div>
     }
 
-    <!-- Modal de Desbloqueo -->
     @if (mostrarModalDesbloqueo)
     {
         <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
             <div class="modal-dialog">
                 <div class="modal-content">
                     <div class="modal-header bg-success text-white">
-                        <h5 class="modal-title">✅ Desbloquear Tarea</h5>
+                        <h5 class="modal-title">Desbloquear Tarea</h5>
                         <button type="button" class="btn-close btn-close-white" @onclick="CerrarModalDesbloqueo"></button>
                     </div>
                     <div class="modal-body">
                         @if (tareaParaDesbloquear?.Bloqueo != null)
                         {
-                            <div class="mb-3">
-                                <strong>Tarea:</strong> @tareaParaDesbloquear.Nombre
-                            </div>
-                            <div class="mb-3">
-                                <strong>Proyecto:</strong> @tareaParaDesbloquear.Proyecto?.Nombre
-                            </div>
-                            <div class="mb-3">
-                                <strong>Motivo del bloqueo:</strong> @tareaParaDesbloquear.Bloqueo.Tipo
-                            </div>
-                            <div class="mb-3">
-                                <strong>Justificación:</strong><br />
-                                @tareaParaDesbloquear.Bloqueo.JustificacionTecnica
-                            </div>
-                            <div class="mb-3">
-                                <strong>Fecha de bloqueo:</strong> @tareaParaDesbloquear.Bloqueo.FechaBloqueo.ToString("dd/MM/yyyy")
-                            </div>
+                            <div class="mb-3"><strong>Tarea:</strong> @tareaParaDesbloquear.Nombre</div>
+                            <div class="mb-3"><strong>Proyecto:</strong> @tareaParaDesbloquear.Proyecto.Nombre</div>
+                            <div class="mb-3"><strong>Motivo del bloqueo:</strong> @tareaParaDesbloquear.Bloqueo.Tipo</div>
+                            <div class="mb-3"><strong>Justificacion:</strong><br />@tareaParaDesbloquear.Bloqueo.JustificacionTecnica</div>
+                            <div class="mb-3"><strong>Fecha de bloqueo:</strong> @tareaParaDesbloquear.Bloqueo.FechaBloqueo.ToString("dd/MM/yyyy")</div>
                         }
-                        <p class="text-success">¿Confirma que desea desbloquear esta tarea?</p>
+                        <p class="text-success">Confirma que desea desbloquear esta tarea?</p>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" @onclick="CerrarModalDesbloqueo">Cancelar</button>
@@ -401,87 +335,45 @@ else
 }
 
 @code {
-    private UsuarioObra? usuarioActual;
+    private string usuarioActualId = string.Empty;
+    private string usuarioNombreCompleto = string.Empty;
     private bool esOperario;
-    private List<Tarea> misTareas = new();
-    private List<Tarea> tareasFiltradas = new();
-    private List<Proyecto> proyectos = new();
-    private static readonly string[] RolesOperario = ["Operario", "OperarioObra", "OperarioOficinaT"];
-    
-    private string busqueda = "";
-    private string proyectoFiltro = "";
-    private string prioridadFiltro = "";
+    private List<TareaPersonalDto> misTareas = new();
+    private List<TareaPersonalDto> tareasFiltradas = new();
+    private List<ProyectoMinimoDto> proyectos = new();
 
-    // Drag and Drop
-    private Tarea? tareaArrastrada = null;
+    private string busqueda = string.Empty;
+    private string proyectoFiltro = string.Empty;
+    private string prioridadFiltro = string.Empty;
 
-    // Modal Editar
-    private bool mostrarModalEditar = false;
-    private Tarea tareaEditando = new();
-
-    // Modal Bloqueo
-    private bool mostrarModalBloqueo = false;
-    private Tarea? tareaParaBloquear = null;
+    private TareaPersonalDto? tareaArrastrada;
+    private bool mostrarModalEditar;
+    private TareaEditModel tareaEditando = new();
+    private bool mostrarModalBloqueo;
+    private TareaPersonalDto? tareaParaBloquear;
     private TipoBloqueo tipoBloqueoSeleccionado = TipoBloqueo.FaltaMaterial;
-    private string justificacionBloqueo = "";
-
-    // Modal Desbloqueo
-    private bool mostrarModalDesbloqueo = false;
-    private Tarea? tareaParaDesbloquear = null;
+    private string justificacionBloqueo = string.Empty;
+    private bool mostrarModalDesbloqueo;
+    private TareaPersonalDto? tareaParaDesbloquear;
 
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-        
-        if (user.Identity?.IsAuthenticated == true)
+        usuarioActualId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(usuarioActualId))
         {
-            var userName = user.Identity.Name;
-            if (!string.IsNullOrWhiteSpace(userName))
-            {
-                usuarioActual = await UserManager.FindByNameAsync(userName);
-            }
-            
-            if (usuarioActual != null)
-            {
-                var roles = await UserManager.GetRolesAsync(usuarioActual);
-                esOperario = roles.Any(r => RolesOperario.Contains(r));
-                await CargarDatos();
-            }
+            await CargarDatos();
         }
     }
 
     private async Task CargarDatos()
     {
-        if (usuarioActual == null) return;
-
-        // Cargar todas las tareas donde el usuario es responsable.
-        var consultaTareas = DbContext.Tareas
-            .Include(t => t.Proyecto)
-            .Include(t => t.UsuariosAsignados)
-            .Include(t => t.Bloqueo)
-            .Include(t => t.TareaPadre)
-            .Where(t => t.UsuariosAsignados.Any(r => r.Id == usuarioActual.Id));
-
-        // Los operarios solo ven tareas atómicas (sin subtareas hijas) para reducir complejidad.
-        if (esOperario)
-        {
-            consultaTareas = consultaTareas
-                .Where(t => !DbContext.Tareas.Any(sub => sub.TareaPadreId == t.Id));
-        }
-
-        misTareas = await consultaTareas
-            .OrderBy(t => t.Prioridad)
-            .ThenBy(t => t.FechaInicio)
-            .ToListAsync();
-
-        // Cargar lista de proyectos únicos
-        proyectos = misTareas
-            .Select(t => t.Proyecto)
-            .Distinct()
-            .OrderBy(p => p.Nombre)
-            .ToList();
-
+        var response = await AdministracionApi.ObtenerMiTableroAsync(usuarioActualId);
+        usuarioNombreCompleto = response.UsuarioNombreCompleto;
+        esOperario = response.EsOperario;
+        misTareas = response.Tareas;
+        proyectos = response.Proyectos;
         AplicarFiltros();
     }
 
@@ -489,45 +381,40 @@ else
     {
         tareasFiltradas = misTareas.ToList();
 
-        // Filtro por búsqueda
         if (!string.IsNullOrWhiteSpace(busqueda))
         {
             tareasFiltradas = tareasFiltradas
                 .Where(t => t.Nombre.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ||
-                           (t.Descripcion?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false))
+                            (t.Descripcion?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false))
                 .ToList();
         }
 
-        // Filtro por proyecto
-        if (!string.IsNullOrWhiteSpace(proyectoFiltro) && int.TryParse(proyectoFiltro, out int proyectoId))
+        if (!string.IsNullOrWhiteSpace(proyectoFiltro) && int.TryParse(proyectoFiltro, out var proyectoId))
         {
             tareasFiltradas = tareasFiltradas.Where(t => t.ProyectoId == proyectoId).ToList();
         }
 
-        // Filtro por prioridad
         if (!string.IsNullOrWhiteSpace(prioridadFiltro) && Enum.TryParse<PrioridadTarea>(prioridadFiltro, out var prioridad))
         {
             tareasFiltradas = tareasFiltradas.Where(t => t.Prioridad == prioridad).ToList();
         }
     }
 
-    private List<Tarea> ObtenerTareasPorEstado(EstadoTarea estado)
-    {
-        return tareasFiltradas.Where(t => t.Estado == estado).OrderBy(t => t.Prioridad).ToList();
-    }
+    private List<TareaPersonalDto> ObtenerTareasPorEstado(EstadoTarea estado)
+        => tareasFiltradas.Where(t => t.Estado == estado).OrderBy(t => t.Prioridad).ToList();
 
-    // Drag and Drop
-    private void DragStart(Tarea tarea)
+    private void DragStart(TareaPersonalDto tarea)
     {
         tareaArrastrada = tarea;
     }
 
     private async Task Drop(EstadoTarea nuevoEstado)
     {
-        if (esOperario) return;
-        if (tareaArrastrada == null) return;
+        if (esOperario || tareaArrastrada == null)
+        {
+            return;
+        }
 
-        // Si se intenta mover a Bloqueado, mostrar modal de justificación
         if (nuevoEstado == EstadoTarea.Bloqueado && tareaArrastrada.Estado != EstadoTarea.Bloqueado)
         {
             tareaParaBloquear = tareaArrastrada;
@@ -536,65 +423,68 @@ else
             return;
         }
 
-        // Si se desbloquea arrastrando fuera de Bloqueado
-        if (tareaArrastrada.Estado == EstadoTarea.Bloqueado && nuevoEstado != EstadoTarea.Bloqueado)
+        var result = await AdministracionApi.CambiarEstadoTareaAsync(tareaArrastrada.Id, nuevoEstado);
+        if (!result.Correcto)
         {
-            if (tareaArrastrada.Bloqueo != null)
-            {
-                tareaArrastrada.Bloqueo.FechaResolucion = DateTime.Now;
-            }
+            await JS.InvokeVoidAsync("alert", result.Mensaje);
+            tareaArrastrada = null;
+            return;
         }
 
-        tareaArrastrada.Estado = nuevoEstado;
-        DbContext.Update(tareaArrastrada);
-        await DbContext.SaveChangesAsync();
         await CargarDatos();
-        
         tareaArrastrada = null;
     }
 
-    private void AbrirModalEditarTarea(Tarea tarea)
+    private void AbrirModalEditarTarea(TareaPersonalDto tarea)
     {
-        if (esOperario) return;
+        if (esOperario)
+        {
+            return;
+        }
 
-        try
+        tareaEditando = new TareaEditModel
         {
-            tareaEditando = tarea;
-            mostrarModalEditar = true;
-            StateHasChanged();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error en AbrirModalEditarTarea: {ex.Message}");
-        }
+            Id = tarea.Id,
+            Nombre = tarea.Nombre,
+            Descripcion = tarea.Descripcion ?? string.Empty,
+            Estado = tarea.Estado,
+            Prioridad = tarea.Prioridad,
+            FechaInicio = tarea.FechaInicio,
+            FechaFin = tarea.FechaFin,
+            ProyectoNombre = tarea.Proyecto.Nombre
+        };
+        mostrarModalEditar = true;
     }
 
     private async Task GuardarTarea()
     {
-        if (esOperario) return;
-
-        try
+        if (esOperario)
         {
-            // Si cambia a bloqueado, requerir justificación
-            if (tareaEditando.Estado == EstadoTarea.Bloqueado && 
-                (tareaEditando.Bloqueo == null || tareaEditando.Bloqueo.FechaResolucion != null))
+            return;
+        }
+
+        if (tareaEditando.Estado == EstadoTarea.Bloqueado)
+        {
+            var original = misTareas.FirstOrDefault(t => t.Id == tareaEditando.Id);
+            if (original != null)
             {
-                tareaParaBloquear = tareaEditando;
+                tareaParaBloquear = original;
                 CerrarModal();
                 mostrarModalBloqueo = true;
                 return;
             }
+        }
 
-            DbContext.Update(tareaEditando);
-            await DbContext.SaveChangesAsync();
-            await CargarDatos();
-            CerrarModal();
-            await JS.InvokeVoidAsync("alert", "Estado actualizado correctamente");
-        }
-        catch (Exception ex)
+        var result = await AdministracionApi.CambiarEstadoTareaAsync(tareaEditando.Id, tareaEditando.Estado);
+        if (!result.Correcto)
         {
-            await JS.InvokeVoidAsync("alert", $"Error al actualizar: {ex.Message}");
+            await JS.InvokeVoidAsync("alert", result.Mensaje);
+            return;
         }
+
+        await CargarDatos();
+        CerrarModal();
+        await JS.InvokeVoidAsync("alert", "Estado actualizado correctamente");
     }
 
     private void CerrarModal()
@@ -603,32 +493,27 @@ else
         tareaEditando = new();
     }
 
-    // Gestión de Bloqueos
     private async Task GuardarBloqueo()
     {
-        if (esOperario) return;
-
-        if (tareaParaBloquear == null || string.IsNullOrWhiteSpace(justificacionBloqueo))
+        if (esOperario || tareaParaBloquear == null || string.IsNullOrWhiteSpace(justificacionBloqueo))
         {
-            await JS.InvokeVoidAsync("alert", "Debe proporcionar una justificación técnica");
+            await JS.InvokeVoidAsync("alert", "Debe proporcionar una justificacion tecnica");
             return;
         }
 
-        var bloqueo = new BloqueoTarea
+        var result = await AdministracionApi.BloquearTareaAsync(tareaParaBloquear.Id, new BloquearTareaPersonalRequest
         {
-            TareaId = tareaParaBloquear.Id,
             Tipo = tipoBloqueoSeleccionado,
-            JustificacionTecnica = justificacionBloqueo,
-            FechaBloqueo = DateTime.Now
-        };
+            JustificacionTecnica = justificacionBloqueo
+        });
 
-        tareaParaBloquear.Estado = EstadoTarea.Bloqueado;
-        tareaParaBloquear.Bloqueo = bloqueo;
+        if (!result.Correcto)
+        {
+            await JS.InvokeVoidAsync("alert", result.Mensaje);
+            return;
+        }
 
-        DbContext.Update(tareaParaBloquear);
-        await DbContext.SaveChangesAsync();
         await CargarDatos();
-
         CerrarModalBloqueo();
         await JS.InvokeVoidAsync("alert", "Tarea bloqueada correctamente");
     }
@@ -637,34 +522,37 @@ else
     {
         mostrarModalBloqueo = false;
         tareaParaBloquear = null;
-        justificacionBloqueo = "";
+        justificacionBloqueo = string.Empty;
     }
 
-    private void AbrirModalDesbloquear(Tarea tarea)
+    private void AbrirModalDesbloquear(TareaPersonalDto tarea)
     {
-        if (esOperario) return;
+        if (esOperario)
+        {
+            return;
+        }
 
         tareaParaDesbloquear = tarea;
         mostrarModalDesbloqueo = true;
-        StateHasChanged();
     }
 
     private async Task DesbloquearTarea()
     {
-        if (esOperario) return;
-
-        if (tareaParaDesbloquear?.Bloqueo != null)
+        if (esOperario || tareaParaDesbloquear == null)
         {
-            tareaParaDesbloquear.Bloqueo.FechaResolucion = DateTime.Now;
-            tareaParaDesbloquear.Estado = EstadoTarea.Pendiente;
-            
-            DbContext.Update(tareaParaDesbloquear);
-            await DbContext.SaveChangesAsync();
-            await CargarDatos();
-
-            CerrarModalDesbloqueo();
-            await JS.InvokeVoidAsync("alert", "Tarea desbloqueada correctamente");
+            return;
         }
+
+        var result = await AdministracionApi.DesbloquearTareaAsync(tareaParaDesbloquear.Id);
+        if (!result.Correcto)
+        {
+            await JS.InvokeVoidAsync("alert", result.Mensaje);
+            return;
+        }
+
+        await CargarDatos();
+        CerrarModalDesbloqueo();
+        await JS.InvokeVoidAsync("alert", "Tarea desbloqueada correctamente");
     }
 
     private void CerrarModalDesbloqueo()
@@ -675,38 +563,28 @@ else
 
     private void VerProyecto(int proyectoId)
     {
-        if (esOperario) return;
+        if (esOperario)
+        {
+            return;
+        }
 
         Navigation.NavigateTo($"/proyectos/{proyectoId}/kanban");
     }
 
-    private async Task MarcarComoFinalizada(Tarea tarea)
+    private async Task MarcarComoFinalizada(TareaPersonalDto tarea)
     {
-        if (!esOperario || usuarioActual == null || tarea.Estado == EstadoTarea.Finalizado)
+        if (!esOperario || tarea.Estado == EstadoTarea.Finalizado)
         {
             return;
         }
 
-        var tareaEnDb = await DbContext.Tareas
-            .Include(t => t.Bloqueo)
-            .FirstOrDefaultAsync(t => t.Id == tarea.Id);
-
-        if (tareaEnDb == null)
+        var result = await AdministracionApi.FinalizarTareaOperarioAsync(tarea.Id, usuarioActualId);
+        if (!result.Correcto)
         {
+            await JS.InvokeVoidAsync("alert", result.Mensaje);
             return;
         }
 
-        if (tareaEnDb.Bloqueo != null && tareaEnDb.Bloqueo.FechaResolucion == null)
-        {
-            tareaEnDb.Bloqueo.FechaResolucion = DateTime.Now;
-        }
-
-        tareaEnDb.Estado = EstadoTarea.Finalizado;
-        tareaEnDb.FechaFinalizacion = DateTime.Now;
-        tareaEnDb.CompletadaPorId = usuarioActual.Id;
-        tareaEnDb.ObservacionesFinalizacion = "Finalizada desde tablero de operario";
-
-        await DbContext.SaveChangesAsync();
         await CargarDatos();
         await JS.InvokeVoidAsync("alert", "Tarea marcada como terminada. Tu superior ya puede revisarla.");
     }
@@ -719,11 +597,7 @@ else
             return;
         }
 
-        var datos = tareasFiltradas
-            .OrderBy(t => t.Prioridad)
-            .ThenBy(t => t.FechaInicio)
-            .ToList();
-
+        var datos = tareasFiltradas.OrderBy(t => t.Prioridad).ThenBy(t => t.FechaInicio).Select(MapTareaEntidad).ToList();
         var bytes = ExportPdf.GenerarInformeTareas(datos, "Mis Tareas");
         var base64 = Convert.ToBase64String(bytes);
         await JS.InvokeVoidAsync("descargarArchivo", $"MisTareas_{DateTime.Now:yyyyMMdd}.pdf", "application/pdf", base64);
@@ -737,13 +611,52 @@ else
             return;
         }
 
-        var datos = tareasFiltradas
-            .OrderBy(t => t.Prioridad)
-            .ThenBy(t => t.FechaInicio)
-            .ToList();
-
+        var datos = tareasFiltradas.OrderBy(t => t.Prioridad).ThenBy(t => t.FechaInicio).Select(MapTareaEntidad).ToList();
         var bytes = ExportExcel.GenerarExcelTareas(datos, "Mis Tareas");
         var base64 = Convert.ToBase64String(bytes);
         await JS.InvokeVoidAsync("descargarArchivo", $"MisTareas_{DateTime.Now:yyyyMMdd}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", base64);
+    }
+
+    private static Tarea MapTareaEntidad(TareaPersonalDto tarea) =>
+        new()
+        {
+            Id = tarea.Id,
+            Nombre = tarea.Nombre,
+            Descripcion = tarea.Descripcion ?? string.Empty,
+            Estado = tarea.Estado,
+            FechaInicio = tarea.FechaInicio,
+            FechaFin = tarea.FechaFin,
+            PresupuestoEstimado = tarea.PresupuestoEstimado,
+            CostesReales = tarea.CostesReales,
+            ProyectoId = tarea.ProyectoId,
+            Proyecto = new Proyecto { Id = tarea.Proyecto.Id, Nombre = tarea.Proyecto.Nombre },
+            TareaPadreId = tarea.TareaPadreId,
+            TareaPadre = string.IsNullOrWhiteSpace(tarea.TareaPadreNombre) ? null : new Tarea { Nombre = tarea.TareaPadreNombre },
+            Nivel = tarea.Nivel,
+            Prioridad = tarea.Prioridad,
+            UsuariosAsignados = Enumerable.Range(0, tarea.UsuariosAsignadosCount).Select(_ => new UsuarioObra()).ToList(),
+            Bloqueo = tarea.Bloqueo == null ? null : new BloqueoTarea
+            {
+                Id = tarea.Bloqueo.Id,
+                Tipo = tarea.Bloqueo.Tipo,
+                JustificacionTecnica = tarea.Bloqueo.JustificacionTecnica,
+                FechaBloqueo = tarea.Bloqueo.FechaBloqueo,
+                FechaResolucion = tarea.Bloqueo.FechaResolucion
+            },
+            CompletadaPorId = tarea.CompletadaPorId,
+            FechaFinalizacion = tarea.FechaFinalizacion,
+            ObservacionesFinalizacion = tarea.ObservacionesFinalizacion
+        };
+
+    private sealed class TareaEditModel
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+        public string Descripcion { get; set; } = string.Empty;
+        public EstadoTarea Estado { get; set; }
+        public PrioridadTarea Prioridad { get; set; }
+        public DateTime FechaInicio { get; set; }
+        public DateTime? FechaFin { get; set; }
+        public string ProyectoNombre { get; set; } = string.Empty;
     }
 }

@@ -18,6 +18,7 @@ namespace GestionObras.Core.Entities
         // Presupuesto y costes
         public decimal PresupuestoEstimado { get; set; }
         public decimal CostesReales { get; set; }
+        public decimal HorasSemanalesEstimadas { get; set; } = 8;
         
         // Relaciones
         public int ProyectoId { get; set; }
@@ -35,6 +36,8 @@ namespace GestionObras.Core.Entities
         public List<Material> MaterialesNecesarios { get; set; } = new();
         public List<Empleado> Responsables { get; set; } = new();
         public List<UsuarioObra> UsuariosAsignados { get; set; } = new();
+        public string? ResponsableFinalId { get; set; }
+        public UsuarioObra? ResponsableFinal { get; set; }
         public BloqueoTarea? Bloqueo { get; set; }
         public List<Factura> Facturas { get; set; } = new();
         

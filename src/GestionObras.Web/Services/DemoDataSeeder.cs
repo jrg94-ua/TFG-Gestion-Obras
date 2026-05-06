@@ -39,11 +39,23 @@ public static class DemoDataSeeder
             "obra.03@gestionobras.com", "Nuria Pastor Simó", "83000003L", TipoUsuario.Operario, "Demo123!", "OperarioObra");
         var operarioObra4 = await EnsureUserAsync(userManager, roleManager,
             "obra.04@gestionobras.com", "Mario Crespo Tomás", "83000004L", TipoUsuario.Operario, "Demo123!", "OperarioObra");
+        var operarioObra5 = await EnsureUserAsync(userManager, roleManager,
+            "obra.05@gestionobras.com", "Raúl Beltrán Izquierdo", "83000005L", TipoUsuario.Operario, "Demo123!", "OperarioObra");
+        var operarioObra6 = await EnsureUserAsync(userManager, roleManager,
+            "obra.06@gestionobras.com", "Eva Robles Calvo", "83000006L", TipoUsuario.Operario, "Demo123!", "OperarioObra");
+        var operarioObra7 = await EnsureUserAsync(userManager, roleManager,
+            "obra.07@gestionobras.com", "Hugo Ferrer Mora", "83000007L", TipoUsuario.Operario, "Demo123!", "OperarioObra");
+        var operarioObra8 = await EnsureUserAsync(userManager, roleManager,
+            "obra.08@gestionobras.com", "Claudia Solé Pastor", "83000008L", TipoUsuario.Operario, "Demo123!", "OperarioObra");
 
         var operarioTec1 = await EnsureUserAsync(userManager, roleManager,
             "ot.01@gestionobras.com", "Paula Cuesta León", "84000001M", TipoUsuario.Operario, "Demo123!", "OperarioOficinaT");
         var operarioTec2 = await EnsureUserAsync(userManager, roleManager,
             "ot.02@gestionobras.com", "Javier Soler Prats", "84000002M", TipoUsuario.Operario, "Demo123!", "OperarioOficinaT");
+        var operarioTec3 = await EnsureUserAsync(userManager, roleManager,
+            "ot.03@gestionobras.com", "Marina Valiente Sáez", "84000003M", TipoUsuario.Operario, "Demo123!", "OperarioOficinaT");
+        var operarioTec4 = await EnsureUserAsync(userManager, roleManager,
+            "ot.04@gestionobras.com", "Óscar Climent Vives", "84000004M", TipoUsuario.Operario, "Demo123!", "OperarioOficinaT");
 
         // Recursos Humanos
         var rrhh = await EnsureUserAsync(userManager, roleManager,
@@ -59,8 +71,14 @@ public static class DemoDataSeeder
             new() { Nombre = "Sergio", Apellidos = "Vidal Moreno", DNI = "83000002L", Email = "obra.02@gestionobras.com", Telefono = "600101006", Categoria = CategoriaLaboral.OficialPrimera, FechaContratacion = DateTime.Today.AddYears(-3), Departamento = "Cuadrilla Obra", Cargo = "Oficial 1ª Encofrado", Activo = true, UsuarioId = operarioObra2.Id },
             new() { Nombre = "Nuria", Apellidos = "Pastor Simó", DNI = "83000003L", Email = "obra.03@gestionobras.com", Telefono = "600101007", Categoria = CategoriaLaboral.OficialSegunda, FechaContratacion = DateTime.Today.AddYears(-2), Departamento = "Cuadrilla Obra", Cargo = "Oficial 2ª Albañilería", Activo = true, UsuarioId = operarioObra3.Id },
             new() { Nombre = "Mario", Apellidos = "Crespo Tomás", DNI = "83000004L", Email = "obra.04@gestionobras.com", Telefono = "600101008", Categoria = CategoriaLaboral.OficialSegunda, FechaContratacion = DateTime.Today.AddYears(-2), Departamento = "Cuadrilla Obra", Cargo = "Oficial 2ª Instalaciones", Activo = true, UsuarioId = operarioObra4.Id },
+            new() { Nombre = "Raúl", Apellidos = "Beltrán Izquierdo", DNI = "83000005L", Email = "obra.05@gestionobras.com", Telefono = "600101012", Categoria = CategoriaLaboral.OficialSegunda, FechaContratacion = DateTime.Today.AddYears(-2), Departamento = "Cuadrilla Obra", Cargo = "Oficial 2ª Estructura", Activo = true, UsuarioId = operarioObra5.Id },
+            new() { Nombre = "Eva", Apellidos = "Robles Calvo", DNI = "83000006L", Email = "obra.06@gestionobras.com", Telefono = "600101013", Categoria = CategoriaLaboral.OficialPrimera, FechaContratacion = DateTime.Today.AddYears(-3), Departamento = "Cuadrilla Obra", Cargo = "Oficial 1ª Rehabilitación", Activo = true, UsuarioId = operarioObra6.Id },
+            new() { Nombre = "Hugo", Apellidos = "Ferrer Mora", DNI = "83000007L", Email = "obra.07@gestionobras.com", Telefono = "600101014", Categoria = CategoriaLaboral.OficialTercera, FechaContratacion = DateTime.Today.AddYears(-1), Departamento = "Cuadrilla Obra", Cargo = "Oficial 3ª Apoyo", Activo = true, UsuarioId = operarioObra7.Id },
+            new() { Nombre = "Claudia", Apellidos = "Solé Pastor", DNI = "83000008L", Email = "obra.08@gestionobras.com", Telefono = "600101015", Categoria = CategoriaLaboral.OficialSegunda, FechaContratacion = DateTime.Today.AddYears(-2), Departamento = "Cuadrilla Obra", Cargo = "Oficial 2ª Acabados", Activo = true, UsuarioId = operarioObra8.Id },
             new() { Nombre = "Paula", Apellidos = "Cuesta León", DNI = "84000001M", Email = "ot.01@gestionobras.com", Telefono = "600101009", Categoria = CategoriaLaboral.OficialTercera, FechaContratacion = DateTime.Today.AddYears(-2), Departamento = "Oficina Técnica", Cargo = "Asistente Técnica", Activo = true, UsuarioId = operarioTec1.Id },
             new() { Nombre = "Javier", Apellidos = "Soler Prats", DNI = "84000002M", Email = "ot.02@gestionobras.com", Telefono = "600101010", Categoria = CategoriaLaboral.OficialTercera, FechaContratacion = DateTime.Today.AddYears(-1), Departamento = "Oficina Técnica", Cargo = "Control Documental", Activo = true, UsuarioId = operarioTec2.Id },
+            new() { Nombre = "Marina", Apellidos = "Valiente Sáez", DNI = "84000003M", Email = "ot.03@gestionobras.com", Telefono = "600101016", Categoria = CategoriaLaboral.OficialTercera, FechaContratacion = DateTime.Today.AddYears(-1), Departamento = "Oficina Técnica", Cargo = "Gestión BIM", Activo = true, UsuarioId = operarioTec3.Id },
+            new() { Nombre = "Óscar", Apellidos = "Climent Vives", DNI = "84000004M", Email = "ot.04@gestionobras.com", Telefono = "600101017", Categoria = CategoriaLaboral.OficialTercera, FechaContratacion = DateTime.Today.AddYears(-1), Departamento = "Oficina Técnica", Cargo = "Delineación", Activo = true, UsuarioId = operarioTec4.Id },
             new() { Nombre = "Elena", Apellidos = "Martínez García", DNI = "85000001N", Email = "rrhh@gestionobras.com", Telefono = "600101011", Categoria = CategoriaLaboral.Encargado, FechaContratacion = DateTime.Today.AddYears(-5), Departamento = "Recursos Humanos", Cargo = "Responsable RRHH", Activo = true, UsuarioId = rrhh.Id }
         };
 
@@ -71,12 +89,16 @@ public static class DemoDataSeeder
 
         var proveedores = new List<Proveedor>
         {
-            new() { Nombre = "Hormigones Levante S.L.", CIF = "B12345671", Direccion = "Pol. Industrial Norte, Valencia", Telefono = "961000001", Email = "ventas@hormigoneslevante.es" },
-            new() { Nombre = "Aceros del Turia", CIF = "B12345672", Direccion = "Av. Metalurgia 14, Valencia", Telefono = "961000002", Email = "compras@acerosdelturia.es" },
-            new() { Nombre = "Instalaciones Técnicas Mediterráneo", CIF = "B12345673", Direccion = "C/ Electricidad 8, Castellón", Telefono = "961000003", Email = "contacto@itm.es" },
-            new() { Nombre = "Cerámicas Costa", CIF = "B12345674", Direccion = "Ctra. Nacional km 22, Alicante", Telefono = "961000004", Email = "pedidos@ceramicascosta.es" },
-            new() { Nombre = "Aislamientos Peninsulares", CIF = "B12345675", Direccion = "Parque Logístico 4, Sagunto", Telefono = "961000005", Email = "ofertas@aislapen.es" },
-            new() { Nombre = "Prefabricados Delta", CIF = "B12345676", Direccion = "C/ Industria 90, Albacete", Telefono = "961000006", Email = "comercial@prefadelta.es" }
+            new() { Nombre = "Hormigones Levante S.L.", CIF = "B12345671", Direccion = "Pol. Industrial Norte, Valencia", Telefono = "961000001", Email = "ventas@hormigoneslevante.es", Activo = true },
+            new() { Nombre = "Aceros del Turia", CIF = "B12345672", Direccion = "Av. Metalurgia 14, Valencia", Telefono = "961000002", Email = "compras@acerosdelturia.es", Activo = true },
+            new() { Nombre = "Instalaciones Técnicas Mediterráneo", CIF = "B12345673", Direccion = "C/ Electricidad 8, Castellón", Telefono = "961000003", Email = "contacto@itm.es", Activo = true },
+            new() { Nombre = "Cerámicas Costa", CIF = "B12345674", Direccion = "Ctra. Nacional km 22, Alicante", Telefono = "961000004", Email = "pedidos@ceramicascosta.es", Activo = true },
+            new() { Nombre = "Aislamientos Peninsulares", CIF = "B12345675", Direccion = "Parque Logístico 4, Sagunto", Telefono = "961000005", Email = "ofertas@aislapen.es", Activo = true },
+            new() { Nombre = "Prefabricados Delta", CIF = "B12345676", Direccion = "C/ Industria 90, Albacete", Telefono = "961000006", Email = "comercial@prefadelta.es", Activo = true },
+            new() { Nombre = "Maderas del Júcar", CIF = "B12345677", Direccion = "C/ Carpintería 3, Cuenca", Telefono = "961000007", Email = "ventas@maderasjucar.es", Activo = true },
+            new() { Nombre = "Vidrios Sol Levante", CIF = "B12345678", Direccion = "Av. Luz 18, Valencia", Telefono = "961000008", Email = "proyectos@vidriosol.es", Activo = true },
+            new() { Nombre = "Pinturas Atlas", CIF = "B12345679", Direccion = "P.I. Oeste, Nave 6, Alicante", Telefono = "961000009", Email = "comercial@pinturasatlas.es", Activo = true },
+            new() { Nombre = "Equipos Elevación Norte", CIF = "B12345680", Direccion = "C/ Seguridad 12, Sagunto", Telefono = "961000010", Email = "servicio@elevacionnorte.es", Activo = true }
         };
 
         var proveedoresDb = new List<Proveedor>();
@@ -87,26 +109,40 @@ public static class DemoDataSeeder
 
         var materiales = new List<Material>
         {
-            new() { Codigo = "MAT-HOR-001", Nombre = "Hormigón HA-25", Descripcion = "Hormigón armado para estructura", PrecioUnitario = 95m, UnidadMedida = "m3", StockDisponible = 220, StockMinimo = 60, Categoria = "Estructura", ProveedorId = proveedoresDb[0].Id, ResistenciaCompresion = 25m },
-            new() { Codigo = "MAT-HOR-002", Nombre = "Hormigón HA-30", Descripcion = "Hormigón alta resistencia", PrecioUnitario = 108m, UnidadMedida = "m3", StockDisponible = 140, StockMinimo = 45, Categoria = "Estructura", ProveedorId = proveedoresDb[0].Id, ResistenciaCompresion = 30m },
-            new() { Codigo = "MAT-ACE-001", Nombre = "Acero corrugado B500S", Descripcion = "Acero para armado", PrecioUnitario = 1.45m, UnidadMedida = "kg", StockDisponible = 18000, StockMinimo = 4500, Categoria = "Estructura", ProveedorId = proveedoresDb[1].Id, ResistenciaCompresion = 500m },
-            new() { Codigo = "MAT-ACE-002", Nombre = "Mallazo electrosoldado", Descripcion = "Malla para losas y soleras", PrecioUnitario = 5.8m, UnidadMedida = "m2", StockDisponible = 2400, StockMinimo = 500, Categoria = "Estructura", ProveedorId = proveedoresDb[1].Id },
-            new() { Codigo = "MAT-ALB-001", Nombre = "Ladrillo hueco doble", Descripcion = "Cerramientos interiores", PrecioUnitario = 0.42m, UnidadMedida = "ud", StockDisponible = 35000, StockMinimo = 6000, Categoria = "Albañilería", ProveedorId = proveedoresDb[3].Id },
-            new() { Codigo = "MAT-ALB-002", Nombre = "Bloque termoarcilla", Descripcion = "Fábrica exterior de alta eficiencia", PrecioUnitario = 2.95m, UnidadMedida = "ud", StockDisponible = 7200, StockMinimo = 1800, Categoria = "Albañilería", ProveedorId = proveedoresDb[3].Id, TransmitanciaTermica = 0.34m },
-            new() { Codigo = "MAT-INS-001", Nombre = "Tubo PPR", Descripcion = "Instalación fontanería", PrecioUnitario = 3.9m, UnidadMedida = "m", StockDisponible = 1200, StockMinimo = 300, Categoria = "Instalaciones", ProveedorId = proveedoresDb[2].Id },
-            new() { Codigo = "MAT-INS-002", Nombre = "Cable 3x2.5", Descripcion = "Instalación eléctrica", PrecioUnitario = 2.3m, UnidadMedida = "m", StockDisponible = 2600, StockMinimo = 800, Categoria = "Instalaciones", ProveedorId = proveedoresDb[2].Id },
-            new() { Codigo = "MAT-INS-003", Nombre = "Cuadro eléctrico modular", Descripcion = "Distribución principal", PrecioUnitario = 420m, UnidadMedida = "ud", StockDisponible = 18, StockMinimo = 6, Categoria = "Instalaciones", ProveedorId = proveedoresDb[2].Id },
-            new() { Codigo = "MAT-TER-001", Nombre = "Panel lana mineral", Descripcion = "Aislamiento térmico fachada", PrecioUnitario = 15.8m, UnidadMedida = "m2", StockDisponible = 980, StockMinimo = 250, Categoria = "Aislamientos", ProveedorId = proveedoresDb[4].Id, TransmitanciaTermica = 0.031m, ClasificacionFuego = "A1" },
-            new() { Codigo = "MAT-TER-002", Nombre = "Panel sándwich cubierta", Descripcion = "Cerramiento superior industrial", PrecioUnitario = 28.4m, UnidadMedida = "m2", StockDisponible = 620, StockMinimo = 140, Categoria = "Aislamientos", ProveedorId = proveedoresDb[4].Id, TransmitanciaTermica = 0.30m, ClasificacionFuego = "B" },
-            new() { Codigo = "MAT-ACA-001", Nombre = "Azulejo porcelánico", Descripcion = "Revestimiento interior", PrecioUnitario = 18.5m, UnidadMedida = "m2", StockDisponible = 480, StockMinimo = 120, Categoria = "Acabados", ProveedorId = proveedoresDb[3].Id },
-            new() { Codigo = "MAT-ACA-002", Nombre = "Pintura plástica interior", Descripcion = "Pintura lavable techos y paramentos", PrecioUnitario = 48m, UnidadMedida = "ud", StockDisponible = 95, StockMinimo = 30, Categoria = "Acabados", ProveedorId = proveedoresDb[3].Id },
-            new() { Codigo = "MAT-PRE-001", Nombre = "Viga prefabricada pretensada", Descripcion = "Elemento estructural prefabricado", PrecioUnitario = 365m, UnidadMedida = "ud", StockDisponible = 64, StockMinimo = 16, Categoria = "Prefabricados", ProveedorId = proveedoresDb[5].Id }
+            new() { Codigo = "MAT-HOR-001", Nombre = "Hormigón HA-25", Descripcion = "Hormigón armado para estructura", PrecioUnitario = 95m, UnidadMedida = "m3", StockDisponible = 220, StockMinimo = 60, Categoria = "Estructura", ProveedorId = proveedoresDb[0].Id, ResistenciaCompresion = 25m, Activo = true },
+            new() { Codigo = "MAT-HOR-002", Nombre = "Hormigón HA-30", Descripcion = "Hormigón alta resistencia", PrecioUnitario = 108m, UnidadMedida = "m3", StockDisponible = 140, StockMinimo = 45, Categoria = "Estructura", ProveedorId = proveedoresDb[0].Id, ResistenciaCompresion = 30m, Activo = true },
+            new() { Codigo = "MAT-HOR-003", Nombre = "Hormigón autocompactante", Descripcion = "Hormigón fluido para zonas complejas", PrecioUnitario = 122m, UnidadMedida = "m3", StockDisponible = 80, StockMinimo = 25, Categoria = "Estructura", ProveedorId = proveedoresDb[0].Id, ResistenciaCompresion = 35m, Activo = true },
+            new() { Codigo = "MAT-ACE-001", Nombre = "Acero corrugado B500S", Descripcion = "Acero para armado", PrecioUnitario = 1.45m, UnidadMedida = "kg", StockDisponible = 18000, StockMinimo = 4500, Categoria = "Estructura", ProveedorId = proveedoresDb[1].Id, ResistenciaCompresion = 500m, Activo = true },
+            new() { Codigo = "MAT-ACE-002", Nombre = "Mallazo electrosoldado", Descripcion = "Malla para losas y soleras", PrecioUnitario = 5.8m, UnidadMedida = "m2", StockDisponible = 2400, StockMinimo = 500, Categoria = "Estructura", ProveedorId = proveedoresDb[1].Id, Activo = true },
+            new() { Codigo = "MAT-ACE-003", Nombre = "Malla de fibra estructural", Descripcion = "Refuerzo ligero para soleras", PrecioUnitario = 7.4m, UnidadMedida = "m2", StockDisponible = 1100, StockMinimo = 250, Categoria = "Estructura", ProveedorId = proveedoresDb[1].Id, Activo = true },
+            new() { Codigo = "MAT-ALB-001", Nombre = "Ladrillo hueco doble", Descripcion = "Cerramientos interiores", PrecioUnitario = 0.42m, UnidadMedida = "ud", StockDisponible = 35000, StockMinimo = 6000, Categoria = "Albañilería", ProveedorId = proveedoresDb[3].Id, Activo = true },
+            new() { Codigo = "MAT-ALB-002", Nombre = "Bloque termoarcilla", Descripcion = "Fábrica exterior de alta eficiencia", PrecioUnitario = 2.95m, UnidadMedida = "ud", StockDisponible = 7200, StockMinimo = 1800, Categoria = "Albañilería", ProveedorId = proveedoresDb[3].Id, TransmitanciaTermica = 0.34m, Activo = true },
+            new() { Codigo = "MAT-ALB-003", Nombre = "Bloque hormigón aligerado", Descripcion = "Bloque para muros portantes", PrecioUnitario = 1.85m, UnidadMedida = "ud", StockDisponible = 6200, StockMinimo = 1400, Categoria = "Albañilería", ProveedorId = proveedoresDb[3].Id, Activo = true },
+            new() { Codigo = "MAT-INS-001", Nombre = "Tubo PPR", Descripcion = "Instalación fontanería", PrecioUnitario = 3.9m, UnidadMedida = "m", StockDisponible = 1200, StockMinimo = 300, Categoria = "Instalaciones", ProveedorId = proveedoresDb[2].Id, Activo = true },
+            new() { Codigo = "MAT-INS-002", Nombre = "Cable 3x2.5", Descripcion = "Instalación eléctrica", PrecioUnitario = 2.3m, UnidadMedida = "m", StockDisponible = 2600, StockMinimo = 800, Categoria = "Instalaciones", ProveedorId = proveedoresDb[2].Id, Activo = true },
+            new() { Codigo = "MAT-INS-003", Nombre = "Cuadro eléctrico modular", Descripcion = "Distribución principal", PrecioUnitario = 420m, UnidadMedida = "ud", StockDisponible = 18, StockMinimo = 6, Categoria = "Instalaciones", ProveedorId = proveedoresDb[2].Id, Activo = true },
+            new() { Codigo = "MAT-TER-001", Nombre = "Panel lana mineral", Descripcion = "Aislamiento térmico fachada", PrecioUnitario = 15.8m, UnidadMedida = "m2", StockDisponible = 980, StockMinimo = 250, Categoria = "Aislamientos", ProveedorId = proveedoresDb[4].Id, TransmitanciaTermica = 0.031m, ClasificacionFuego = "A1", Activo = true },
+            new() { Codigo = "MAT-TER-002", Nombre = "Panel sándwich cubierta", Descripcion = "Cerramiento superior industrial", PrecioUnitario = 28.4m, UnidadMedida = "m2", StockDisponible = 620, StockMinimo = 140, Categoria = "Aislamientos", ProveedorId = proveedoresDb[4].Id, TransmitanciaTermica = 0.30m, ClasificacionFuego = "B", Activo = true },
+            new() { Codigo = "MAT-ACA-001", Nombre = "Azulejo porcelánico", Descripcion = "Revestimiento interior", PrecioUnitario = 18.5m, UnidadMedida = "m2", StockDisponible = 480, StockMinimo = 120, Categoria = "Acabados", ProveedorId = proveedoresDb[3].Id, Activo = true },
+            new() { Codigo = "MAT-ACA-002", Nombre = "Pintura plástica interior", Descripcion = "Pintura lavable techos y paramentos", PrecioUnitario = 48m, UnidadMedida = "ud", StockDisponible = 95, StockMinimo = 30, Categoria = "Acabados", ProveedorId = proveedoresDb[3].Id, Activo = true },
+            new() { Codigo = "MAT-PRE-001", Nombre = "Viga prefabricada pretensada", Descripcion = "Elemento estructural prefabricado", PrecioUnitario = 365m, UnidadMedida = "ud", StockDisponible = 64, StockMinimo = 16, Categoria = "Prefabricados", ProveedorId = proveedoresDb[5].Id, Activo = true },
+            new() { Codigo = "MAT-MAD-001", Nombre = "Tablero OSB 18mm", Descripcion = "Panel estructural de madera", PrecioUnitario = 22.5m, UnidadMedida = "m2", StockDisponible = 420, StockMinimo = 100, Categoria = "Carpintería", ProveedorId = proveedoresDb[6].Id, Activo = true },
+            new() { Codigo = "MAT-CAR-001", Nombre = "Carpintería aluminio corredera", Descripcion = "Carpintería exterior térmica", PrecioUnitario = 185m, UnidadMedida = "m2", StockDisponible = 160, StockMinimo = 40, Categoria = "Carpintería", ProveedorId = proveedoresDb[7].Id, TransmitanciaTermica = 1.9m, Activo = true },
+            new() { Codigo = "MAT-VID-001", Nombre = "Vidrio bajo emisivo", Descripcion = "Vidrio doble con cámara", PrecioUnitario = 78m, UnidadMedida = "m2", StockDisponible = 210, StockMinimo = 60, Categoria = "Carpintería", ProveedorId = proveedoresDb[7].Id, Activo = true },
+            new() { Codigo = "MAT-ACA-003", Nombre = "Pintura exterior elastomérica", Descripcion = "Pintura flexible antihumedad", PrecioUnitario = 62m, UnidadMedida = "ud", StockDisponible = 70, StockMinimo = 25, Categoria = "Acabados", ProveedorId = proveedoresDb[8].Id, Activo = true },
+            new() { Codigo = "MAT-SEG-001", Nombre = "Línea de vida temporal", Descripcion = "Sistema seguridad trabajos en altura", PrecioUnitario = 520m, UnidadMedida = "ud", StockDisponible = 12, StockMinimo = 4, Categoria = "Seguridad", ProveedorId = proveedoresDb[9].Id, Activo = true }
         };
 
         foreach (var material in materiales)
         {
             await EnsureMaterialAsync(dbContext, material);
         }
+
+        await EnsureMaterialProveedorAsync(dbContext, "MAT-HOR-001", proveedoresDb[0].Id, proveedoresDb[1].Id);
+        await EnsureMaterialProveedorAsync(dbContext, "MAT-TER-001", proveedoresDb[4].Id, proveedoresDb[3].Id);
+        await EnsureMaterialProveedorAsync(dbContext, "MAT-ACE-001", proveedoresDb[1].Id, proveedoresDb[5].Id);
+        await EnsureMaterialProveedorAsync(dbContext, "MAT-ACA-003", proveedoresDb[8].Id, proveedoresDb[3].Id);
+        await EnsureMaterialProveedorAsync(dbContext, "MAT-VID-001", proveedoresDb[7].Id, proveedoresDb[3].Id);
 
         var proyectos = new List<Proyecto>
         {
@@ -165,38 +201,127 @@ public static class DemoDataSeeder
                 ResponsableId = oficinaPlanificacion.Id,
                 Presupuesto = new Presupuesto { Total = 4720000m, FechaElaboracion = DateTime.Today.AddMonths(-2), Observaciones = "Urbanización, viales y redes" },
                 CarpetaLegal = new CarpetaLegal { FechaCreacion = DateTime.Today.AddMonths(-2), DocumentoCTE = "CTE-2026", DocumentoLOTUP = "LOTUP-CV", DocumentoPGOU = "PGOU-Riba-roja" }
+            },
+            new()
+            {
+                Nombre = "DEMO - Hospital Comarcal Norte",
+                FechaInicio = DateTime.Today.AddMonths(-12),
+                FechaFin = DateTime.Today.AddMonths(8),
+                Estado = EstadoProyecto.EnCurso,
+                Provincia = "Valencia",
+                Municipio = "Sagunto",
+                TipoSuelo = TipoSuelo.Urbano,
+                ZonaClimatica = ZonaClimatica.B3,
+                ResponsableId = jefeNorte.Id,
+                Presupuesto = new Presupuesto { Total = 6850000m, FechaElaboracion = DateTime.Today.AddMonths(-13), Observaciones = "Ampliación hospitalaria y nuevo ala" },
+                CarpetaLegal = new CarpetaLegal { FechaCreacion = DateTime.Today.AddMonths(-13), DocumentoCTE = "CTE-2026", DocumentoLOTUP = "LOTUP-CV", DocumentoPGOU = "PGOU-Sagunto" }
+            },
+            new()
+            {
+                Nombre = "DEMO - Colegio Bilingüe Costa",
+                FechaInicio = DateTime.Today.AddMonths(-2),
+                FechaFin = DateTime.Today.AddMonths(14),
+                Estado = EstadoProyecto.Planificacion,
+                Provincia = "Alicante",
+                Municipio = "Benidorm",
+                TipoSuelo = TipoSuelo.Urbano,
+                ZonaClimatica = ZonaClimatica.B3,
+                ResponsableId = oficinaSenior.Id,
+                Presupuesto = new Presupuesto { Total = 2580000m, FechaElaboracion = DateTime.Today.AddMonths(-3), Observaciones = "Centro educativo 2 líneas" },
+                CarpetaLegal = new CarpetaLegal { FechaCreacion = DateTime.Today.AddMonths(-3), DocumentoCTE = "CTE-2026", DocumentoLOTUP = "LOTUP-CV", DocumentoPGOU = "PGOU-Benidorm" }
+            },
+            new()
+            {
+                Nombre = "DEMO - Reforma Plaza Mayor",
+                FechaInicio = DateTime.Today.AddMonths(-18),
+                FechaFin = DateTime.Today.AddMonths(-2),
+                Estado = EstadoProyecto.Finalizado,
+                Provincia = "Castellón",
+                Municipio = "Burriana",
+                TipoSuelo = TipoSuelo.Urbano,
+                ZonaClimatica = ZonaClimatica.C3,
+                ResponsableId = jefeSur.Id,
+                Presupuesto = new Presupuesto { Total = 640000m, FechaElaboracion = DateTime.Today.AddMonths(-19), Observaciones = "Reurbanización completa plaza" },
+                CarpetaLegal = new CarpetaLegal { FechaCreacion = DateTime.Today.AddMonths(-19), DocumentoCTE = "CTE-2025", DocumentoLOTUP = "LOTUP-CV", DocumentoPGOU = "PGOU-Burriana" }
+            },
+            new()
+            {
+                Nombre = "DEMO - Planta Fotovoltaica Sur",
+                FechaInicio = DateTime.Today.AddMonths(-5),
+                FechaFin = DateTime.Today.AddMonths(7),
+                Estado = EstadoProyecto.Bloqueado,
+                Provincia = "Murcia",
+                Municipio = "Lorca",
+                TipoSuelo = TipoSuelo.Rustico,
+                ZonaClimatica = ZonaClimatica.B3,
+                ResponsableId = oficinaPlanificacion.Id,
+                Presupuesto = new Presupuesto { Total = 1920000m, FechaElaboracion = DateTime.Today.AddMonths(-6), Observaciones = "Planta solar 5 MWp" },
+                CarpetaLegal = new CarpetaLegal { FechaCreacion = DateTime.Today.AddMonths(-6), DocumentoCTE = "CTE-2026", DocumentoLOTUP = "LOTUP-MU", DocumentoPGOU = "PGOU-Lorca" }
             }
         };
 
         dbContext.Proyectos.AddRange(proyectos);
         await dbContext.SaveChangesAsync();
 
+        var operariosObra = new[]
+        {
+            operarioObra1, operarioObra2, operarioObra3, operarioObra4,
+            operarioObra5, operarioObra6, operarioObra7, operarioObra8
+        };
+
+        var operariosTecnicos = new[] { operarioTec1, operarioTec2, operarioTec3, operarioTec4 };
+
         var tareas = new List<Tarea>();
 
         tareas.AddRange(CrearPlanProyecto(
             proyectos[0], jefeNorte, oficinaSenior,
-            new[] { operarioObra1, operarioObra2, operarioObra3 },
+            new[] { operarioObra1, operarioObra2, operarioObra3, operarioObra5 },
             new[] { operarioTec1, operarioTec2 },
             progresoAlto: true));
 
         tareas.AddRange(CrearPlanProyecto(
             proyectos[1], jefeNorte, oficinaSenior,
-            new[] { operarioObra2, operarioObra3, operarioObra4 },
+            new[] { operarioObra2, operarioObra3, operarioObra4, operarioObra6 },
             new[] { operarioTec1, operarioTec2 },
             progresoAlto: false));
 
         tareas.AddRange(CrearPlanProyecto(
             proyectos[2], jefeSur, oficinaPlanificacion,
-            new[] { operarioObra1, operarioObra4 },
-            new[] { operarioTec1 },
+            new[] { operarioObra1, operarioObra4, operarioObra7 },
+            new[] { operarioTec1, operarioTec3 },
             progresoAlto: false,
             forzarBloqueoInstalaciones: true));
 
         tareas.AddRange(CrearPlanProyecto(
             proyectos[3], jefeSur, oficinaPlanificacion,
-            new[] { operarioObra2, operarioObra4 },
-            new[] { operarioTec2 },
+            new[] { operarioObra2, operarioObra4, operarioObra8 },
+            new[] { operarioTec2, operarioTec4 },
             progresoAlto: false));
+
+        tareas.AddRange(CrearPlanProyecto(
+            proyectos[4], jefeNorte, oficinaSenior,
+            new[] { operarioObra1, operarioObra5, operarioObra6 },
+            new[] { operarioTec2, operarioTec3 },
+            progresoAlto: true));
+
+        tareas.AddRange(CrearPlanProyecto(
+            proyectos[5], jefeSur, oficinaSenior,
+            new[] { operarioObra3, operarioObra6, operarioObra8 },
+            new[] { operarioTec1, operarioTec4 },
+            progresoAlto: false));
+
+        tareas.AddRange(CrearPlanProyecto(
+            proyectos[6], jefeSur, oficinaPlanificacion,
+            new[] { operarioObra2, operarioObra7 },
+            new[] { operarioTec1, operarioTec3 },
+            progresoAlto: true));
+
+        tareas.AddRange(CrearPlanProyecto(
+            proyectos[7], jefeNorte, oficinaPlanificacion,
+            new[] { operarioObra4, operarioObra5, operarioObra8 },
+            new[] { operarioTec2 },
+            progresoAlto: false,
+            forzarBloqueoInstalaciones: true));
 
         dbContext.Tareas.AddRange(tareas);
         await dbContext.SaveChangesAsync();
@@ -205,12 +330,13 @@ public static class DemoDataSeeder
         await SeedFacturasAsync(dbContext, proyectos, proveedoresDb);
         await SeedSolicitudesMaterialAsync(dbContext, materiales, proyectos, jefeNorte, jefeSur, admin);
         await SeedHorariosYFichajesAsync(dbContext, proyectos,
-            new[] { operarioObra1, operarioObra2, operarioObra3, operarioObra4, operarioTec1, operarioTec2 });
+            operariosObra.Concat(operariosTecnicos).ToArray());
 
         await SeedContratosAsync(dbContext,
             new[] { jefeNorte, jefeSur, oficinaSenior, oficinaPlanificacion,
-                    operarioObra1, operarioObra2, operarioObra3, operarioObra4,
-                    operarioTec1, operarioTec2, rrhh });
+                operarioObra1, operarioObra2, operarioObra3, operarioObra4,
+                operarioObra5, operarioObra6, operarioObra7, operarioObra8,
+                operarioTec1, operarioTec2, operarioTec3, operarioTec4, rrhh });
 
         await dbContext.SaveChangesAsync();
     }
@@ -225,6 +351,7 @@ public static class DemoDataSeeder
         bool forzarBloqueoInstalaciones = false)
     {
         var inicio = proyecto.FechaInicio;
+        var responsables = cuadrillaObra.Concat(cuadrillaTecnica).Where(u => u != null).ToList();
 
         var planificacion = new Tarea
         {
@@ -416,7 +543,42 @@ public static class DemoDataSeeder
         subInstalacionElectrica.Predecesoras.Add(cerramientos);
         subInstalacionHidraulica.Predecesoras.Add(subInstalacionElectrica);
 
+        AsignarResponsablesYHoras(todas, responsables, jefe, 1000 + proyecto.Id);
+
         return todas;
+    }
+
+    private static void AsignarResponsablesYHoras(
+        List<Tarea> tareas,
+        List<UsuarioObra> candidatos,
+        UsuarioObra fallback,
+        int seed)
+    {
+        var rng = new Random(seed);
+        foreach (var tarea in tareas)
+        {
+            var responsable = candidatos.Count > 0
+                ? candidatos[rng.Next(candidatos.Count)]
+                : fallback;
+
+            tarea.ResponsableFinalId = responsable.Id;
+            tarea.HorasSemanalesEstimadas = EstimarHorasSemanales(tarea, rng);
+        }
+    }
+
+    private static decimal EstimarHorasSemanales(Tarea tarea, Random rng)
+    {
+        var baseHoras = tarea.Nivel == 0 ? 20m : 12m;
+        var ajuste = tarea.Prioridad switch
+        {
+            PrioridadTarea.Critica => 16m,
+            PrioridadTarea.Alta => 10m,
+            PrioridadTarea.Media => 6m,
+            _ => 4m
+        };
+        var variacion = rng.Next(0, 9);
+
+        return baseHoras + ajuste + variacion;
     }
 
     private static async Task SeedFirmasYBloqueosAsync(
@@ -516,7 +678,17 @@ public static class DemoDataSeeder
             CrearFactura("FAC-2026-106", "Prefabricados de cubierta", hoy.AddDays(-12), hoy.AddDays(18), EstadoFactura.Pendiente, 56250m, proyectos[2], proveedores[5], "Confirming", null, "Fase inicial de acopio"),
             CrearFactura("FAC-2026-107", "Canalizaciones eléctricas", hoy.AddDays(-9), hoy.AddDays(21), EstadoFactura.Pendiente, 18940m, proyectos[2], proveedores[2], "Transferencia", null, "En revisión de medición"),
             CrearFactura("FAC-2026-108", "Viales y urbanización - lote 1", hoy.AddDays(-6), hoy.AddDays(24), EstadoFactura.Pendiente, 77300m, proyectos[3], proveedores[0], "Transferencia", null, "Certificación inicial"),
-            CrearFactura("FAC-2026-109", "Ferralla para drenajes", hoy.AddDays(-52), hoy.AddDays(-22), EstadoFactura.Vencida, 16480m, proyectos[3], proveedores[1], "Transferencia", null, "Pendiente validación de albaranes")
+            CrearFactura("FAC-2026-109", "Ferralla para drenajes", hoy.AddDays(-52), hoy.AddDays(-22), EstadoFactura.Vencida, 16480m, proyectos[3], proveedores[1], "Transferencia", null, "Pendiente validación de albaranes"),
+            CrearFactura("FAC-2026-110", "Estructura prefabricada UCI", hoy.AddDays(-70), hoy.AddDays(-40), EstadoFactura.Pagada, 138500m, proyectos[4], proveedores[5], "Transferencia", hoy.AddDays(-36), "Lote 1 y 2"),
+            CrearFactura("FAC-2026-111", "Carpintería aluminio hospital", hoy.AddDays(-28), hoy.AddDays(2), EstadoFactura.Pendiente, 36200m, proyectos[4], proveedores[7], "Confirming", null, "Pendiente inspección final"),
+            CrearFactura("FAC-2026-112", "Hormigón autocompactante", hoy.AddDays(-18), hoy.AddDays(12), EstadoFactura.Pendiente, 42800m, proyectos[4], proveedores[0], "Transferencia", null, "Suministro 3 camiones"),
+            CrearFactura("FAC-2026-113", "Pavimentos deportivos", hoy.AddDays(-24), hoy.AddDays(6), EstadoFactura.Pendiente, 24500m, proyectos[5], proveedores[3], "Transferencia", null, "Aula polivalente"),
+            CrearFactura("FAC-2026-114", "Madera estructural", hoy.AddDays(-20), hoy.AddDays(10), EstadoFactura.Pendiente, 15750m, proyectos[5], proveedores[6], "Transferencia", null, "Cubierta biblioteca"),
+            CrearFactura("FAC-2026-115", "Reurbanización plaza - mobiliario", hoy.AddDays(-120), hoy.AddDays(-90), EstadoFactura.Pagada, 9650m, proyectos[6], proveedores[8], "Transferencia", hoy.AddDays(-88), "Mobiliario urbano"),
+            CrearFactura("FAC-2026-116", "Señalización y balizamiento", hoy.AddDays(-115), hoy.AddDays(-85), EstadoFactura.Pagada, 7820m, proyectos[6], proveedores[9], "Transferencia", hoy.AddDays(-82), "Certificación final"),
+            CrearFactura("FAC-2026-117", "Montaje estructura soportes", hoy.AddDays(-15), hoy.AddDays(15), EstadoFactura.Pendiente, 32900m, proyectos[7], proveedores[5], "Confirming", null, "En espera de hincas"),
+            CrearFactura("FAC-2026-118", "Cuadros de protección FV", hoy.AddDays(-11), hoy.AddDays(19), EstadoFactura.Pendiente, 19800m, proyectos[7], proveedores[2], "Transferencia", null, "Suministro parcial"),
+            CrearFactura("FAC-2026-119", "Equipos seguridad obra", hoy.AddDays(-9), hoy.AddDays(21), EstadoFactura.Cancelada, 6200m, proyectos[7], proveedores[9], "Transferencia", null, "Cancelada por cambio de proveedor")
         };
 
         dbContext.Facturas.AddRange(facturas);
@@ -535,6 +707,10 @@ public static class DemoDataSeeder
         var matCable = await dbContext.Materiales.FirstAsync(m => m.Codigo == "MAT-INS-002");
         var matPanel = await dbContext.Materiales.FirstAsync(m => m.Codigo == "MAT-TER-001");
         var matPref = await dbContext.Materiales.FirstAsync(m => m.Codigo == "MAT-PRE-001");
+        var matVidrio = await dbContext.Materiales.FirstAsync(m => m.Codigo == "MAT-VID-001");
+        var matMadera = await dbContext.Materiales.FirstAsync(m => m.Codigo == "MAT-MAD-001");
+        var matSeguridad = await dbContext.Materiales.FirstAsync(m => m.Codigo == "MAT-SEG-001");
+        var matPinturaExt = await dbContext.Materiales.FirstAsync(m => m.Codigo == "MAT-ACA-003");
 
         var solicitudes = new List<SolicitudMaterial>
         {
@@ -591,6 +767,63 @@ public static class DemoDataSeeder
                 Estado = EstadoSolicitudMaterial.Pendiente,
                 Prioridad = PrioridadSolicitud.Alta,
                 FechaNecesaria = DateTime.Today.AddDays(9)
+            },
+            new()
+            {
+                MaterialId = matVidrio.Id,
+                ProyectoId = proyectos[4].Id,
+                CantidadSolicitada = 180m,
+                Justificacion = "Fachada sur del nuevo ala hospitalaria",
+                SolicitadoPorId = jefeNorte.Id,
+                FechaSolicitud = DateTime.Now.AddDays(-6),
+                Estado = EstadoSolicitudMaterial.Aprobada,
+                RevisadoPorId = admin.Id,
+                FechaRespuesta = DateTime.Now.AddDays(-5),
+                ObservacionesAdmin = "Aprobada con entrega escalonada",
+                Prioridad = PrioridadSolicitud.Alta,
+                FechaNecesaria = DateTime.Today.AddDays(6)
+            },
+            new()
+            {
+                MaterialId = matMadera.Id,
+                ProyectoId = proyectos[5].Id,
+                CantidadSolicitada = 320m,
+                Justificacion = "Cubierta de biblioteca y pasarela interior",
+                SolicitadoPorId = jefeSur.Id,
+                FechaSolicitud = DateTime.Now.AddDays(-7),
+                Estado = EstadoSolicitudMaterial.Pendiente,
+                Prioridad = PrioridadSolicitud.Media,
+                FechaNecesaria = DateTime.Today.AddDays(12)
+            },
+            new()
+            {
+                MaterialId = matPinturaExt.Id,
+                ProyectoId = proyectos[1].Id,
+                CantidadSolicitada = 45m,
+                Justificacion = "Pintura exterior patios y fachadas",
+                SolicitadoPorId = jefeNorte.Id,
+                FechaSolicitud = DateTime.Now.AddDays(-10),
+                Estado = EstadoSolicitudMaterial.Rechazada,
+                RevisadoPorId = admin.Id,
+                FechaRespuesta = DateTime.Now.AddDays(-8),
+                ObservacionesAdmin = "Rechazada por exceso de inventario, revisar stock",
+                Prioridad = PrioridadSolicitud.Baja,
+                FechaNecesaria = DateTime.Today.AddDays(-1)
+            },
+            new()
+            {
+                MaterialId = matSeguridad.Id,
+                ProyectoId = proyectos[7].Id,
+                CantidadSolicitada = 6m,
+                Justificacion = "Refuerzo de seguridad en trabajos en altura",
+                SolicitadoPorId = jefeNorte.Id,
+                FechaSolicitud = DateTime.Now.AddDays(-3),
+                Estado = EstadoSolicitudMaterial.Aprobada,
+                RevisadoPorId = admin.Id,
+                FechaRespuesta = DateTime.Now.AddDays(-2),
+                ObservacionesAdmin = "Aprobada por auditoría PRL",
+                Prioridad = PrioridadSolicitud.Urgente,
+                FechaNecesaria = DateTime.Today.AddDays(2)
             }
         };
 
@@ -603,17 +836,25 @@ public static class DemoDataSeeder
         List<Proyecto> proyectos,
         UsuarioObra[] operarios)
     {
-        var proyAsignado = proyectos.FirstOrDefault();
+        if (!proyectos.Any())
+        {
+            return;
+        }
+
+        var asignaciones = operarios
+            .Select((op, idx) => new { op, proyecto = proyectos[idx % proyectos.Count] })
+            .ToDictionary(x => x.op.Id, x => x.proyecto.Id);
 
         // Asignar horarios semanales L-V a cada operario
         foreach (var op in operarios)
         {
+            var proyectoId = asignaciones[op.Id];
             for (var dia = DiaSemana.Lunes; dia <= DiaSemana.Viernes; dia++)
             {
                 dbContext.HorariosAsignados.Add(new HorarioAsignado
                 {
                     UsuarioId = op.Id,
-                    ProyectoId = proyAsignado?.Id,
+                    ProyectoId = proyectoId,
                     DiaSemana = dia,
                     HoraEntrada = new TimeOnly(8, 0),
                     HoraSalida = new TimeOnly(14, 0),
@@ -625,10 +866,10 @@ public static class DemoDataSeeder
         }
         await dbContext.SaveChangesAsync();
 
-        // Generar fichajes de los últimos 5 días laborables
+        // Generar fichajes de los últimos 20 días laborables
         var hoy = DateTime.Today;
         var rng = new Random(42);
-        for (int d = 1; d <= 5; d++)
+        for (int d = 1; d <= 20; d++)
         {
             var fecha = hoy.AddDays(-d);
             if (fecha.DayOfWeek == DayOfWeek.Saturday || fecha.DayOfWeek == DayOfWeek.Sunday)
@@ -643,7 +884,7 @@ public static class DemoDataSeeder
                 dbContext.RegistrosFichaje.Add(new RegistroFichaje
                 {
                     UsuarioId = op.Id,
-                    ProyectoId = proyAsignado?.Id,
+                    ProyectoId = asignaciones[op.Id],
                     Fecha = DateOnly.FromDateTime(fecha),
                     HoraEntrada = horaEntrada,
                     HoraSalida = horaSalida,
@@ -777,6 +1018,7 @@ public static class DemoDataSeeder
         existente.Direccion = proveedor.Direccion;
         existente.Telefono = proveedor.Telefono;
         existente.Email = proveedor.Email;
+        existente.Activo = proveedor.Activo;
         await dbContext.SaveChangesAsync();
 
         return existente;
@@ -800,10 +1042,42 @@ public static class DemoDataSeeder
         existente.StockMinimo = material.StockMinimo;
         existente.Categoria = material.Categoria;
         existente.ProveedorId = material.ProveedorId;
+        existente.Activo = material.Activo;
         existente.TransmitanciaTermica = material.TransmitanciaTermica;
         existente.ClasificacionFuego = material.ClasificacionFuego;
         existente.Densidad = material.Densidad;
         existente.ResistenciaCompresion = material.ResistenciaCompresion;
+
+        await dbContext.SaveChangesAsync();
+    }
+
+    private static async Task EnsureMaterialProveedorAsync(GestionObrasDbContext dbContext, string codigoMaterial, params int[] proveedorIds)
+    {
+        var material = await dbContext.Materiales
+            .Include(m => m.Proveedores)
+            .FirstOrDefaultAsync(m => m.Codigo == codigoMaterial);
+
+        if (material == null || proveedorIds.Length == 0)
+        {
+            return;
+        }
+
+        var proveedores = await dbContext.Proveedores
+            .Where(p => proveedorIds.Contains(p.Id))
+            .ToListAsync();
+
+        foreach (var proveedor in proveedores)
+        {
+            if (material.Proveedores.All(p => p.Id != proveedor.Id))
+            {
+                material.Proveedores.Add(proveedor);
+            }
+        }
+
+        if (material.ProveedorId == null && proveedores.Count > 0)
+        {
+            material.ProveedorId = proveedores[0].Id;
+        }
 
         await dbContext.SaveChangesAsync();
     }

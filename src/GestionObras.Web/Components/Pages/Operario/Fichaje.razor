@@ -2,19 +2,16 @@
 @attribute [Authorize(Roles = "Operario,OperarioObra,OperarioOficinaT,JefeObra,OficinaTecnica,RecursosHumanos,Administrador")]
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@using GestionObras.Core.Contracts.Operario
 @using GestionObras.Core.Entities
-@using GestionObras.Infrastructure.Data
-@using GestionObras.Infrastructure.Repositories
-@using Microsoft.EntityFrameworkCore
-@using Microsoft.AspNetCore.Identity
-@inject GestionObrasDbContext DbContext
-@inject IFichajeRepository FichajeRepo
-@inject UserManager<UsuarioObra> UserManager
+@using GestionObras.Web.Services
+@inject OperarioApiClient OperarioApiClient
 @inject AuthenticationStateProvider AuthStateProvider
 @inject IJSRuntime JS
 @rendermode InteractiveServer
 
-<PageTitle>Fichaje - Gestión de Obras</PageTitle>
+<PageTitle>Fichaje - Gestion de Obras</PageTitle>
 
 @if (cargando)
 {
@@ -27,15 +24,13 @@
 else
 {
     <div class="container-fluid px-4 py-3">
-        <!-- Header -->
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
-                <h1 class="text-primary"><i class="bi bi-clock-history"></i> ⏱️ Fichaje de Jornada</h1>
-                <p class="text-muted mb-0">@usuarioActual?.NombreCompleto — @DateTime.Now.ToString("dddd, dd MMMM yyyy")</p>
+                <h1 class="text-primary"><i class="bi bi-clock-history"></i> Fichaje de Jornada</h1>
+                <p class="text-muted mb-0">@nombreUsuario - @DateTime.Now.ToString("dddd, dd MMMM yyyy")</p>
             </div>
         </div>
 
-        <!-- Tarjeta principal de fichaje -->
         <div class="row justify-content-center mb-4">
             <div class="col-md-6">
                 <div class="card shadow-sm border-0" style="border-radius: 16px;">
@@ -43,12 +38,12 @@ else
                         @if (fichajeAbierto != null)
                         {
                             <div class="mb-3">
-                                <span class="badge bg-success fs-5 px-4 py-2">🟢 Jornada en curso</span>
+                                <span class="badge bg-success fs-5 px-4 py-2">Jornada en curso</span>
                             </div>
                             <p class="text-muted">Entrada: <strong>@fichajeAbierto.HoraEntrada.ToString("HH:mm")</strong></p>
-                            @if (fichajeAbierto.Proyecto != null)
+                            @if (!string.IsNullOrWhiteSpace(fichajeAbierto.ProyectoNombre))
                             {
-                                <p class="text-muted">Proyecto: <strong>@fichajeAbierto.Proyecto.Nombre</strong></p>
+                                <p class="text-muted">Proyecto: <strong>@fichajeAbierto.ProyectoNombre</strong></p>
                             }
                             <p class="display-4 fw-bold text-primary my-3" id="reloj-jornada">
                                 @((DateTime.Now - fichajeAbierto.HoraEntrada).ToString(@"hh\:mm\:ss"))
@@ -58,13 +53,13 @@ else
                                 {
                                     <span class="spinner-border spinner-border-sm me-2"></span>
                                 }
-                                🔴 Fichar Salida
+                                Fichar Salida
                             </button>
                         }
                         else
                         {
                             <div class="mb-3">
-                                <span class="badge bg-secondary fs-5 px-4 py-2">⚪ Sin fichar</span>
+                                <span class="badge bg-secondary fs-5 px-4 py-2">Sin fichar</span>
                             </div>
                             <p class="display-4 fw-bold text-muted my-3">--:--:--</p>
 
@@ -73,10 +68,10 @@ else
                                 <div class="mb-3">
                                     <label class="form-label">Proyecto</label>
                                     <select class="form-select" @bind="proyectoSeleccionadoId">
-                                        <option value="">— Sin proyecto —</option>
-                                        @foreach (var p in proyectosDisponibles)
+                                        <option value="">Sin proyecto</option>
+                                        @foreach (var proyecto in proyectosDisponibles)
                                         {
-                                            <option value="@p.Id">@p.Nombre</option>
+                                            <option value="@proyecto.Id">@proyecto.Nombre</option>
                                         }
                                     </select>
                                 </div>
@@ -86,7 +81,7 @@ else
                                 {
                                     <span class="spinner-border spinner-border-sm me-2"></span>
                                 }
-                                🟢 Fichar Entrada
+                                Fichar Entrada
                             </button>
                         }
                     </div>
@@ -94,14 +89,13 @@ else
             </div>
         </div>
 
-        <!-- Mi horario de hoy -->
         @if (horarioHoy.Any())
         {
             <div class="row justify-content-center mb-4">
                 <div class="col-md-8">
                     <div class="card shadow-sm border-0">
                         <div class="card-header bg-info text-white">
-                            <h5 class="mb-0">📅 Mi horario de hoy</h5>
+                            <h5 class="mb-0">Mi horario de hoy</h5>
                         </div>
                         <div class="card-body p-0">
                             <table class="table table-striped mb-0">
@@ -115,14 +109,14 @@ else
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach (var h in horarioHoy)
+                                    @foreach (var horario in horarioHoy)
                                     {
                                         <tr>
-                                            <td><span class="badge bg-primary">@h.TipoTurno</span></td>
-                                            <td>@h.HoraEntrada.ToString("HH:mm")</td>
-                                            <td>@h.HoraSalida.ToString("HH:mm")</td>
-                                            <td>@(h.Proyecto?.Nombre ?? "General")</td>
-                                            <td>@h.HorasPrevistas.ToString("F1") h</td>
+                                            <td><span class="badge bg-primary">@horario.TipoTurno</span></td>
+                                            <td>@horario.HoraEntrada.ToString("HH:mm")</td>
+                                            <td>@horario.HoraSalida.ToString("HH:mm")</td>
+                                            <td>@(horario.ProyectoNombre ?? "General")</td>
+                                            <td>@horario.HorasPrevistas.ToString("F1") h</td>
                                         </tr>
                                     }
                                 </tbody>
@@ -133,18 +127,17 @@ else
             </div>
         }
 
-        <!-- Historial reciente -->
         <div class="row justify-content-center">
             <div class="col-md-10">
                 <div class="card shadow-sm border-0">
                     <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">📋 Historial de fichajes (últimos 7 días)</h5>
+                        <h5 class="mb-0">Historial de fichajes (ultimos 7 dias)</h5>
                         <span class="badge bg-secondary">@historial.Count registros</span>
                     </div>
                     <div class="card-body p-0">
                         @if (!historial.Any())
                         {
-                            <p class="text-center text-muted p-4">No hay fichajes en los últimos 7 días.</p>
+                            <p class="text-center text-muted p-4">No hay fichajes en los ultimos 7 dias.</p>
                         }
                         else
                         {
@@ -160,16 +153,16 @@ else
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach (var f in historial)
+                                    @foreach (var fichaje in historial)
                                     {
                                         <tr>
-                                            <td>@f.Fecha.ToString("dd/MM/yyyy")</td>
-                                            <td>@f.HoraEntrada.ToString("HH:mm")</td>
-                                            <td>@(f.HoraSalida?.ToString("HH:mm") ?? "—")</td>
-                                            <td>@(f.Proyecto?.Nombre ?? "—")</td>
-                                            <td>@(f.TotalHoras.HasValue ? $"{f.TotalHoras:F1} h" : "—")</td>
+                                            <td>@fichaje.Fecha.ToString("dd/MM/yyyy")</td>
+                                            <td>@fichaje.HoraEntrada.ToString("HH:mm")</td>
+                                            <td>@(fichaje.HoraSalida?.ToString("HH:mm") ?? "-")</td>
+                                            <td>@(fichaje.ProyectoNombre ?? "-")</td>
+                                            <td>@(fichaje.TotalHoras.HasValue ? $"{fichaje.TotalHoras:F1} h" : "-")</td>
                                             <td>
-                                                @switch (f.Estado)
+                                                @switch (fichaje.Estado)
                                                 {
                                                     case EstadoFichaje.Pendiente:
                                                         <span class="badge bg-warning text-dark">Pendiente</span>
@@ -207,60 +200,38 @@ else
 }
 
 @code {
-    private UsuarioObra? usuarioActual;
-    private RegistroFichaje? fichajeAbierto;
-    private List<RegistroFichaje> historial = new();
-    private List<HorarioAsignado> horarioHoy = new();
-    private List<Proyecto> proyectosDisponibles = new();
+    private string? usuarioActualId;
+    private string nombreUsuario = string.Empty;
+    private RegistroFichajeResumenDto? fichajeAbierto;
+    private List<RegistroFichajeResumenDto> historial = new();
+    private List<HorarioResumenDto> horarioHoy = new();
+    private List<GestionObras.Core.Contracts.JefeObra.ProyectoResumenDto> proyectosDisponibles = new();
     private int? proyectoSeleccionadoId;
     private bool cargando = true;
     private bool procesando;
     private string? mensaje;
     private bool esError;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    protected override async Task OnInitializedAsync()
     {
-        if (firstRender)
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        usuarioActualId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!string.IsNullOrWhiteSpace(usuarioActualId))
         {
-            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-            usuarioActual = await UserManager.GetUserAsync(authState.User);
-            if (usuarioActual != null)
-            {
-                await CargarDatos();
-            }
-            cargando = false;
-            StateHasChanged();
+            await CargarDatos();
         }
+
+        cargando = false;
     }
 
     private async Task CargarDatos()
     {
-        var hoy = DateOnly.FromDateTime(DateTime.Today);
-        fichajeAbierto = await FichajeRepo.GetFichajeAbiertoAsync(usuarioActual!.Id, hoy);
-        historial = await FichajeRepo.GetFichajesByUsuarioAsync(usuarioActual.Id, hoy.AddDays(-7), hoy);
-
-        // Horario del día actual
-        var diaSemana = DateTime.Now.DayOfWeek switch
-        {
-            DayOfWeek.Monday => DiaSemana.Lunes,
-            DayOfWeek.Tuesday => DiaSemana.Martes,
-            DayOfWeek.Wednesday => DiaSemana.Miercoles,
-            DayOfWeek.Thursday => DiaSemana.Jueves,
-            DayOfWeek.Friday => DiaSemana.Viernes,
-            DayOfWeek.Saturday => DiaSemana.Sabado,
-            DayOfWeek.Sunday => DiaSemana.Domingo,
-            _ => DiaSemana.Lunes
-        };
-        var todosHorarios = await FichajeRepo.GetHorariosByUsuarioAsync(usuarioActual.Id);
-        horarioHoy = todosHorarios.Where(h => h.DiaSemana == diaSemana).ToList();
-
-        // Proyectos en los que participa el usuario
-        proyectosDisponibles = await DbContext.Proyectos
-            .Where(p => p.Estado == EstadoProyecto.EnCurso || p.Estado == EstadoProyecto.Planificacion)
-            .Where(p => p.Tareas.Any(t => t.UsuariosAsignados.Any(u => u.Id == usuarioActual.Id))
-                     || p.ResponsableId == usuarioActual.Id)
-            .OrderBy(p => p.Nombre)
-            .ToListAsync();
+        var response = await OperarioApiClient.ObtenerFichajeAsync(usuarioActualId!);
+        nombreUsuario = response.NombreUsuario;
+        fichajeAbierto = response.FichajeAbierto;
+        historial = response.Historial;
+        horarioHoy = response.HorarioHoy;
+        proyectosDisponibles = response.ProyectosDisponibles;
     }
 
     private async Task FicharEntrada()
@@ -268,24 +239,17 @@ else
         procesando = true;
         try
         {
-            var ahora = DateTime.Now;
-            var fichaje = new RegistroFichaje
+            var resultado = await OperarioApiClient.FicharEntradaAsync(usuarioActualId!, proyectoSeleccionadoId);
+            MostrarMensaje(resultado.Mensaje, !resultado.Correcto);
+            if (resultado.Correcto)
             {
-                UsuarioId = usuarioActual!.Id,
-                ProyectoId = proyectoSeleccionadoId,
-                Fecha = DateOnly.FromDateTime(ahora),
-                HoraEntrada = ahora,
-                Estado = EstadoFichaje.Pendiente
-            };
-            await FichajeRepo.AddFichajeAsync(fichaje);
-            MostrarMensaje("Entrada fichada correctamente", false);
-            await CargarDatos();
+                await CargarDatos();
+            }
         }
-        catch (Exception ex)
+        finally
         {
-            MostrarMensaje($"Error al fichar entrada: {ex.Message}", true);
+            procesando = false;
         }
-        procesando = false;
     }
 
     private async Task FicharSalida()
@@ -293,19 +257,17 @@ else
         procesando = true;
         try
         {
-            if (fichajeAbierto != null)
+            var resultado = await OperarioApiClient.FicharSalidaAsync(usuarioActualId!);
+            MostrarMensaje(resultado.Mensaje, !resultado.Correcto);
+            if (resultado.Correcto)
             {
-                fichajeAbierto.HoraSalida = DateTime.Now;
-                await FichajeRepo.UpdateFichajeAsync(fichajeAbierto);
-                MostrarMensaje($"Salida fichada. Jornada: {fichajeAbierto.TotalHoras:F1} horas", false);
                 await CargarDatos();
             }
         }
-        catch (Exception ex)
+        finally
         {
-            MostrarMensaje($"Error al fichar salida: {ex.Message}", true);
+            procesando = false;
         }
-        procesando = false;
     }
 
     private void MostrarMensaje(string msg, bool error)

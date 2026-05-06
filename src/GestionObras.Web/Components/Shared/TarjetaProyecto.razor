@@ -1,3 +1,4 @@
+@using GestionObras.Core.Contracts.Administracion
 @using GestionObras.Core.Entities
 
 <div class="proyecto-card" 
@@ -52,27 +53,27 @@
     <!-- Métricas de tareas -->
     <div class="proyecto-metricas mt-3">
         <div class="metrica">
-            <span class="metrica-valor">@Proyecto.Tareas.Count</span>
+            <span class="metrica-valor">@Proyecto.TotalTareas</span>
             <small class="metrica-label">Total Tareas</small>
         </div>
         <div class="metrica">
-            <span class="metrica-valor text-warning">@Proyecto.Tareas.Count(t => t.Estado == EstadoTarea.Pendiente)</span>
+            <span class="metrica-valor text-warning">@Proyecto.TareasPendientes</span>
             <small class="metrica-label">Pendientes</small>
         </div>
         <div class="metrica">
-            <span class="metrica-valor text-primary">@Proyecto.Tareas.Count(t => t.Estado == EstadoTarea.EnCurso)</span>
+            <span class="metrica-valor text-primary">@Proyecto.TareasEnCurso</span>
             <small class="metrica-label">En Curso</small>
         </div>
         <div class="metrica">
-            <span class="metrica-valor text-success">@Proyecto.Tareas.Count(t => t.Estado == EstadoTarea.Finalizado)</span>
+            <span class="metrica-valor text-success">@Proyecto.TareasFinalizadas</span>
             <small class="metrica-label">Finalizadas</small>
         </div>
     </div>
 
     <!-- Progreso visual -->
-    @if (Proyecto.Tareas.Any())
+    @if (Proyecto.TotalTareas > 0)
     {
-        var porcentaje = (Proyecto.Tareas.Count(t => t.Estado == EstadoTarea.Finalizado) * 100.0) / Proyecto.Tareas.Count;
+        var porcentaje = (Proyecto.TareasFinalizadas * 100.0) / Proyecto.TotalTareas;
         <div class="proyecto-progreso mt-2">
             <div class="progress" style="height: 8px;">
                 <div class="progress-bar @ObtenerColorProgreso(porcentaje)" 
@@ -88,23 +89,23 @@
     }
 
     <!-- Tareas bloqueadas (alerta) -->
-    @if (Proyecto.Tareas.Any(t => t.Estado == EstadoTarea.Bloqueado))
+    @if (Proyecto.TareasBloqueadas > 0)
     {
         <div class="alert alert-danger p-2 mt-2 mb-0">
             <small>
                 <i class="bi bi-exclamation-triangle-fill"></i>
-                <strong>@Proyecto.Tareas.Count(t => t.Estado == EstadoTarea.Bloqueado) tarea(s) bloqueada(s)</strong>
+                <strong>@Proyecto.TareasBloqueadas tarea(s) bloqueada(s)</strong>
             </small>
         </div>
     }
 
     <!-- Equipo asignado -->
-    @if (Proyecto.EmpleadosAsignados?.Any() == true)
+    @if (Proyecto.EmpleadosAsignados > 0)
     {
         <div class="proyecto-equipo mt-2">
             <small class="text-muted">
                 <i class="bi bi-people-fill"></i>
-                @Proyecto.EmpleadosAsignados.Count empleado(s)
+                @Proyecto.EmpleadosAsignados empleado(s)
             </small>
         </div>
     }
@@ -126,10 +127,10 @@
 
 @code {
     [Parameter, EditorRequired]
-    public Proyecto Proyecto { get; set; } = null!;
+    public ProyectoTableroDto Proyecto { get; set; } = null!;
 
     [Parameter]
-    public EventCallback<Proyecto> OnDragStart { get; set; }
+    public EventCallback<ProyectoTableroDto> OnDragStart { get; set; }
 
     [Parameter]
     public EventCallback<int> OnVerKanban { get; set; }

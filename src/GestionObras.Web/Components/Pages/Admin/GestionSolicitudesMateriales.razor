@@ -1,17 +1,17 @@
 @page "/admin/solicitudes-materiales"
+@using System.Security.Claims
+@using GestionObras.Core.Contracts.Materiales
+@using GestionObras.Core.Contracts.JefeObra
 @using GestionObras.Core.Entities
 @using Microsoft.AspNetCore.Authorization
-@using Microsoft.AspNetCore.Identity
 @using Microsoft.AspNetCore.Components.Authorization
-@using Microsoft.EntityFrameworkCore
-@using GestionObras.Infrastructure.Data
-@inject GestionObrasDbContext DbContext
-@inject UserManager<UsuarioObra> UserManager
+@using GestionObras.Web.Services
+@inject MaterialesApiClient MaterialesApi
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @attribute [Authorize(Roles = "Administrador")]
 @rendermode InteractiveServer
 
-<PageTitle>Gestión de Solicitudes de Materiales - Gestión Obras</PageTitle>
+<PageTitle>Gestion de Solicitudes de Materiales - Gestion Obras</PageTitle>
 
 <div class="container-fluid py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -32,7 +32,6 @@
         </div>
     }
 
-    <!-- Estadísticas -->
     <div class="row mb-4">
         <div class="col-md-3">
             <div class="card border-warning bg-light">
@@ -80,7 +79,6 @@
         </div>
     </div>
 
-    <!-- Filtros -->
     <div class="card mb-4">
         <div class="card-body">
             <div class="row g-3">
@@ -123,7 +121,6 @@
         </div>
     </div>
 
-    <!-- Tabla de solicitudes -->
     <div class="card">
         <div class="card-body">
             @if (cargando)
@@ -229,8 +226,8 @@
                                         @if (solicitud.Estado == EstadoSolicitudMaterial.Pendiente)
                                         {
                                             var stockSuficiente = solicitud.Material.StockDisponible >= solicitud.CantidadSolicitada;
-                                            
-                                            <button class="btn btn-sm btn-success ms-1" 
+
+                                            <button class="btn btn-sm btn-success ms-1"
                                                     @onclick="() => AbrirModalAprobar(solicitud)"
                                                     disabled="@(!stockSuficiente)"
                                                     title="@(stockSuficiente ? "Aprobar solicitud" : "Stock insuficiente")">
@@ -251,7 +248,6 @@
     </div>
 </div>
 
-<!-- Modal Ver Detalle -->
 @if (mostrarModalDetalle && solicitudSeleccionada != null)
 {
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
@@ -291,7 +287,7 @@
 
                     <hr />
 
-                    <h6>Información del Material</h6>
+                    <h6>Informacion del Material</h6>
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <strong>Material:</strong>
@@ -299,7 +295,7 @@
                             <small class="text-muted">@solicitudSeleccionada.Material.Codigo</small>
                         </div>
                         <div class="col-md-6">
-                            <strong>Categoría:</strong>
+                            <strong>Categoria:</strong>
                             <p>@solicitudSeleccionada.Material.Categoria</p>
                         </div>
                     </div>
@@ -328,12 +324,12 @@
                             <strong>¿Stock Suficiente?</strong>
                             @if (solicitudSeleccionada.Material.StockDisponible >= solicitudSeleccionada.CantidadSolicitada)
                             {
-                                <p class="text-success"><i class="bi bi-check-circle-fill"></i> Sí</p>
+                                <p class="text-success"><i class="bi bi-check-circle-fill"></i> Si</p>
                             }
                             else
                             {
                                 <p class="text-danger">
-                                    <i class="bi bi-exclamation-triangle-fill"></i> No 
+                                    <i class="bi bi-exclamation-triangle-fill"></i> No
                                     (Faltan @(solicitudSeleccionada.CantidadSolicitada - solicitudSeleccionada.Material.StockDisponible) @solicitudSeleccionada.Material.UnidadMedida)
                                 </p>
                             }
@@ -342,7 +338,7 @@
 
                     <hr />
 
-                    <h6>Información del Proyecto</h6>
+                    <h6>Informacion del Proyecto</h6>
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <strong>Proyecto:</strong>
@@ -351,7 +347,6 @@
                         <div class="col-md-6">
                             <strong>Solicitante:</strong>
                             <p>@solicitudSeleccionada.SolicitadoPor.NombreCompleto</p>
-                            <small class="text-muted">@solicitudSeleccionada.SolicitadoPor.Email</small>
                         </div>
                     </div>
 
@@ -370,7 +365,7 @@
                     </div>
 
                     <div class="mb-3">
-                        <strong>Justificación:</strong>
+                        <strong>Justificacion:</strong>
                         <div class="border p-3 rounded bg-light">
                             @solicitudSeleccionada.Justificacion
                         </div>
@@ -379,7 +374,7 @@
                     @if (solicitudSeleccionada.Estado != EstadoSolicitudMaterial.Pendiente && solicitudSeleccionada.FechaRespuesta.HasValue)
                     {
                         <hr />
-                        <h6>Respuesta de Administración</h6>
+                        <h6>Respuesta de Administracion</h6>
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <strong>Revisado por:</strong>
@@ -406,9 +401,9 @@
                     @if (solicitudSeleccionada.Estado == EstadoSolicitudMaterial.Pendiente)
                     {
                         var stockSuficiente = solicitudSeleccionada.Material.StockDisponible >= solicitudSeleccionada.CantidadSolicitada;
-                        
-                        <button type="button" 
-                                class="btn btn-success" 
+
+                        <button type="button"
+                                class="btn btn-success"
                                 @onclick="() => AbrirModalAprobar(solicitudSeleccionada)"
                                 disabled="@(!stockSuficiente)"
                                 title="@(stockSuficiente ? "" : "No hay stock suficiente para aprobar esta solicitud")">
@@ -425,7 +420,6 @@
     </div>
 }
 
-<!-- Modal Aprobar -->
 @if (mostrarModalAprobar && solicitudSeleccionada != null)
 {
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
@@ -438,7 +432,7 @@
                     <button type="button" class="btn-close btn-close-white" @onclick="CerrarModales"></button>
                 </div>
                 <div class="modal-body">
-                    <p>¿Está seguro que desea <strong>aprobar</strong> esta solicitud?</p>
+                    <p>¿Esta seguro que desea <strong>aprobar</strong> esta solicitud?</p>
                     <ul>
                         <li><strong>Material:</strong> @solicitudSeleccionada.Material.Nombre</li>
                         <li><strong>Cantidad:</strong> @solicitudSeleccionada.CantidadSolicitada @solicitudSeleccionada.Material.UnidadMedida</li>
@@ -455,7 +449,7 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" @onclick="CerrarModales">Cancelar</button>
                     <button type="button" class="btn btn-success" @onclick="AprobarSolicitud">
-                        <i class="bi bi-check-circle"></i> Confirmar Aprobación
+                        <i class="bi bi-check-circle"></i> Confirmar Aprobacion
                     </button>
                 </div>
             </div>
@@ -463,7 +457,6 @@
     </div>
 }
 
-<!-- Modal Rechazar -->
 @if (mostrarModalRechazar && solicitudSeleccionada != null)
 {
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
@@ -476,7 +469,7 @@
                     <button type="button" class="btn-close btn-close-white" @onclick="CerrarModales"></button>
                 </div>
                 <div class="modal-body">
-                    <p>¿Está seguro que desea <strong>rechazar</strong> esta solicitud?</p>
+                    <p>¿Esta seguro que desea <strong>rechazar</strong> esta solicitud?</p>
                     <ul>
                         <li><strong>Material:</strong> @solicitudSeleccionada.Material.Nombre</li>
                         <li><strong>Cantidad:</strong> @solicitudSeleccionada.CantidadSolicitada @solicitudSeleccionada.Material.UnidadMedida</li>
@@ -505,30 +498,29 @@
 
 @code {
     private bool cargando = true;
-    private List<SolicitudMaterial> solicitudes = new();
-    private List<Proyecto> proyectos = new();
-    private string filtroEstado = "";
-    private string filtroPrioridad = "";
-    private int filtroProyectoId = 0;
+    private List<SolicitudMaterialResumenDto> solicitudes = new();
+    private List<ProyectoResumenDto> proyectos = new();
+    private string filtroEstado = string.Empty;
+    private string filtroPrioridad = string.Empty;
+    private int filtroProyectoId;
     private string filtroSolicitante = string.Empty;
     private string mensaje = string.Empty;
-    private bool mensajeExito = false;
+    private bool mensajeExito;
     private string usuarioActualId = string.Empty;
 
-    private bool mostrarModalDetalle = false;
-    private bool mostrarModalAprobar = false;
-    private bool mostrarModalRechazar = false;
-    private SolicitudMaterial? solicitudSeleccionada;
+    private bool mostrarModalDetalle;
+    private bool mostrarModalAprobar;
+    private bool mostrarModalRechazar;
+    private SolicitudMaterialResumenDto? solicitudSeleccionada;
     private string observacionesAdmin = string.Empty;
 
-    private IEnumerable<SolicitudMaterial> solicitudesFiltradas =>
+    private IEnumerable<SolicitudMaterialResumenDto> solicitudesFiltradas =>
         solicitudes.Where(s =>
             (string.IsNullOrEmpty(filtroEstado) || s.Estado.ToString() == filtroEstado) &&
             (string.IsNullOrEmpty(filtroPrioridad) || s.Prioridad.ToString() == filtroPrioridad) &&
             (filtroProyectoId == 0 || s.ProyectoId == filtroProyectoId) &&
-            (string.IsNullOrEmpty(filtroSolicitante) || 
-             s.SolicitadoPor.NombreCompleto.Contains(filtroSolicitante, StringComparison.OrdinalIgnoreCase))
-        );
+            (string.IsNullOrEmpty(filtroSolicitante) ||
+             s.SolicitadoPor.NombreCompleto.Contains(filtroSolicitante, StringComparison.OrdinalIgnoreCase)));
 
     protected override async Task OnInitializedAsync()
     {
@@ -541,27 +533,11 @@
         try
         {
             var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-            var user = authState.User;
-            
-            if (user.Identity?.IsAuthenticated == true)
-            {
-                var usuario = await UserManager.GetUserAsync(user);
-                if (usuario != null)
-                {
-                    usuarioActualId = usuario.Id;
-                }
-            }
+            usuarioActualId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
 
-            solicitudes = await DbContext.SolicitudesMateriales
-                .Include(s => s.Material)
-                .Include(s => s.Proyecto)
-                .Include(s => s.SolicitadoPor)
-                .Include(s => s.RevisadoPor)
-                .ToListAsync();
-
-            proyectos = await DbContext.Proyectos
-                .OrderBy(p => p.Nombre)
-                .ToListAsync();
+            var response = await MaterialesApi.ObtenerSolicitudesAdminAsync();
+            solicitudes = response.Solicitudes;
+            proyectos = response.Proyectos;
         }
         catch (Exception ex)
         {
@@ -574,13 +550,13 @@
         }
     }
 
-    private void VerDetalle(SolicitudMaterial solicitud)
+    private void VerDetalle(SolicitudMaterialResumenDto solicitud)
     {
         solicitudSeleccionada = solicitud;
         mostrarModalDetalle = true;
     }
 
-    private void AbrirModalAprobar(SolicitudMaterial solicitud)
+    private void AbrirModalAprobar(SolicitudMaterialResumenDto solicitud)
     {
         solicitudSeleccionada = solicitud;
         observacionesAdmin = string.Empty;
@@ -588,7 +564,7 @@
         mostrarModalAprobar = true;
     }
 
-    private void AbrirModalRechazar(SolicitudMaterial solicitud)
+    private void AbrirModalRechazar(SolicitudMaterialResumenDto solicitud)
     {
         solicitudSeleccionada = solicitud;
         observacionesAdmin = string.Empty;
@@ -607,67 +583,60 @@
 
     private async Task AprobarSolicitud()
     {
-        try
+        if (solicitudSeleccionada == null)
         {
-            if (solicitudSeleccionada == null) return;
-
-            solicitudSeleccionada.Estado = EstadoSolicitudMaterial.Aprobada;
-            solicitudSeleccionada.RevisadoPorId = usuarioActualId;
-            solicitudSeleccionada.FechaRespuesta = DateTime.Now;
-            solicitudSeleccionada.ObservacionesAdmin = observacionesAdmin;
-
-            // Actualizar stock del material
-            var material = await DbContext.Materiales.FindAsync(solicitudSeleccionada.MaterialId);
-            if (material != null)
-            {
-                material.StockDisponible -= (int)solicitudSeleccionada.CantidadSolicitada;
-            }
-
-            await DbContext.SaveChangesAsync();
-            
-            mensaje = "Solicitud aprobada correctamente. El material ha sido asignado al proyecto.";
-            mensajeExito = true;
-            
-            CerrarModales();
-            await CargarDatos();
+            return;
         }
-        catch (Exception ex)
+
+        var resultado = await MaterialesApi.RevisarSolicitudAsync(solicitudSeleccionada.Id, new RevisarSolicitudMaterialRequest
         {
-            mensaje = $"Error al aprobar la solicitud: {ex.Message}";
-            mensajeExito = false;
+            RevisadoPorId = usuarioActualId,
+            Aprobar = true,
+            ObservacionesAdmin = observacionesAdmin
+        });
+
+        mensaje = resultado.Mensaje;
+        mensajeExito = resultado.Correcto;
+
+        if (!resultado.Correcto)
+        {
+            return;
         }
+
+        CerrarModales();
+        await CargarDatos();
     }
 
     private async Task RechazarSolicitud()
     {
-        try
+        if (solicitudSeleccionada == null)
         {
-            if (solicitudSeleccionada == null) return;
-
-            if (string.IsNullOrWhiteSpace(observacionesAdmin))
-            {
-                mensaje = "Debe proporcionar un motivo para el rechazo";
-                mensajeExito = false;
-                return;
-            }
-
-            solicitudSeleccionada.Estado = EstadoSolicitudMaterial.Rechazada;
-            solicitudSeleccionada.RevisadoPorId = usuarioActualId;
-            solicitudSeleccionada.FechaRespuesta = DateTime.Now;
-            solicitudSeleccionada.ObservacionesAdmin = observacionesAdmin;
-
-            await DbContext.SaveChangesAsync();
-            
-            mensaje = "Solicitud rechazada. El solicitante ha sido notificado.";
-            mensajeExito = true;
-            
-            CerrarModales();
-            await CargarDatos();
+            return;
         }
-        catch (Exception ex)
+
+        if (string.IsNullOrWhiteSpace(observacionesAdmin))
         {
-            mensaje = $"Error al rechazar la solicitud: {ex.Message}";
+            mensaje = "Debe proporcionar un motivo para el rechazo";
             mensajeExito = false;
+            return;
         }
+
+        var resultado = await MaterialesApi.RevisarSolicitudAsync(solicitudSeleccionada.Id, new RevisarSolicitudMaterialRequest
+        {
+            RevisadoPorId = usuarioActualId,
+            Aprobar = false,
+            ObservacionesAdmin = observacionesAdmin
+        });
+
+        mensaje = resultado.Mensaje;
+        mensajeExito = resultado.Correcto;
+
+        if (!resultado.Correcto)
+        {
+            return;
+        }
+
+        CerrarModales();
+        await CargarDatos();
     }
 }

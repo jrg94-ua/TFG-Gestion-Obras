@@ -6,6 +6,15 @@ El **Sistema de Gestión de Obras** se diseña siguiendo los principios de **Cle
 
 ---
 
+## Documentos relacionados
+
+- [Rastreo integral de la aplicacion](./RASTREO_APLICACION.md)
+- [Arquitectura real implementada](./ARQUITECTURA_REAL.md)
+- [Modelo de datos y entidades](./MODELO_DATOS_REAL.md)
+- [Decisiones arquitectonicas](./DECISIONES_ARQUITECTONICAS.md)
+
+Este documento recoge la arquitectura objetivo. Para contrastarla con el estado real implementado en codigo, consulta el rastreo integral.
+
 ## 1. Arquitectura de Alto Nivel
 
 ```
@@ -66,8 +75,8 @@ El **Sistema de Gestión de Obras** se diseña siguiendo los principios de **Cle
 - **DTOs (Data Transfer Objects)**: Objetos para comunicación API
 
 **Tecnologías**:
-- ASP.NET Core 8.0 Web API
-- Blazor Server/WebAssembly
+- ASP.NET Core 10.0 Web API
+- Blazor Server
 - Bootstrap 5 para UI responsive
 
 **Ejemplo de Endpoints**:

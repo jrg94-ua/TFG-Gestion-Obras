@@ -3,4 +3,6 @@
   <Project Path="GestionObras.Core/GestionObras.Core.csproj" />
   <Project Path="GestionObras.Infrastructure/GestionObras.Infrastructure.csproj" />
   <Project Path="GestionObras.Web/GestionObras.Web.csproj" />
+  <Project Path="../tests/GestionObras.UnitTests/GestionObras.UnitTests.csproj" />
+  <Project Path="../tests/GestionObras.IntegrationTests/GestionObras.IntegrationTests.csproj" />
 </Solution>

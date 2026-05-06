@@ -19,6 +19,7 @@ namespace GestionObras.Core.Entities
         // Propiedades adicionales para gestión
         public decimal BaseImponible { get; set; }
         public decimal PorcentajeIVA { get; set; } = 21;
+        public decimal DescuentoPorcentaje { get; set; }
         public decimal IVA { get; set; }
         public decimal ImporteTotal { get; set; }
         public string? NombreProyecto { get; set; }

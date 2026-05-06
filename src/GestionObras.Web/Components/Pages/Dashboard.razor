@@ -1,9 +1,10 @@
 @page "/dashboard"
 @using Microsoft.AspNetCore.Authorization
+@using GestionObras.Core.Contracts.Consultas
 @using GestionObras.Core.Entities
 @using GestionObras.Web.Services
 @attribute [Authorize]
-@inject DashboardService DashboardSvc
+@inject ConsultasApiClient ConsultasApi
 @inject NavigationManager Navigation
 @rendermode InteractiveServer
 
@@ -196,7 +197,7 @@
     private int totalEmpleados;
     private int totalMateriales;
     private List<string> alertas = new();
-    private List<Proyecto> proyectosRecientes = new();
+    private List<ProyectoConsultaDto> proyectosRecientes = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -209,7 +210,7 @@
 
         try
         {
-            var stats = await DashboardSvc.ObtenerEstadisticasAsync();
+            var stats = await ConsultasApi.ObtenerDashboardGeneralAsync();
 
             totalProyectos = stats.TotalProyectos;
             proyectosEnCurso = stats.ProyectosEnCurso;

@@ -2,18 +2,15 @@
 @attribute [Authorize(Roles = "JefeObra,OficinaTecnica,Administrador")]
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@using GestionObras.Core.Contracts.JefeObra
 @using GestionObras.Core.Entities
-@using GestionObras.Infrastructure.Data
-@using GestionObras.Infrastructure.Repositories
-@using Microsoft.EntityFrameworkCore
-@using Microsoft.AspNetCore.Identity
-@inject GestionObrasDbContext DbContext
-@inject IFichajeRepository FichajeRepo
-@inject UserManager<UsuarioObra> UserManager
+@using GestionObras.Web.Services
+@inject JefeObraApiClient JefeObraApiClient
 @inject AuthenticationStateProvider AuthStateProvider
 @rendermode InteractiveServer
 
-<PageTitle>Horarios de mi equipo - Gestión de Obras</PageTitle>
+<PageTitle>Horarios de mi equipo - Gestion de Obras</PageTitle>
 
 <style>
     .cal-grid {
@@ -85,13 +82,12 @@ else
     <div class="container-fluid px-4 py-3">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
-                <h1 class="text-primary">📅 Horarios de mi equipo</h1>
+                <h1 class="text-primary">Horarios de mi equipo</h1>
                 <p class="text-muted mb-0">Consulta los turnos semanales de los operarios en tus proyectos</p>
             </div>
-            <span class="badge bg-info fs-6">👁️ Solo lectura</span>
+            <span class="badge bg-info fs-6">Solo lectura</span>
         </div>
 
-        <!-- Filtros + Leyenda -->
         <div class="card shadow-sm mb-4 border-0">
             <div class="card-body">
                 <div class="row g-3 align-items-end">
@@ -99,9 +95,9 @@ else
                         <label class="form-label fw-semibold">Proyecto</label>
                         <select class="form-select" @bind="filtroProyectoId" @bind:after="CargarHorarios">
                             <option value="">Todos mis proyectos</option>
-                            @foreach (var p in misProyectos)
+                            @foreach (var proyecto in misProyectos)
                             {
-                                <option value="@p.Id">@p.Nombre</option>
+                                <option value="@proyecto.Id">@proyecto.Nombre</option>
                             }
                         </select>
                     </div>
@@ -109,15 +105,15 @@ else
                         <label class="form-label fw-semibold">Operario</label>
                         <select class="form-select" @bind="filtroUsuarioId" @bind:after="CargarHorarios">
                             <option value="">Todos</option>
-                            @foreach (var u in operariosDisponibles)
+                            @foreach (var operario in operariosDisponibles)
                             {
-                                <option value="@u.Id">@u.NombreCompleto</option>
+                                <option value="@operario.Id">@operario.NombreCompleto</option>
                             }
                         </select>
                     </div>
                     <div class="col-md-6 d-flex align-items-end">
                         <div class="legend-bar ms-auto">
-                            <div class="legend-item"><div class="legend-dot" style="background:#ffc107;"></div> Mañana</div>
+                            <div class="legend-item"><div class="legend-dot" style="background:#ffc107;"></div> Manana</div>
                             <div class="legend-item"><div class="legend-dot" style="background:#0d6efd;"></div> Tarde</div>
                             <div class="legend-item"><div class="legend-dot" style="background:#343a40;"></div> Noche</div>
                             <div class="legend-item"><div class="legend-dot" style="background:#6f42c1;"></div> Partido</div>
@@ -128,12 +124,11 @@ else
             </div>
         </div>
 
-        <!-- CALENDARIO SEMANAL (Solo lectura) -->
         @if (!trabConHorario.Any())
         {
             <div class="card shadow-sm border-0">
                 <div class="card-body text-center p-5">
-                    <div class="display-1 mb-3">📅</div>
+                    <div class="display-1 mb-3">Horarios</div>
                     <h4 class="text-muted">No hay horarios asignados para tu equipo</h4>
                     <p class="text-muted">Contacta con RRHH para configurar los turnos</p>
                 </div>
@@ -142,34 +137,37 @@ else
         else
         {
             <div class="cal-grid">
-                <div class="cal-hdr corner">👤 Operario</div>
+                <div class="cal-hdr corner">Operario</div>
                 @foreach (DiaSemana dia in Enum.GetValues<DiaSemana>())
                 {
                     <div class="cal-hdr @(EsHoy(dia) ? "hoy" : "")">
                         @DiaCorto(dia)
-                        @if (EsHoy(dia)) { <br/><span style="font-weight:400;opacity:0.8;font-size:0.7rem;">HOY</span> }
+                        @if (EsHoy(dia))
+                        {
+                            <br /><span style="font-weight:400;opacity:0.8;font-size:0.7rem;">HOY</span>
+                        }
                     </div>
                 }
 
-                @foreach (var t in trabConHorario)
+                @foreach (var operario in trabConHorario)
                 {
-                    var hSem = HorasSemana(t.Id);
+                    var horasSemana = HorasSemana(operario.Id);
                     <div class="cal-name">
-                        <div class="cal-avatar">@Iniciales(t.NombreCompleto)</div>
+                        <div class="cal-avatar">@Iniciales(operario.NombreCompleto)</div>
                         <div class="cal-name-info">
-                            <strong>@t.NombreCompleto</strong>
-                            <small>@hSem.ToString("F0") h / semana</small>
+                            <strong>@operario.NombreCompleto</strong>
+                            <small>@horasSemana.ToString("F0") h / semana</small>
                         </div>
                     </div>
 
                     @foreach (DiaSemana dia in Enum.GetValues<DiaSemana>())
                     {
-                        var turnos = TurnosDia(t.Id, dia);
+                        var turnos = TurnosDia(operario.Id, dia);
                         <div class="cal-cell @(EsHoy(dia) ? "hoy-col" : "")">
-                            @foreach (var h in turnos)
+                            @foreach (var horario in turnos)
                             {
-                                <div class="turno-pill @TurnoClass(h.TipoTurno)">
-                                    @TurnoIcon(h.TipoTurno) @h.HoraEntrada.ToString("HH:mm")-@h.HoraSalida.ToString("HH:mm")
+                                <div class="turno-pill @TurnoClass(horario.TipoTurno)">
+                                    @TurnoIcon(horario.TipoTurno) @horario.HoraEntrada.ToString("HH:mm")-@horario.HoraSalida.ToString("HH:mm")
                                 </div>
                             }
                         </div>
@@ -177,23 +175,23 @@ else
                 }
             </div>
 
-            @if (horarios.Any(h => h.Proyecto != null))
+            @if (horarios.Any(h => !string.IsNullOrWhiteSpace(h.ProyectoNombre)))
             {
                 <div class="card shadow-sm border-0 mt-4">
-                    <div class="card-header bg-white fw-semibold">📊 Resumen por proyecto</div>
+                    <div class="card-header bg-white fw-semibold">Resumen por proyecto</div>
                     <div class="card-body p-0">
                         <table class="table table-sm mb-0">
                             <thead class="table-light">
                                 <tr><th>Proyecto</th><th>Trabajadores</th><th>Turnos</th><th>Horas/sem</th></tr>
                             </thead>
                             <tbody>
-                                @foreach (var g in horarios.Where(h => h.Proyecto != null).GroupBy(h => h.Proyecto!.Nombre))
+                                @foreach (var grupo in horarios.Where(h => !string.IsNullOrWhiteSpace(h.ProyectoNombre)).GroupBy(h => h.ProyectoNombre!))
                                 {
                                     <tr>
-                                        <td><strong>@g.Key</strong></td>
-                                        <td>@g.Select(h => h.UsuarioId).Distinct().Count()</td>
-                                        <td>@g.Count()</td>
-                                        <td>@g.Sum(h => h.HorasPrevistas).ToString("F0") h</td>
+                                        <td><strong>@grupo.Key</strong></td>
+                                        <td>@grupo.Select(h => h.UsuarioId).Distinct().Count()</td>
+                                        <td>@grupo.Count()</td>
+                                        <td>@grupo.Sum(h => h.HorasPrevistas).ToString("F0") h</td>
                                     </tr>
                                 }
                             </tbody>
@@ -207,79 +205,101 @@ else
 
 @code {
     private bool cargando = true;
-    private UsuarioObra? usuarioActual;
-    private List<Proyecto> misProyectos = new();
-    private List<UsuarioObra> operariosDisponibles = new();
-    private List<HorarioAsignado> horarios = new();
-    private List<UsuarioObra> trabConHorario = new();
+    private string? usuarioActualId;
+    private List<ProyectoResumenDto> misProyectos = new();
+    private List<UsuarioResumenDto> operariosDisponibles = new();
+    private List<HorarioAsignadoDto> horarios = new();
+    private List<UsuarioResumenDto> trabConHorario = new();
 
-    private string filtroProyectoId = "";
-    private string filtroUsuarioId = "";
+    private string filtroProyectoId = string.Empty;
+    private string filtroUsuarioId = string.Empty;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    protected override async Task OnInitializedAsync()
     {
-        if (firstRender)
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        usuarioActualId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!string.IsNullOrWhiteSpace(usuarioActualId))
         {
-            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-            usuarioActual = await UserManager.GetUserAsync(authState.User);
-            if (usuarioActual != null)
-            {
-                await CargarDatosIniciales();
-                await CargarHorarios();
-            }
-            cargando = false;
-            StateHasChanged();
+            await CargarHorarios();
         }
-    }
 
-    private async Task CargarDatosIniciales()
-    {
-        misProyectos = await DbContext.Proyectos
-            .Where(p => p.ResponsableId == usuarioActual!.Id)
-            .OrderBy(p => p.Nombre).ToListAsync();
-        var operarioRoles = new[] { "Operario", "OperarioObra", "OperarioOficinaT" };
-        var todosUsuarios = await DbContext.Users.Where(u => u.Activo).OrderBy(u => u.NombreCompleto).ToListAsync();
-        operariosDisponibles = new List<UsuarioObra>();
-        foreach (var u in todosUsuarios)
-        {
-            var roles = await UserManager.GetRolesAsync(u);
-            if (roles.Any(r => operarioRoles.Contains(r)))
-                operariosDisponibles.Add(u);
-        }
+        cargando = false;
     }
 
     private async Task CargarHorarios()
     {
-        var proyectoIds = misProyectos.Select(p => p.Id).ToList();
-        IQueryable<HorarioAsignado> q = DbContext.HorariosAsignados
-            .Include(h => h.Usuario).Include(h => h.Proyecto)
-            .Where(h => h.Activo && h.ProyectoId != null && proyectoIds.Contains(h.ProyectoId.Value));
-        if (!string.IsNullOrEmpty(filtroProyectoId) && int.TryParse(filtroProyectoId, out int pid))
-            q = q.Where(h => h.ProyectoId == pid);
-        if (!string.IsNullOrEmpty(filtroUsuarioId))
-            q = q.Where(h => h.UsuarioId == filtroUsuarioId);
-        horarios = await q.OrderBy(h => h.Usuario!.NombreCompleto).ThenBy(h => h.DiaSemana).ThenBy(h => h.HoraEntrada).ToListAsync();
-        var ids = horarios.Select(h => h.UsuarioId).Distinct().ToList();
-        trabConHorario = operariosDisponibles.Where(u => ids.Contains(u.Id)).ToList();
+        if (string.IsNullOrWhiteSpace(usuarioActualId))
+        {
+            misProyectos = new();
+            operariosDisponibles = new();
+            horarios = new();
+            trabConHorario = new();
+            return;
+        }
+
+        int? proyectoId = int.TryParse(filtroProyectoId, out var pid) ? pid : null;
+        var respuesta = await JefeObraApiClient.ObtenerHorariosAsync(usuarioActualId, proyectoId, filtroUsuarioId);
+        misProyectos = respuesta.Proyectos;
+        operariosDisponibles = respuesta.Operarios;
+        horarios = respuesta.Horarios;
+
+        var ids = horarios.Select(h => h.UsuarioId).Distinct().ToHashSet();
+        trabConHorario = operariosDisponibles.Where(o => ids.Contains(o.Id)).ToList();
     }
 
-    // --- Helpers ---
-    private List<HorarioAsignado> TurnosDia(string uid, DiaSemana d) => horarios.Where(h => h.UsuarioId == uid && h.DiaSemana == d).ToList();
-    private double HorasSemana(string uid) => horarios.Where(h => h.UsuarioId == uid).Sum(h => h.HorasPrevistas);
-    private bool EsHoy(DiaSemana d) => d == (DateTime.Now.DayOfWeek switch {
-        DayOfWeek.Monday => DiaSemana.Lunes, DayOfWeek.Tuesday => DiaSemana.Martes,
-        DayOfWeek.Wednesday => DiaSemana.Miercoles, DayOfWeek.Thursday => DiaSemana.Jueves,
-        DayOfWeek.Friday => DiaSemana.Viernes, DayOfWeek.Saturday => DiaSemana.Sabado,
-        DayOfWeek.Sunday => DiaSemana.Domingo, _ => DiaSemana.Lunes });
-    private string DiaCorto(DiaSemana d) => d switch {
-        DiaSemana.Lunes => "LUN", DiaSemana.Martes => "MAR", DiaSemana.Miercoles => "MIÉ",
-        DiaSemana.Jueves => "JUE", DiaSemana.Viernes => "VIE", DiaSemana.Sabado => "SÁB",
-        DiaSemana.Domingo => "DOM", _ => d.ToString() };
-    private string TurnoClass(TipoTurno t) => t switch {
-        TipoTurno.Mañana => "t-man", TipoTurno.Tarde => "t-tar",
-        TipoTurno.Noche => "t-noc", TipoTurno.Partido => "t-par", _ => "" };
-    private string TurnoIcon(TipoTurno t) => t switch {
-        TipoTurno.Mañana => "☀️", TipoTurno.Tarde => "🌅",
-        TipoTurno.Noche => "🌙", TipoTurno.Partido => "📐", _ => "" };
-    private string Iniciales(string n) { var p = n.Split(' ', StringSplitOptions.RemoveEmptyEntries); return p.Length >= 2 ? $"{p[0][0]}{p[1][0]}" : (p.Length > 0 ? p[0][0].ToString() : "?"); }
+    private List<HorarioAsignadoDto> TurnosDia(string usuarioId, DiaSemana dia) =>
+        horarios.Where(h => h.UsuarioId == usuarioId && h.DiaSemana == dia).ToList();
+
+    private double HorasSemana(string usuarioId) =>
+        horarios.Where(h => h.UsuarioId == usuarioId).Sum(h => h.HorasPrevistas);
+
+    private bool EsHoy(DiaSemana dia) => dia == (DateTime.Now.DayOfWeek switch
+    {
+        DayOfWeek.Monday => DiaSemana.Lunes,
+        DayOfWeek.Tuesday => DiaSemana.Martes,
+        DayOfWeek.Wednesday => DiaSemana.Miercoles,
+        DayOfWeek.Thursday => DiaSemana.Jueves,
+        DayOfWeek.Friday => DiaSemana.Viernes,
+        DayOfWeek.Saturday => DiaSemana.Sabado,
+        DayOfWeek.Sunday => DiaSemana.Domingo,
+        _ => DiaSemana.Lunes
+    });
+
+    private static string DiaCorto(DiaSemana dia) => dia switch
+    {
+        DiaSemana.Lunes => "LUN",
+        DiaSemana.Martes => "MAR",
+        DiaSemana.Miercoles => "MIE",
+        DiaSemana.Jueves => "JUE",
+        DiaSemana.Viernes => "VIE",
+        DiaSemana.Sabado => "SAB",
+        DiaSemana.Domingo => "DOM",
+        _ => dia.ToString()
+    };
+
+    private static string TurnoClass(TipoTurno turno) => turno switch
+    {
+        TipoTurno.Mañana => "t-man",
+        TipoTurno.Tarde => "t-tar",
+        TipoTurno.Noche => "t-noc",
+        TipoTurno.Partido => "t-par",
+        _ => string.Empty
+    };
+
+    private static string TurnoIcon(TipoTurno turno) => turno switch
+    {
+        TipoTurno.Mañana => "M",
+        TipoTurno.Tarde => "T",
+        TipoTurno.Noche => "N",
+        TipoTurno.Partido => "P",
+        _ => string.Empty
+    };
+
+    private static string Iniciales(string nombre)
+    {
+        var partes = nombre.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return partes.Length >= 2
+            ? $"{partes[0][0]}{partes[1][0]}"
+            : (partes.Length > 0 ? partes[0][0].ToString() : "?");
+    }
 }
