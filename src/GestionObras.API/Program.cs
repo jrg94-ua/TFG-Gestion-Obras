@@ -9,6 +9,7 @@ using GestionObras.Core.Entities;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using GestionObras.Infrastructure.Data;
+using GestionObras.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.DataProtection;
 using System.Security.Claims;
@@ -59,6 +60,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("RecursosHumanosPolicy", policy => policy.RequireRole("RecursosHumanos", "Administrador"));
     options.AddPolicy("OperarioPolicy", policy => policy.RequireRole("Operario", "OperarioObra", "OperarioOficinaT", "JefeObra", "OficinaTecnica", "RecursosHumanos", "Administrador"));
 });
+builder.Services.AddScoped<TareaWorkflowService>();
 
 var app = builder.Build();
 
@@ -1871,78 +1873,62 @@ app.MapGet("/api/administracion/mi-tablero", async (
 app.MapPost("/api/administracion/mi-tablero/tareas/{id:int}/estado", async (
     int id,
     CambiarEstadoTareaPersonalRequest request,
-    GestionObrasDbContext db) =>
+    TareaWorkflowService tareaWorkflowService) =>
 {
-    var tarea = await db.Tareas.Include(t => t.Bloqueo).FirstOrDefaultAsync(t => t.Id == id);
-    if (tarea == null)
+    try
     {
-        return Results.NotFound(new OperacionResponse { Correcto = false, Mensaje = "Tarea no encontrada." });
+        await tareaWorkflowService.ActualizarEstadoAsync(id, request.Estado);
+        return Results.Ok(new OperacionResponse { Correcto = true, Mensaje = "Estado de la tarea actualizado." });
     }
-
-    if (tarea.Estado == EstadoTarea.Bloqueado && request.Estado != EstadoTarea.Bloqueado && tarea.Bloqueo != null)
+    catch (InvalidOperationException ex)
     {
-        tarea.Bloqueo.FechaResolucion = DateTime.Now;
+        return Results.BadRequest(new OperacionResponse { Correcto = false, Mensaje = ex.Message });
     }
-
-    tarea.Estado = request.Estado;
-    await db.SaveChangesAsync();
-    return Results.Ok(new OperacionResponse { Correcto = true, Mensaje = "Estado de la tarea actualizado." });
 })
 .WithName("PostAdministracionMiTableroEstado");
 
 app.MapPost("/api/administracion/mi-tablero/tareas/{id:int}/bloquear", async (
     int id,
     BloquearTareaPersonalRequest request,
-    GestionObrasDbContext db) =>
+    TareaWorkflowService tareaWorkflowService) =>
 {
-    var tarea = await db.Tareas.Include(t => t.Bloqueo).FirstOrDefaultAsync(t => t.Id == id);
-    if (tarea == null)
-    {
-        return Results.NotFound(new OperacionResponse { Correcto = false, Mensaje = "Tarea no encontrada." });
-    }
-
     if (string.IsNullOrWhiteSpace(request.JustificacionTecnica))
     {
         return Results.BadRequest(new OperacionResponse { Correcto = false, Mensaje = "Debe proporcionar una justificacion tecnica." });
     }
 
-    tarea.Estado = EstadoTarea.Bloqueado;
-    tarea.Bloqueo = new BloqueoTarea
+    try
     {
-        TareaId = tarea.Id,
-        Tipo = request.Tipo,
-        JustificacionTecnica = request.JustificacionTecnica.Trim(),
-        FechaBloqueo = DateTime.Now
-    };
-
-    await db.SaveChangesAsync();
-    return Results.Ok(new OperacionResponse { Correcto = true, Mensaje = "Tarea bloqueada correctamente." });
+        await tareaWorkflowService.BloquearAsync(id, request.Tipo, request.JustificacionTecnica.Trim());
+        return Results.Ok(new OperacionResponse { Correcto = true, Mensaje = "Tarea bloqueada correctamente." });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new OperacionResponse { Correcto = false, Mensaje = ex.Message });
+    }
 })
 .WithName("PostAdministracionMiTableroBloquear");
 
-app.MapPost("/api/administracion/mi-tablero/tareas/{id:int}/desbloquear", async (int id, GestionObrasDbContext db) =>
+app.MapPost("/api/administracion/mi-tablero/tareas/{id:int}/desbloquear", async (
+    int id,
+    TareaWorkflowService tareaWorkflowService) =>
 {
-    var tarea = await db.Tareas.Include(t => t.Bloqueo).FirstOrDefaultAsync(t => t.Id == id);
-    if (tarea == null)
+    try
     {
-        return Results.NotFound(new OperacionResponse { Correcto = false, Mensaje = "Tarea no encontrada." });
+        await tareaWorkflowService.DesbloquearAsync(id);
+        return Results.Ok(new OperacionResponse { Correcto = true, Mensaje = "Tarea desbloqueada correctamente." });
     }
-
-    if (tarea.Bloqueo != null)
+    catch (InvalidOperationException ex)
     {
-        tarea.Bloqueo.FechaResolucion = DateTime.Now;
+        return Results.BadRequest(new OperacionResponse { Correcto = false, Mensaje = ex.Message });
     }
-
-    tarea.Estado = EstadoTarea.Pendiente;
-    await db.SaveChangesAsync();
-    return Results.Ok(new OperacionResponse { Correcto = true, Mensaje = "Tarea desbloqueada correctamente." });
 })
 .WithName("PostAdministracionMiTableroDesbloquear");
 
 app.MapPost("/api/administracion/mi-tablero/tareas/{id:int}/finalizar", async (
     int id,
     HttpContext httpContext,
-    GestionObrasDbContext db) =>
+    TareaWorkflowService tareaWorkflowService) =>
 {
     var usuarioId = ObtenerUsuarioAutenticadoId(httpContext.User);
     if (string.IsNullOrWhiteSpace(usuarioId))
@@ -1950,24 +1936,15 @@ app.MapPost("/api/administracion/mi-tablero/tareas/{id:int}/finalizar", async (
         return Results.Unauthorized();
     }
 
-    var tarea = await db.Tareas.Include(t => t.Bloqueo).FirstOrDefaultAsync(t => t.Id == id);
-    if (tarea == null)
+    try
     {
-        return Results.NotFound(new OperacionResponse { Correcto = false, Mensaje = "Tarea no encontrada." });
+        await tareaWorkflowService.CompletarAsync(id, usuarioId, "Finalizada desde tablero personal");
+        return Results.Ok(new OperacionResponse { Correcto = true, Mensaje = "Tarea marcada como terminada." });
     }
-
-    if (tarea.Bloqueo != null && tarea.Bloqueo.FechaResolucion == null)
+    catch (InvalidOperationException ex)
     {
-        tarea.Bloqueo.FechaResolucion = DateTime.Now;
+        return Results.BadRequest(new OperacionResponse { Correcto = false, Mensaje = ex.Message });
     }
-
-    tarea.Estado = EstadoTarea.Finalizado;
-    tarea.FechaFinalizacion = DateTime.Now;
-    tarea.CompletadaPorId = usuarioId;
-    tarea.ObservacionesFinalizacion = "Finalizada desde tablero de operario";
-
-    await db.SaveChangesAsync();
-    return Results.Ok(new OperacionResponse { Correcto = true, Mensaje = "Tarea marcada como terminada." });
 })
 .WithName("PostAdministracionMiTableroFinalizar");
 

@@ -1,5 +1,6 @@
 using GestionObras.Web.Components;
 using GestionObras.Infrastructure.Data;
+using GestionObras.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using GestionObras.Core.Entities;
@@ -115,6 +116,7 @@ builder.Services.AddScoped<GestionObras.Web.Services.DocumentoService>();
 builder.Services.AddScoped<GestionObras.Web.Services.ExportPdfService>();
 builder.Services.AddScoped<GestionObras.Web.Services.ExportExcelService>();
 builder.Services.AddScoped<GestionObras.Web.Services.FacturaService>();
+builder.Services.AddScoped<TareaWorkflowService>();
 builder.Services.AddScoped<GestionObras.Web.Services.KanbanService>();
 builder.Services.AddScoped<GestionObras.Web.Services.PresupuestoService>();
 builder.Services.AddScoped<GestionObras.Web.Services.MaterialService>();
