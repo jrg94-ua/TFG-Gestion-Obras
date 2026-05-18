@@ -5,18 +5,17 @@
 @using Microsoft.AspNetCore.Components.Forms
 @inject SignInManager<UsuarioObra> SignInManager
 @inject NavigationManager Navigation
-@inject IHttpContextAccessor HttpContextAccessor
+@inject IConfiguration Configuration
 
-<PageTitle>Iniciar Sesión - Gestión de Obras</PageTitle>
+<PageTitle>Iniciar Sesion - Gestion de Obras</PageTitle>
 
 <div class="login-page">
     <div class="login-wrapper">
-        <!-- Panel izquierdo: Formulario -->
         <div class="login-form-panel">
             <div class="login-card">
                 <div class="login-header">
-                    <h2>🏗️ Gestión de Obras</h2>
-                    <p>Inicia sesión para continuar</p>
+                    <h2>Gestion de Obras</h2>
+                    <p>Inicia sesion para continuar</p>
                 </div>
 
                 <EditForm Model="@loginModel" OnValidSubmit="@HandleLogin" FormName="loginForm">
@@ -30,14 +29,14 @@
                     }
 
                     <div class="form-group mb-3">
-                        <label for="email" class="form-label fw-semibold">Correo Electrónico</label>
+                        <label for="email" class="form-label fw-semibold">Correo Electronico</label>
                         <InputText id="email" class="form-control form-control-lg" @bind-Value="loginModel.Email" placeholder="usuario@ejemplo.com" />
                         <ValidationMessage For="@(() => loginModel.Email)" />
                     </div>
 
                     <div class="form-group mb-3">
-                        <label for="password" class="form-label fw-semibold">Contraseña</label>
-                        <InputText id="password" type="password" class="form-control form-control-lg" @bind-Value="loginModel.Password" placeholder="••••••••" />
+                        <label for="password" class="form-label fw-semibold">Contrasena</label>
+                        <InputText id="password" type="password" class="form-control form-control-lg" @bind-Value="loginModel.Password" placeholder="********" />
                         <ValidationMessage For="@(() => loginModel.Password)" />
                     </div>
 
@@ -50,112 +49,97 @@
                         @if (isLoading)
                         {
                             <span class="spinner-border spinner-border-sm" role="status"></span>
-                            <span> Iniciando sesión...</span>
+                            <span> Iniciando sesion...</span>
                         }
                         else
                         {
-                            <span>🔑 Iniciar Sesión</span>
+                            <span>Iniciar Sesion</span>
                         }
                     </button>
                 </EditForm>
             </div>
         </div>
 
-        <!-- Panel derecho: Usuarios demo -->
-        <div class="login-demo-panel">
-            <h3 class="text-center mb-1" style="color: #2c3e50;">🧪 Acceso Rápido — Demo</h3>
-            <p class="text-center text-muted mb-3" style="font-size: 0.85rem;">Haz clic en una tarjeta para rellenar el formulario</p>
+        @if (mostrarAyudaDemo)
+        {
+            <div class="login-demo-panel">
+                <h3 class="text-center mb-1" style="color: #2c3e50;">Acceso rapido demo</h3>
+                <p class="text-center text-muted mb-3" style="font-size: 0.85rem;">Haz clic en una tarjeta para rellenar el correo. Las credenciales de demo deben consultarse en documentacion controlada.</p>
 
-            <div class="demo-users-grid">
-                <!-- Administrador -->
-                <div class="demo-user-card demo-admin" onclick="fillLogin('admin@gestionobras.com','Admin123!')">
-                    <div class="demo-icon">👑</div>
-                    <div class="demo-info">
-                        <span class="demo-role">Administrador</span>
-                        <span class="demo-name">Dirección General</span>
-                        <span class="demo-email">admin@gestionobras.com</span>
-                        <span class="demo-pass">Admin123!</span>
+                <div class="demo-users-grid">
+                    <div class="demo-user-card demo-admin" onclick="fillLoginEmail('admin@gestionobras.com')">
+                        <div class="demo-icon">A</div>
+                        <div class="demo-info">
+                            <span class="demo-role">Administrador</span>
+                            <span class="demo-name">Direccion General</span>
+                            <span class="demo-email">admin@gestionobras.com</span>
+                        </div>
                     </div>
-                </div>
 
-                <!-- Jefe de Obra -->
-                <div class="demo-user-card demo-jefe" onclick="fillLogin('jefe.norte@gestionobras.com','Demo123!')">
-                    <div class="demo-icon">👷</div>
-                    <div class="demo-info">
-                        <span class="demo-role">Jefe de Obra</span>
-                        <span class="demo-name">Álvaro Molina Serrano</span>
-                        <span class="demo-email">jefe.norte@gestionobras.com</span>
-                        <span class="demo-pass">Demo123!</span>
+                    <div class="demo-user-card demo-jefe" onclick="fillLoginEmail('jefe.norte@gestionobras.com')">
+                        <div class="demo-icon">J</div>
+                        <div class="demo-info">
+                            <span class="demo-role">Jefe de Obra</span>
+                            <span class="demo-name">Alvaro Molina Serrano</span>
+                            <span class="demo-email">jefe.norte@gestionobras.com</span>
+                        </div>
                     </div>
-                </div>
 
-                <!-- Oficina Técnica -->
-                <div class="demo-user-card demo-oficina" onclick="fillLogin('oficina.senior@gestionobras.com','Demo123!')">
-                    <div class="demo-icon">📐</div>
-                    <div class="demo-info">
-                        <span class="demo-role">Oficina Técnica</span>
-                        <span class="demo-name">Lucía Sanchis Ferrer</span>
-                        <span class="demo-email">oficina.senior@gestionobras.com</span>
-                        <span class="demo-pass">Demo123!</span>
+                    <div class="demo-user-card demo-oficina" onclick="fillLoginEmail('oficina.senior@gestionobras.com')">
+                        <div class="demo-icon">O</div>
+                        <div class="demo-info">
+                            <span class="demo-role">Oficina Tecnica</span>
+                            <span class="demo-name">Lucia Sanchis Ferrer</span>
+                            <span class="demo-email">oficina.senior@gestionobras.com</span>
+                        </div>
                     </div>
-                </div>
 
-                <!-- Recursos Humanos -->
-                <div class="demo-user-card demo-rrhh" onclick="fillLogin('rrhh@gestionobras.com','Demo123!')">
-                    <div class="demo-icon">🧑‍💼</div>
-                    <div class="demo-info">
-                        <span class="demo-role">Recursos Humanos</span>
-                        <span class="demo-name">Elena Martínez García</span>
-                        <span class="demo-email">rrhh@gestionobras.com</span>
-                        <span class="demo-pass">Demo123!</span>
+                    <div class="demo-user-card demo-rrhh" onclick="fillLoginEmail('rrhh@gestionobras.com')">
+                        <div class="demo-icon">R</div>
+                        <div class="demo-info">
+                            <span class="demo-role">Recursos Humanos</span>
+                            <span class="demo-name">Elena Martinez Garcia</span>
+                            <span class="demo-email">rrhh@gestionobras.com</span>
+                        </div>
                     </div>
-                </div>
 
-                <!-- Operario de Obra -->
-                <div class="demo-user-card demo-operario" onclick="fillLogin('obra.01@gestionobras.com','Demo123!')">
-                    <div class="demo-icon">🔧</div>
-                    <div class="demo-info">
-                        <span class="demo-role">Operario de Obra</span>
-                        <span class="demo-name">Iván Quintana Beltrán</span>
-                        <span class="demo-email">obra.01@gestionobras.com</span>
-                        <span class="demo-pass">Demo123!</span>
+                    <div class="demo-user-card demo-operario" onclick="fillLoginEmail('obra.01@gestionobras.com')">
+                        <div class="demo-icon">W</div>
+                        <div class="demo-info">
+                            <span class="demo-role">Operario de Obra</span>
+                            <span class="demo-name">Ivan Quintana Beltran</span>
+                            <span class="demo-email">obra.01@gestionobras.com</span>
+                        </div>
                     </div>
-                </div>
 
-                <!-- Operario Oficina Técnica -->
-                <div class="demo-user-card demo-operariot" onclick="fillLogin('ot.01@gestionobras.com','Demo123!')">
-                    <div class="demo-icon">📋</div>
-                    <div class="demo-info">
-                        <span class="demo-role">Operario Oficina Téc.</span>
-                        <span class="demo-name">Paula Cuesta León</span>
-                        <span class="demo-email">ot.01@gestionobras.com</span>
-                        <span class="demo-pass">Demo123!</span>
+                    <div class="demo-user-card demo-operariot" onclick="fillLoginEmail('ot.01@gestionobras.com')">
+                        <div class="demo-icon">T</div>
+                        <div class="demo-info">
+                            <span class="demo-role">Operario Oficina Tecnica</span>
+                            <span class="demo-name">Paula Cuesta Leon</span>
+                            <span class="demo-email">ot.01@gestionobras.com</span>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+        }
     </div>
 </div>
 
 <script>
-    function fillLogin(email, pass) {
+    function fillLoginEmail(email) {
         var emailInput = document.getElementById('email');
-        var passInput = document.getElementById('password');
         if (emailInput) {
-            // Set native value setter to trigger Blazor binding
             var nativeEmailSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
             nativeEmailSetter.call(emailInput, email);
             emailInput.dispatchEvent(new Event('change', { bubbles: true }));
         }
-        if (passInput) {
-            var nativePassSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-            nativePassSetter.call(passInput, pass);
-            passInput.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-        // Visual feedback
+
         var cards = document.querySelectorAll('.demo-user-card');
         cards.forEach(function(c) { c.classList.remove('selected'); });
-        event.currentTarget.classList.add('selected');
+        if (event && event.currentTarget) {
+            event.currentTarget.classList.add('selected');
+        }
     }
 </script>
 
@@ -177,7 +161,6 @@
         align-items: stretch;
     }
 
-    /* Panel formulario */
     .login-form-panel {
         flex: 0 0 380px;
         display: flex;
@@ -208,7 +191,6 @@
         font-size: 0.9rem;
     }
 
-    /* Panel demo */
     .login-demo-panel {
         flex: 1;
         background: rgba(255,255,255,0.95);
@@ -247,7 +229,8 @@
     }
 
     .demo-icon {
-        font-size: 2rem;
+        font-size: 1.4rem;
+        font-weight: 700;
         flex-shrink: 0;
         width: 48px;
         height: 48px;
@@ -284,45 +267,39 @@
         text-overflow: ellipsis;
     }
 
-    .demo-pass {
-        font-size: 0.7rem;
-        color: #198754;
-        font-family: monospace;
-    }
-
-    /* Colores por rol */
     .demo-admin { border-left: 4px solid #6f42c1; }
-    .demo-admin .demo-icon { background: #f3efff; }
+    .demo-admin .demo-icon { background: #f3efff; color: #6f42c1; }
     .demo-admin .demo-role { color: #6f42c1; }
 
     .demo-jefe { border-left: 4px solid #fd7e14; }
-    .demo-jefe .demo-icon { background: #fff5ed; }
+    .demo-jefe .demo-icon { background: #fff5ed; color: #fd7e14; }
     .demo-jefe .demo-role { color: #fd7e14; }
 
     .demo-oficina { border-left: 4px solid #0dcaf0; }
-    .demo-oficina .demo-icon { background: #edfbff; }
+    .demo-oficina .demo-icon { background: #edfbff; color: #0ba5c7; }
     .demo-oficina .demo-role { color: #0ba5c7; }
 
     .demo-rrhh { border-left: 4px solid #20c997; }
-    .demo-rrhh .demo-icon { background: #edfff8; }
+    .demo-rrhh .demo-icon { background: #edfff8; color: #198754; }
     .demo-rrhh .demo-role { color: #198754; }
 
     .demo-operario { border-left: 4px solid #ffc107; }
-    .demo-operario .demo-icon { background: #fffced; }
+    .demo-operario .demo-icon { background: #fffced; color: #b58a00; }
     .demo-operario .demo-role { color: #b58a00; }
 
     .demo-operariot { border-left: 4px solid #6c757d; }
-    .demo-operariot .demo-icon { background: #f5f5f5; }
+    .demo-operariot .demo-icon { background: #f5f5f5; color: #6c757d; }
     .demo-operariot .demo-role { color: #6c757d; }
 
-    /* Responsive */
     @@media (max-width: 900px) {
         .login-wrapper {
             flex-direction: column;
         }
+
         .login-form-panel {
             flex: unset;
         }
+
         .demo-users-grid {
             grid-template-columns: 1fr;
         }
@@ -332,13 +309,15 @@
 @code {
     [SupplyParameterFromForm]
     private LoginModel loginModel { get; set; } = default!;
-    
+
     private string? errorMessage;
-    private bool isLoading = false;
+    private bool isLoading;
+    private bool mostrarAyudaDemo;
 
     protected override void OnInitialized()
     {
         loginModel ??= new();
+        mostrarAyudaDemo = Configuration.GetValue<bool>("FeatureFlags:EnableDemoLoginHints");
     }
 
     private async Task HandleLogin()
@@ -360,22 +339,23 @@
                 Navigation.NavigateTo("/", forceLoad: true);
                 return;
             }
-            else if (result.IsLockedOut)
+
+            if (result.IsLockedOut)
             {
-                errorMessage = "Tu cuenta está bloqueada. Contacta al administrador.";
+                errorMessage = "Tu cuenta esta bloqueada. Contacta al administrador.";
             }
             else if (result.IsNotAllowed)
             {
-                errorMessage = "Debes confirmar tu correo electrónico antes de iniciar sesión.";
+                errorMessage = "Debes confirmar tu correo electronico antes de iniciar sesion.";
             }
             else
             {
-                errorMessage = "Correo o contraseña incorrectos.";
+                errorMessage = "Correo o contrasena incorrectos.";
             }
         }
         catch (Exception ex)
         {
-            errorMessage = $"Error al iniciar sesión: {ex.Message}";
+            errorMessage = $"Error al iniciar sesion: {ex.Message}";
         }
         finally
         {
@@ -385,11 +365,11 @@
 
     public class LoginModel
     {
-        [Required(ErrorMessage = "El correo electrónico es obligatorio")]
-        [EmailAddress(ErrorMessage = "El formato del correo no es válido")]
+        [Required(ErrorMessage = "El correo electronico es obligatorio")]
+        [EmailAddress(ErrorMessage = "El formato del correo no es valido")]
         public string Email { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "La contraseña es obligatoria")]
+        [Required(ErrorMessage = "La contrasena es obligatoria")]
         [DataType(DataType.Password)]
         public string Password { get; set; } = string.Empty;
 

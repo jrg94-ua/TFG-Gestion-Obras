@@ -1,8 +1,10 @@
 @page "/register"
+@attribute [Authorize(Roles = "Administrador")]
 @using Microsoft.AspNetCore.Identity
 @using GestionObras.Core.Entities
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Authorization
 @inject UserManager<UsuarioObra> UserManager
 @inject RoleManager<IdentityRole> RoleManager
 @inject NavigationManager Navigation
@@ -125,8 +127,8 @@
                 }
             </button>
 
-            <div class="text-center mt-3">
-                <a href="/login">¿Ya tienes cuenta? Inicia sesión</a>
+            <div class="text-center mt-3 text-muted">
+                Alta de usuarios reservada a administracion.
             </div>
         </EditForm>
     </div>
@@ -145,11 +147,7 @@
         var user = authState.User;
         isAdmin = user.IsInRole("Administrador");
 
-        // Si no es admin, el tipo de usuario por defecto es Operario
-        if (!isAdmin)
-        {
-            registerModel.TipoUsuario = TipoUsuario.Operario;
-        }
+        registerModel.TipoUsuario = TipoUsuario.Operario;
     }
 
     private async Task HandleRegister()
