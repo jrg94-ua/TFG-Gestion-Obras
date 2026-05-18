@@ -274,7 +274,7 @@
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         usuarioActualId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
 
-        var response = await AdministracionApi.ObtenerEmpleadosAsync(usuarioActualId);
+        var response = await AdministracionApi.ObtenerEmpleadosAsync();
         descripcionJerarquiaActual = response.DescripcionJerarquiaActual;
         empleados = response.Empleados.Select(MapEmpleado).ToList();
 

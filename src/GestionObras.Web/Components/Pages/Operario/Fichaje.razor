@@ -226,7 +226,7 @@ else
 
     private async Task CargarDatos()
     {
-        var response = await OperarioApiClient.ObtenerFichajeAsync(usuarioActualId!);
+        var response = await OperarioApiClient.ObtenerFichajeAsync();
         nombreUsuario = response.NombreUsuario;
         fichajeAbierto = response.FichajeAbierto;
         historial = response.Historial;
@@ -239,7 +239,7 @@ else
         procesando = true;
         try
         {
-            var resultado = await OperarioApiClient.FicharEntradaAsync(usuarioActualId!, proyectoSeleccionadoId);
+            var resultado = await OperarioApiClient.FicharEntradaAsync(proyectoSeleccionadoId);
             MostrarMensaje(resultado.Mensaje, !resultado.Correcto);
             if (resultado.Correcto)
             {
@@ -257,7 +257,7 @@ else
         procesando = true;
         try
         {
-            var resultado = await OperarioApiClient.FicharSalidaAsync(usuarioActualId!);
+            var resultado = await OperarioApiClient.FicharSalidaAsync();
             MostrarMensaje(resultado.Mensaje, !resultado.Correcto);
             if (resultado.Correcto)
             {

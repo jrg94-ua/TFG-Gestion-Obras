@@ -238,7 +238,7 @@ else
         }
 
         int? proyectoId = int.TryParse(filtroProyectoId, out var pid) ? pid : null;
-        var respuesta = await JefeObraApiClient.ObtenerHorariosAsync(usuarioActualId, proyectoId, filtroUsuarioId);
+        var respuesta = await JefeObraApiClient.ObtenerHorariosAsync(proyectoId, filtroUsuarioId);
         misProyectos = respuesta.Proyectos;
         operariosDisponibles = respuesta.Operarios;
         horarios = respuesta.Horarios;

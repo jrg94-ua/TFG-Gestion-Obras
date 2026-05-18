@@ -12,26 +12,26 @@ public sealed class OperarioApiClient
         _httpClient = httpClient;
     }
 
-    public async Task<OperarioDashboardResponse> ObtenerDashboardAsync(string usuarioId, CancellationToken cancellationToken = default)
+    public async Task<OperarioDashboardResponse> ObtenerDashboardAsync(CancellationToken cancellationToken = default)
     {
         return await _httpClient.GetFromJsonAsync<OperarioDashboardResponse>(
-                   $"/api/operario/{Uri.EscapeDataString(usuarioId)}/dashboard",
+                   "/api/operario/dashboard",
                    cancellationToken)
                ?? new OperarioDashboardResponse();
     }
 
-    public async Task<OperarioFichajeResponse> ObtenerFichajeAsync(string usuarioId, CancellationToken cancellationToken = default)
+    public async Task<OperarioFichajeResponse> ObtenerFichajeAsync(CancellationToken cancellationToken = default)
     {
         return await _httpClient.GetFromJsonAsync<OperarioFichajeResponse>(
-                   $"/api/operario/{Uri.EscapeDataString(usuarioId)}/fichaje",
+                   "/api/operario/fichaje",
                    cancellationToken)
                ?? new OperarioFichajeResponse();
     }
 
-    public async Task<OperacionFichajeResponse> FicharEntradaAsync(string usuarioId, int? proyectoId, CancellationToken cancellationToken = default)
+    public async Task<OperacionFichajeResponse> FicharEntradaAsync(int? proyectoId, CancellationToken cancellationToken = default)
     {
         using var response = await _httpClient.PostAsJsonAsync(
-            $"/api/operario/{Uri.EscapeDataString(usuarioId)}/fichaje/entrada",
+            "/api/operario/fichaje/entrada",
             new CrearFichajeRequest { ProyectoId = proyectoId },
             cancellationToken);
 
@@ -39,10 +39,10 @@ public sealed class OperarioApiClient
                ?? new OperacionFichajeResponse { Correcto = response.IsSuccessStatusCode, Mensaje = "Respuesta vacia" };
     }
 
-    public async Task<OperacionFichajeResponse> FicharSalidaAsync(string usuarioId, CancellationToken cancellationToken = default)
+    public async Task<OperacionFichajeResponse> FicharSalidaAsync(CancellationToken cancellationToken = default)
     {
         using var response = await _httpClient.PostAsync(
-            $"/api/operario/{Uri.EscapeDataString(usuarioId)}/fichaje/salida",
+            "/api/operario/fichaje/salida",
             content: null,
             cancellationToken);
 

@@ -13,9 +13,9 @@ public sealed class ProyectosApiClient
         _httpClient = httpClient;
     }
 
-    public async Task<ProyectosResponse> ObtenerProyectosAsync(string usuarioId, CancellationToken cancellationToken = default)
+    public async Task<ProyectosResponse> ObtenerProyectosAsync(CancellationToken cancellationToken = default)
     {
-        return await _httpClient.GetFromJsonAsync<ProyectosResponse>($"/api/proyectos/{Uri.EscapeDataString(usuarioId)}", cancellationToken)
+        return await _httpClient.GetFromJsonAsync<ProyectosResponse>("/api/proyectos", cancellationToken)
                ?? new ProyectosResponse();
     }
 

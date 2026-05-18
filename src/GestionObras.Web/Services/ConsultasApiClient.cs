@@ -24,9 +24,9 @@ public sealed class ConsultasApiClient
                ?? new AdminDashboardResponse();
     }
 
-    public async Task<JefeObraDashboardResponse> ObtenerDashboardJefeObraAsync(string usuarioId, CancellationToken cancellationToken = default)
+    public async Task<JefeObraDashboardResponse> ObtenerDashboardJefeObraAsync(CancellationToken cancellationToken = default)
     {
-        return await _httpClient.GetFromJsonAsync<JefeObraDashboardResponse>($"/api/consultas/jefe-obra/{Uri.EscapeDataString(usuarioId)}/dashboard", cancellationToken)
+        return await _httpClient.GetFromJsonAsync<JefeObraDashboardResponse>("/api/consultas/jefe-obra/dashboard", cancellationToken)
                ?? new JefeObraDashboardResponse();
     }
 

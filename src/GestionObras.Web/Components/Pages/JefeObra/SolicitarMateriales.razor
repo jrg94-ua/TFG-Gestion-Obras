@@ -281,7 +281,7 @@
 
             if (!string.IsNullOrWhiteSpace(usuarioActualId))
             {
-                var response = await MaterialesApi.ObtenerDatosSolicitudAsync(usuarioActualId);
+                var response = await MaterialesApi.ObtenerDatosSolicitudAsync();
                 misProyectos = response.MisProyectos;
                 materiales = response.Materiales;
             }

@@ -328,7 +328,7 @@
             return;
         }
 
-        var response = await ProyectosApiClient.ObtenerProyectosAsync(usuarioActualId);
+        var response = await ProyectosApiClient.ObtenerProyectosAsync();
         proyectos = response.Proyectos;
         usuariosResponsables = response.ResponsablesDisponibles;
         rolesUsuarioActual = response.RolesUsuarioActual.ToHashSet();

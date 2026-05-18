@@ -6,11 +6,16 @@ using GestionObras.Core.Contracts.Operario;
 using GestionObras.Core.Contracts.Proyectos;
 using GestionObras.Core.Contracts.RRHH;
 using GestionObras.Core.Entities;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using GestionObras.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.DataProtection;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
+var dataProtectionPath = Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "..", "shared-keys"));
+Directory.CreateDirectory(dataProtectionPath);
 
 builder.Services.AddOpenApi();
 builder.Services.AddDbContext<GestionObrasDbContext>(options =>
@@ -18,11 +23,42 @@ builder.Services.AddDbContext<GestionObrasDbContext>(options =>
         builder.Configuration.GetConnectionString("DefaultConnection"),
         sqlServerOptions => sqlServerOptions.EnableRetryOnFailure(
             maxRetryCount: 5,
-            maxRetryDelay: TimeSpan.FromSeconds(30),
-            errorNumbersToAdd: null)));
+        maxRetryDelay: TimeSpan.FromSeconds(30),
+        errorNumbersToAdd: null)));
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionPath))
+    .SetApplicationName("GestionObras.Auth");
 builder.Services.AddIdentityCore<UsuarioObra>()
     .AddRoles<IdentityRole>()
+    .AddSignInManager()
+    .AddDefaultTokenProviders()
     .AddEntityFrameworkStores<GestionObrasDbContext>();
+builder.Services.AddAuthentication(IdentityConstants.ApplicationScheme)
+    .AddCookie(IdentityConstants.ApplicationScheme, options =>
+    {
+        options.Cookie.Name = "GestionObras.Auth";
+        options.Events = new CookieAuthenticationEvents
+        {
+            OnRedirectToLogin = context =>
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                return Task.CompletedTask;
+            },
+            OnRedirectToAccessDenied = context =>
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                return Task.CompletedTask;
+            }
+        };
+    });
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminPolicy", policy => policy.RequireRole("Administrador"));
+    options.AddPolicy("JefeObraPolicy", policy => policy.RequireRole("JefeObra", "Administrador"));
+    options.AddPolicy("OficinaTecnicaPolicy", policy => policy.RequireRole("OficinaTecnica", "Administrador"));
+    options.AddPolicy("RecursosHumanosPolicy", policy => policy.RequireRole("RecursosHumanos", "Administrador"));
+    options.AddPolicy("OperarioPolicy", policy => policy.RequireRole("Operario", "OperarioObra", "OperarioOficinaT", "JefeObra", "OficinaTecnica", "RecursosHumanos", "Administrador"));
+});
 
 var app = builder.Build();
 
@@ -38,13 +74,45 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseHttpsRedirection();
+app.UseAuthentication();
+app.UseAuthorization();
+app.Use(async (context, next) =>
+{
+    if (!context.Request.Path.StartsWithSegments("/api"))
+    {
+        await next();
+        return;
+    }
 
-app.MapGet("/api/jefe-obra/{responsableId}/horarios", async (
-    string responsableId,
+    if (!(context.User.Identity?.IsAuthenticated ?? false))
+    {
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        await context.Response.WriteAsJsonAsync(new { correcto = false, mensaje = "Acceso no autenticado." });
+        return;
+    }
+
+    if (!UsuarioPuedeAccederRuta(context.User, context.Request.Path))
+    {
+        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        await context.Response.WriteAsJsonAsync(new { correcto = false, mensaje = "No tienes permisos para acceder a este recurso." });
+        return;
+    }
+
+    await next();
+});
+
+app.MapGet("/api/jefe-obra/horarios", async (
+    HttpContext httpContext,
     int? proyectoId,
     string? usuarioId,
     GestionObrasDbContext db) =>
 {
+    var responsableId = ObtenerUsuarioAutenticadoId(httpContext.User);
+    if (string.IsNullOrWhiteSpace(responsableId))
+    {
+        return Results.Unauthorized();
+    }
+
     var misProyectos = await db.Proyectos
         .Where(p => p.ResponsableId == responsableId)
         .OrderBy(p => p.Nombre)
@@ -107,13 +175,19 @@ app.MapGet("/api/jefe-obra/{responsableId}/horarios", async (
 })
 .WithName("GetJefeObraHorarios");
 
-app.MapGet("/api/jefe-obra/{responsableId}/fichajes", async (
-    string responsableId,
+app.MapGet("/api/jefe-obra/fichajes", async (
+    HttpContext httpContext,
     DateOnly desde,
     DateOnly hasta,
     int? proyectoId,
     GestionObrasDbContext db) =>
 {
+    var responsableId = ObtenerUsuarioAutenticadoId(httpContext.User);
+    if (string.IsNullOrWhiteSpace(responsableId))
+    {
+        return Results.Unauthorized();
+    }
+
     var misProyectos = await db.Proyectos
         .Where(p => p.ResponsableId == responsableId)
         .OrderBy(p => p.Nombre)
@@ -161,10 +235,16 @@ app.MapGet("/api/jefe-obra/{responsableId}/fichajes", async (
 })
 .WithName("GetJefeObraFichajes");
 
-app.MapGet("/api/operario/{usuarioId}/dashboard", async (
-    string usuarioId,
+app.MapGet("/api/operario/dashboard", async (
+    HttpContext httpContext,
     GestionObrasDbContext db) =>
 {
+    var usuarioId = ObtenerUsuarioAutenticadoId(httpContext.User);
+    if (string.IsNullOrWhiteSpace(usuarioId))
+    {
+        return Results.Unauthorized();
+    }
+
     var usuario = await db.Users.FirstOrDefaultAsync(u => u.Id == usuarioId && u.Activo);
     if (usuario == null)
     {
@@ -231,10 +311,16 @@ app.MapGet("/api/operario/{usuarioId}/dashboard", async (
 })
 .WithName("GetOperarioDashboard");
 
-app.MapGet("/api/operario/{usuarioId}/fichaje", async (
-    string usuarioId,
+app.MapGet("/api/operario/fichaje", async (
+    HttpContext httpContext,
     GestionObrasDbContext db) =>
 {
+    var usuarioId = ObtenerUsuarioAutenticadoId(httpContext.User);
+    if (string.IsNullOrWhiteSpace(usuarioId))
+    {
+        return Results.Unauthorized();
+    }
+
     var usuario = await db.Users.FirstOrDefaultAsync(u => u.Id == usuarioId && u.Activo);
     if (usuario == null)
     {
@@ -314,11 +400,17 @@ app.MapGet("/api/operario/{usuarioId}/fichaje", async (
 })
 .WithName("GetOperarioFichaje");
 
-app.MapPost("/api/operario/{usuarioId}/fichaje/entrada", async (
-    string usuarioId,
+app.MapPost("/api/operario/fichaje/entrada", async (
+    HttpContext httpContext,
     CrearFichajeRequest request,
     GestionObrasDbContext db) =>
 {
+    var usuarioId = ObtenerUsuarioAutenticadoId(httpContext.User);
+    if (string.IsNullOrWhiteSpace(usuarioId))
+    {
+        return Results.Unauthorized();
+    }
+
     var ahora = DateTime.Now;
     var hoy = DateOnly.FromDateTime(ahora);
 
@@ -348,10 +440,16 @@ app.MapPost("/api/operario/{usuarioId}/fichaje/entrada", async (
 })
 .WithName("PostOperarioFichajeEntrada");
 
-app.MapPost("/api/operario/{usuarioId}/fichaje/salida", async (
-    string usuarioId,
+app.MapPost("/api/operario/fichaje/salida", async (
+    HttpContext httpContext,
     GestionObrasDbContext db) =>
 {
+    var usuarioId = ObtenerUsuarioAutenticadoId(httpContext.User);
+    if (string.IsNullOrWhiteSpace(usuarioId))
+    {
+        return Results.Unauthorized();
+    }
+
     var hoy = DateOnly.FromDateTime(DateTime.Today);
     var fichajeAbiertoEntidad = await db.RegistrosFichaje
         .FirstOrDefaultAsync(f => f.UsuarioId == usuarioId && f.Fecha == hoy && f.HoraSalida == null);
@@ -647,8 +745,14 @@ app.MapPost("/api/rrhh/contratos/{id:int}/finalizar", async (int id, GestionObra
 })
 .WithName("PostRRHHFinalizarContrato");
 
-app.MapGet("/api/proyectos/{usuarioId}", async (string usuarioId, GestionObrasDbContext db) =>
+app.MapGet("/api/proyectos", async (HttpContext httpContext, GestionObrasDbContext db) =>
 {
+    var usuarioId = ObtenerUsuarioAutenticadoId(httpContext.User);
+    if (string.IsNullOrWhiteSpace(usuarioId))
+    {
+        return Results.Unauthorized();
+    }
+
     var rolesUsuarioActual = await (
         from ur in db.UserRoles
         join r in db.Roles on ur.RoleId equals r.Id
@@ -1026,8 +1130,14 @@ app.MapPost("/api/materiales/categorias/{id:int}/alternar", async (int id, Gesti
 })
 .WithName("PostAlternarCategoriaMaterial");
 
-app.MapGet("/api/materiales/solicitudes/jefe-obra/{usuarioId}", async (string usuarioId, GestionObrasDbContext db) =>
+app.MapGet("/api/materiales/solicitudes/jefe-obra", async (HttpContext httpContext, GestionObrasDbContext db) =>
 {
+    var usuarioId = ObtenerUsuarioAutenticadoId(httpContext.User);
+    if (string.IsNullOrWhiteSpace(usuarioId))
+    {
+        return Results.Unauthorized();
+    }
+
     var misProyectos = await db.Proyectos
         .Where(p => p.ResponsableId == usuarioId && p.Estado != EstadoProyecto.Finalizado)
         .OrderBy(p => p.Nombre)
@@ -1049,8 +1159,14 @@ app.MapGet("/api/materiales/solicitudes/jefe-obra/{usuarioId}", async (string us
 })
 .WithName("GetSolicitarMateriales");
 
-app.MapPost("/api/materiales/solicitudes", async (CrearSolicitudMaterialRequest request, GestionObrasDbContext db) =>
+app.MapPost("/api/materiales/solicitudes", async (HttpContext httpContext, CrearSolicitudMaterialRequest request, GestionObrasDbContext db) =>
 {
+    var usuarioId = ObtenerUsuarioAutenticadoId(httpContext.User);
+    if (string.IsNullOrWhiteSpace(usuarioId))
+    {
+        return Results.Unauthorized();
+    }
+
     if (request.CantidadSolicitada <= 0)
     {
         return Results.BadRequest(new OperacionResponse { Correcto = false, Mensaje = "La cantidad debe ser mayor que 0." });
@@ -1061,7 +1177,7 @@ app.MapPost("/api/materiales/solicitudes", async (CrearSolicitudMaterialRequest 
         return Results.BadRequest(new OperacionResponse { Correcto = false, Mensaje = "Debe proporcionar una justificacion." });
     }
 
-    var proyectoValido = await db.Proyectos.AnyAsync(p => p.Id == request.ProyectoId && p.ResponsableId == request.SolicitadoPorId);
+    var proyectoValido = await db.Proyectos.AnyAsync(p => p.Id == request.ProyectoId && p.ResponsableId == usuarioId);
     if (!proyectoValido)
     {
         return Results.BadRequest(new OperacionResponse { Correcto = false, Mensaje = "El proyecto seleccionado no pertenece al usuario." });
@@ -1073,7 +1189,7 @@ app.MapPost("/api/materiales/solicitudes", async (CrearSolicitudMaterialRequest 
         ProyectoId = request.ProyectoId,
         CantidadSolicitada = request.CantidadSolicitada,
         Justificacion = request.Justificacion.Trim(),
-        SolicitadoPorId = request.SolicitadoPorId,
+        SolicitadoPorId = usuarioId,
         FechaSolicitud = DateTime.Now,
         Estado = EstadoSolicitudMaterial.Pendiente,
         Prioridad = request.Prioridad,
@@ -1085,8 +1201,14 @@ app.MapPost("/api/materiales/solicitudes", async (CrearSolicitudMaterialRequest 
 })
 .WithName("PostCrearSolicitudMaterial");
 
-app.MapGet("/api/materiales/solicitudes/jefe-obra/{usuarioId}/historial", async (string usuarioId, GestionObrasDbContext db) =>
+app.MapGet("/api/materiales/solicitudes/jefe-obra/historial", async (HttpContext httpContext, GestionObrasDbContext db) =>
 {
+    var usuarioId = ObtenerUsuarioAutenticadoId(httpContext.User);
+    if (string.IsNullOrWhiteSpace(usuarioId))
+    {
+        return Results.Unauthorized();
+    }
+
     var solicitudes = await db.SolicitudesMateriales
         .Include(s => s.Material).ThenInclude(m => m.Proveedor)
         .Include(s => s.Material).ThenInclude(m => m.Proveedores)
@@ -1279,8 +1401,14 @@ app.MapGet("/api/consultas/admin/dashboard", async (GestionObrasDbContext db) =>
 })
 .WithName("GetAdminDashboard");
 
-app.MapGet("/api/consultas/jefe-obra/{usuarioId}/dashboard", async (string usuarioId, GestionObrasDbContext db) =>
+app.MapGet("/api/consultas/jefe-obra/dashboard", async (HttpContext httpContext, GestionObrasDbContext db) =>
 {
+    var usuarioId = ObtenerUsuarioAutenticadoId(httpContext.User);
+    if (string.IsNullOrWhiteSpace(usuarioId))
+    {
+        return Results.Unauthorized();
+    }
+
     var misProyectos = await db.Proyectos
         .Include(p => p.Tareas)
         .Where(p => p.ResponsableId == usuarioId)
@@ -1490,11 +1618,17 @@ app.MapDelete("/api/administracion/usuarios/{id}", async (string id, UserManager
 })
 .WithName("DeleteAdministracionUsuario");
 
-app.MapGet("/api/administracion/empleados/{usuarioId}", async (
-    string usuarioId,
+app.MapGet("/api/administracion/empleados", async (
+    HttpContext httpContext,
     GestionObrasDbContext db,
     UserManager<UsuarioObra> userManager) =>
 {
+    var usuarioId = ObtenerUsuarioAutenticadoId(httpContext.User);
+    if (string.IsNullOrWhiteSpace(usuarioId))
+    {
+        return Results.Unauthorized();
+    }
+
     var usuarioActual = await userManager.FindByIdAsync(usuarioId);
     if (usuarioActual == null)
     {
@@ -1678,11 +1812,17 @@ app.MapPost("/api/administracion/tablero-proyectos/{id:int}/estado/{estado}", as
 })
 .WithName("PostAdministracionCambiarEstadoProyecto");
 
-app.MapGet("/api/administracion/mi-tablero/{usuarioId}", async (
-    string usuarioId,
+app.MapGet("/api/administracion/mi-tablero", async (
+    HttpContext httpContext,
     GestionObrasDbContext db,
     UserManager<UsuarioObra> userManager) =>
 {
+    var usuarioId = ObtenerUsuarioAutenticadoId(httpContext.User);
+    if (string.IsNullOrWhiteSpace(usuarioId))
+    {
+        return Results.Unauthorized();
+    }
+
     var usuarioActual = await userManager.FindByIdAsync(usuarioId);
     if (usuarioActual == null)
     {
@@ -1799,11 +1939,17 @@ app.MapPost("/api/administracion/mi-tablero/tareas/{id:int}/desbloquear", async 
 })
 .WithName("PostAdministracionMiTableroDesbloquear");
 
-app.MapPost("/api/administracion/mi-tablero/tareas/{id:int}/finalizar/{usuarioId}", async (
+app.MapPost("/api/administracion/mi-tablero/tareas/{id:int}/finalizar", async (
     int id,
-    string usuarioId,
+    HttpContext httpContext,
     GestionObrasDbContext db) =>
 {
+    var usuarioId = ObtenerUsuarioAutenticadoId(httpContext.User);
+    if (string.IsNullOrWhiteSpace(usuarioId))
+    {
+        return Results.Unauthorized();
+    }
+
     var tarea = await db.Tareas.Include(t => t.Bloqueo).FirstOrDefaultAsync(t => t.Id == id);
     if (tarea == null)
     {
@@ -1826,6 +1972,90 @@ app.MapPost("/api/administracion/mi-tablero/tareas/{id:int}/finalizar/{usuarioId
 .WithName("PostAdministracionMiTableroFinalizar");
 
 app.Run();
+
+static bool UsuarioPuedeAccederRuta(ClaimsPrincipal user, PathString path)
+{
+    if (path.StartsWithSegments("/api/rrhh"))
+    {
+        return user.IsInRole("RecursosHumanos") || user.IsInRole("Administrador");
+    }
+
+    if (path.StartsWithSegments("/api/jefe-obra"))
+    {
+        return user.IsInRole("JefeObra") || user.IsInRole("OficinaTecnica") || user.IsInRole("Administrador");
+    }
+
+    if (path.StartsWithSegments("/api/operario"))
+    {
+        return user.IsInRole("Operario") ||
+               user.IsInRole("OperarioObra") ||
+               user.IsInRole("OperarioOficinaT") ||
+               user.IsInRole("JefeObra") ||
+               user.IsInRole("OficinaTecnica") ||
+               user.IsInRole("RecursosHumanos") ||
+               user.IsInRole("Administrador");
+    }
+
+    if (path.StartsWithSegments("/api/consultas/admin"))
+    {
+        return user.IsInRole("Administrador");
+    }
+
+    if (path.StartsWithSegments("/api/consultas/jefe-obra"))
+    {
+        return user.IsInRole("JefeObra") || user.IsInRole("Administrador");
+    }
+
+    if (path.StartsWithSegments("/api/consultas/oficina-tecnica"))
+    {
+        return user.IsInRole("OficinaTecnica") || user.IsInRole("Administrador");
+    }
+
+    if (path.StartsWithSegments("/api/administracion/usuarios"))
+    {
+        return user.IsInRole("Administrador");
+    }
+
+    if (path.StartsWithSegments("/api/administracion/tablero-proyectos"))
+    {
+        return user.IsInRole("Administrador");
+    }
+
+    if (path.StartsWithSegments("/api/administracion/empleados"))
+    {
+        return user.IsInRole("Administrador") || user.IsInRole("JefeObra") || user.IsInRole("OficinaTecnica");
+    }
+
+    if (path.StartsWithSegments("/api/administracion/mi-tablero"))
+    {
+        return true;
+    }
+
+    if (path.StartsWithSegments("/api/materiales/solicitudes/admin"))
+    {
+        return user.IsInRole("Administrador");
+    }
+
+    if (path.StartsWithSegments("/api/materiales/solicitudes/jefe-obra"))
+    {
+        return user.IsInRole("JefeObra") || user.IsInRole("Administrador");
+    }
+
+    if (path.StartsWithSegments("/api/materiales/proveedores") ||
+        path.StartsWithSegments("/api/materiales/categorias"))
+    {
+        return user.IsInRole("Administrador");
+    }
+
+    if (path.StartsWithSegments("/api/proyectos") ||
+        path.StartsWithSegments("/api/materiales") ||
+        path.StartsWithSegments("/api/consultas"))
+    {
+        return true;
+    }
+
+    return true;
+}
 
 static ProveedorResumenDto MapProveedor(Proveedor proveedor) =>
     new(
@@ -1975,3 +2205,8 @@ static SolicitudMaterialResumenDto MapSolicitud(SolicitudMaterial solicitud) =>
         solicitud.ObservacionesAdmin,
         solicitud.Prioridad,
         solicitud.FechaNecesaria);
+
+static string? ObtenerUsuarioAutenticadoId(ClaimsPrincipal user)
+{
+    return user.FindFirstValue(ClaimTypes.NameIdentifier);
+}

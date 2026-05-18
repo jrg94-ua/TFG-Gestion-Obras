@@ -192,7 +192,7 @@ else
         var hasta = DateOnly.FromDateTime(fechaHasta);
         int? proyectoId = int.TryParse(filtroProyectoId, out var pid) ? pid : null;
 
-        var respuesta = await JefeObraApiClient.ObtenerFichajesAsync(usuarioActualId, desde, hasta, proyectoId);
+        var respuesta = await JefeObraApiClient.ObtenerFichajesAsync(desde, hasta, proyectoId);
         misProyectos = respuesta.Proyectos;
         fichajes = respuesta.Fichajes;
         AplicarFiltroEstado();

@@ -134,7 +134,7 @@
 
     private async Task CargarDatos()
     {
-        var response = await ConsultasApi.ObtenerDashboardJefeObraAsync(usuarioActualId);
+        var response = await ConsultasApi.ObtenerDashboardJefeObraAsync();
         misProyectos = response.MisProyectos;
         proyectosActivos = response.ProyectosActivos;
         tareasPendientes = response.TareasPendientes;

@@ -6,13 +6,20 @@ using GestionObras.Core.Entities;
 using Microsoft.AspNetCore.Components.Authorization;
 using System.Globalization;
 using GestionObras.Web.Services;
+using Microsoft.AspNetCore.DataProtection;
 
 var builder = WebApplication.CreateBuilder(args);
+var dataProtectionPath = Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "..", "shared-keys"));
+Directory.CreateDirectory(dataProtectionPath);
 
 // Configurar cultura española para formateo de moneda y fechas
 var cultureInfo = new CultureInfo("es-ES");
 CultureInfo.DefaultThreadCurrentCulture = cultureInfo;
 CultureInfo.DefaultThreadCurrentUICulture = cultureInfo;
+
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionPath))
+    .SetApplicationName("GestionObras.Auth");
 
 // Configurar DbContext con SQL Server
 builder.Services.AddDbContext<GestionObrasDbContext>(options =>
@@ -53,48 +60,49 @@ builder.Services.AddCascadingAuthenticationState();
 
 // Agregar HttpContextAccessor para acceder al contexto HTTP en componentes
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddTransient<ApiAuthCookieHandler>();
 builder.Services.AddHttpClient<GestionObras.Web.Services.JefeObraApiClient>((sp, client) =>
 {
     var configuration = sp.GetRequiredService<IConfiguration>();
     var baseUrl = configuration["ApiSettings:BaseUrl"] ?? "http://localhost:5000";
     client.BaseAddress = new Uri(baseUrl);
-});
+}).AddHttpMessageHandler<ApiAuthCookieHandler>();
 builder.Services.AddHttpClient<GestionObras.Web.Services.OperarioApiClient>((sp, client) =>
 {
     var configuration = sp.GetRequiredService<IConfiguration>();
     var baseUrl = configuration["ApiSettings:BaseUrl"] ?? "http://localhost:5000";
     client.BaseAddress = new Uri(baseUrl);
-});
+}).AddHttpMessageHandler<ApiAuthCookieHandler>();
 builder.Services.AddHttpClient<GestionObras.Web.Services.RRHHApiClient>((sp, client) =>
 {
     var configuration = sp.GetRequiredService<IConfiguration>();
     var baseUrl = configuration["ApiSettings:BaseUrl"] ?? "http://localhost:5000";
     client.BaseAddress = new Uri(baseUrl);
-});
+}).AddHttpMessageHandler<ApiAuthCookieHandler>();
 builder.Services.AddHttpClient<GestionObras.Web.Services.ProyectosApiClient>((sp, client) =>
 {
     var configuration = sp.GetRequiredService<IConfiguration>();
     var baseUrl = configuration["ApiSettings:BaseUrl"] ?? "http://localhost:5000";
     client.BaseAddress = new Uri(baseUrl);
-});
+}).AddHttpMessageHandler<ApiAuthCookieHandler>();
 builder.Services.AddHttpClient<GestionObras.Web.Services.MaterialesApiClient>((sp, client) =>
 {
     var configuration = sp.GetRequiredService<IConfiguration>();
     var baseUrl = configuration["ApiSettings:BaseUrl"] ?? "http://localhost:5000";
     client.BaseAddress = new Uri(baseUrl);
-});
+}).AddHttpMessageHandler<ApiAuthCookieHandler>();
 builder.Services.AddHttpClient<GestionObras.Web.Services.ConsultasApiClient>((sp, client) =>
 {
     var configuration = sp.GetRequiredService<IConfiguration>();
     var baseUrl = configuration["ApiSettings:BaseUrl"] ?? "http://localhost:5000";
     client.BaseAddress = new Uri(baseUrl);
-});
+}).AddHttpMessageHandler<ApiAuthCookieHandler>();
 builder.Services.AddHttpClient<GestionObras.Web.Services.AdministracionApiClient>((sp, client) =>
 {
     var configuration = sp.GetRequiredService<IConfiguration>();
     var baseUrl = configuration["ApiSettings:BaseUrl"] ?? "http://localhost:5000";
     client.BaseAddress = new Uri(baseUrl);
-});
+}).AddHttpMessageHandler<ApiAuthCookieHandler>();
 
 // Registrar repositorios
 builder.Services.AddScoped<GestionObras.Infrastructure.Repositories.IProyectoRepository, GestionObras.Infrastructure.Repositories.ProyectoRepository>();
@@ -121,6 +129,7 @@ builder.Services.AddRazorComponents()
 // Configurar opciones de cookies para autenticación
 builder.Services.ConfigureApplicationCookie(options =>
 {
+    options.Cookie.Name = "GestionObras.Auth";
     options.LoginPath = "/login";
     options.LogoutPath = "/logout";
     options.AccessDeniedPath = "/access-denied";

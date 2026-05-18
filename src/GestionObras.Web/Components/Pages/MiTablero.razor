@@ -369,7 +369,7 @@ else
 
     private async Task CargarDatos()
     {
-        var response = await AdministracionApi.ObtenerMiTableroAsync(usuarioActualId);
+        var response = await AdministracionApi.ObtenerMiTableroAsync();
         usuarioNombreCompleto = response.UsuarioNombreCompleto;
         esOperario = response.EsOperario;
         misTareas = response.Tareas;
@@ -578,7 +578,7 @@ else
             return;
         }
 
-        var result = await AdministracionApi.FinalizarTareaOperarioAsync(tarea.Id, usuarioActualId);
+        var result = await AdministracionApi.FinalizarTareaOperarioAsync(tarea.Id);
         if (!result.Correcto)
         {
             await JS.InvokeVoidAsync("alert", result.Mensaje);

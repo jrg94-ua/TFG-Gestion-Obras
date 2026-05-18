@@ -13,7 +13,6 @@ public sealed class JefeObraApiClient
     }
 
     public async Task<JefeObraHorariosResponse> ObtenerHorariosAsync(
-        string responsableId,
         int? proyectoId,
         string? usuarioId,
         CancellationToken cancellationToken = default)
@@ -29,7 +28,7 @@ public sealed class JefeObraApiClient
             query.Add($"usuarioId={Uri.EscapeDataString(usuarioId)}");
         }
 
-        var url = $"/api/jefe-obra/{Uri.EscapeDataString(responsableId)}/horarios";
+        var url = "/api/jefe-obra/horarios";
         if (query.Any())
         {
             url += "?" + string.Join("&", query);
@@ -40,7 +39,6 @@ public sealed class JefeObraApiClient
     }
 
     public async Task<JefeObraFichajesResponse> ObtenerFichajesAsync(
-        string responsableId,
         DateOnly desde,
         DateOnly hasta,
         int? proyectoId,
@@ -57,7 +55,7 @@ public sealed class JefeObraApiClient
             query.Add($"proyectoId={proyectoId.Value}");
         }
 
-        var url = $"/api/jefe-obra/{Uri.EscapeDataString(responsableId)}/fichajes?{string.Join("&", query)}";
+        var url = $"/api/jefe-obra/fichajes?{string.Join("&", query)}";
 
         return await _httpClient.GetFromJsonAsync<JefeObraFichajesResponse>(url, cancellationToken)
                ?? new JefeObraFichajesResponse();

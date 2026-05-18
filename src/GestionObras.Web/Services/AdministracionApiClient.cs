@@ -34,9 +34,9 @@ public sealed class AdministracionApiClient
                ?? new OperacionResponse { Correcto = response.IsSuccessStatusCode, Mensaje = "Respuesta vacia" };
     }
 
-    public async Task<GestionEmpleadosResponse> ObtenerEmpleadosAsync(string usuarioId, CancellationToken cancellationToken = default)
+    public async Task<GestionEmpleadosResponse> ObtenerEmpleadosAsync(CancellationToken cancellationToken = default)
     {
-        return await _httpClient.GetFromJsonAsync<GestionEmpleadosResponse>($"/api/administracion/empleados/{Uri.EscapeDataString(usuarioId)}", cancellationToken)
+        return await _httpClient.GetFromJsonAsync<GestionEmpleadosResponse>("/api/administracion/empleados", cancellationToken)
                ?? new GestionEmpleadosResponse();
     }
 
@@ -67,9 +67,9 @@ public sealed class AdministracionApiClient
                ?? new OperacionResponse { Correcto = response.IsSuccessStatusCode, Mensaje = "Respuesta vacia" };
     }
 
-    public async Task<MiTableroResponse> ObtenerMiTableroAsync(string usuarioId, CancellationToken cancellationToken = default)
+    public async Task<MiTableroResponse> ObtenerMiTableroAsync(CancellationToken cancellationToken = default)
     {
-        return await _httpClient.GetFromJsonAsync<MiTableroResponse>($"/api/administracion/mi-tablero/{Uri.EscapeDataString(usuarioId)}", cancellationToken)
+        return await _httpClient.GetFromJsonAsync<MiTableroResponse>("/api/administracion/mi-tablero", cancellationToken)
                ?? new MiTableroResponse();
     }
 
@@ -94,9 +94,9 @@ public sealed class AdministracionApiClient
                ?? new OperacionResponse { Correcto = response.IsSuccessStatusCode, Mensaje = "Respuesta vacia" };
     }
 
-    public async Task<OperacionResponse> FinalizarTareaOperarioAsync(int id, string usuarioId, CancellationToken cancellationToken = default)
+    public async Task<OperacionResponse> FinalizarTareaOperarioAsync(int id, CancellationToken cancellationToken = default)
     {
-        using var response = await _httpClient.PostAsync($"/api/administracion/mi-tablero/tareas/{id}/finalizar/{Uri.EscapeDataString(usuarioId)}", null, cancellationToken);
+        using var response = await _httpClient.PostAsync($"/api/administracion/mi-tablero/tareas/{id}/finalizar", null, cancellationToken);
         return await response.Content.ReadFromJsonAsync<OperacionResponse>(cancellationToken: cancellationToken)
                ?? new OperacionResponse { Correcto = response.IsSuccessStatusCode, Mensaje = "Respuesta vacia" };
     }

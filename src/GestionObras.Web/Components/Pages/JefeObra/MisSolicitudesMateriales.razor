@@ -340,7 +340,7 @@
 
             if (!string.IsNullOrWhiteSpace(usuarioActualId))
             {
-                var response = await MaterialesApi.ObtenerMisSolicitudesAsync(usuarioActualId);
+                var response = await MaterialesApi.ObtenerMisSolicitudesAsync();
                 solicitudes = response.Solicitudes;
                 proyectos = response.Proyectos;
             }

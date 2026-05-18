@@ -219,7 +219,7 @@ else
 
     private async Task CargarDatos()
     {
-        var response = await OperarioApiClient.ObtenerDashboardAsync(userId!);
+        var response = await OperarioApiClient.ObtenerDashboardAsync();
         nombreUsuario = response.NombreUsuario;
         tareasPendientes = response.TareasPendientes;
         tareasEnCurso = response.TareasEnCurso;

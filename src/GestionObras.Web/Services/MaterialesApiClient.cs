@@ -74,9 +74,9 @@ public sealed class MaterialesApiClient
                ?? new OperacionResponse { Correcto = response.IsSuccessStatusCode, Mensaje = "Respuesta vacia" };
     }
 
-    public async Task<SolicitarMaterialesResponse> ObtenerDatosSolicitudAsync(string usuarioId, CancellationToken cancellationToken = default)
+    public async Task<SolicitarMaterialesResponse> ObtenerDatosSolicitudAsync(CancellationToken cancellationToken = default)
     {
-        return await _httpClient.GetFromJsonAsync<SolicitarMaterialesResponse>($"/api/materiales/solicitudes/jefe-obra/{Uri.EscapeDataString(usuarioId)}", cancellationToken)
+        return await _httpClient.GetFromJsonAsync<SolicitarMaterialesResponse>("/api/materiales/solicitudes/jefe-obra", cancellationToken)
                ?? new SolicitarMaterialesResponse();
     }
 
@@ -87,9 +87,9 @@ public sealed class MaterialesApiClient
                ?? new OperacionResponse { Correcto = response.IsSuccessStatusCode, Mensaje = "Respuesta vacia" };
     }
 
-    public async Task<MisSolicitudesMaterialesResponse> ObtenerMisSolicitudesAsync(string usuarioId, CancellationToken cancellationToken = default)
+    public async Task<MisSolicitudesMaterialesResponse> ObtenerMisSolicitudesAsync(CancellationToken cancellationToken = default)
     {
-        return await _httpClient.GetFromJsonAsync<MisSolicitudesMaterialesResponse>($"/api/materiales/solicitudes/jefe-obra/{Uri.EscapeDataString(usuarioId)}/historial", cancellationToken)
+        return await _httpClient.GetFromJsonAsync<MisSolicitudesMaterialesResponse>("/api/materiales/solicitudes/jefe-obra/historial", cancellationToken)
                ?? new MisSolicitudesMaterialesResponse();
     }
 
