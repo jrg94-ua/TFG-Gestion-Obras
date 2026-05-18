@@ -8,9 +8,9 @@ namespace GestionObras.Web.Services;
 public sealed class KanbanService
 {
     private readonly GestionObrasDbContext _db;
-    private readonly UserManager<UsuarioObra> _userManager;
+    private readonly UserManager<UsuarioObra>? _userManager;
 
-    public KanbanService(GestionObrasDbContext db, UserManager<UsuarioObra> userManager)
+    public KanbanService(GestionObrasDbContext db, UserManager<UsuarioObra>? userManager = null)
     {
         _db = db;
         _userManager = userManager;
@@ -41,10 +41,11 @@ public sealed class KanbanService
         var rolesUsuarioActual = new HashSet<string>();
         if (!string.IsNullOrWhiteSpace(usuarioActualId))
         {
-            var usuarioActual = await _userManager.FindByIdAsync(usuarioActualId);
+            var userManager = GetUserManager();
+            var usuarioActual = await userManager.FindByIdAsync(usuarioActualId);
             if (usuarioActual != null)
             {
-                rolesUsuarioActual = (await _userManager.GetRolesAsync(usuarioActual)).ToHashSet();
+                rolesUsuarioActual = (await userManager.GetRolesAsync(usuarioActual)).ToHashSet();
             }
         }
 
@@ -56,7 +57,7 @@ public sealed class KanbanService
         var trabajadoresFinalesDisponibles = new List<UsuarioObra>();
         foreach (var empleado in empleadosDisponibles)
         {
-            var roles = await _userManager.GetRolesAsync(empleado);
+            var roles = await GetUserManager().GetRolesAsync(empleado);
             if (UsuarioEsTrabajadorFinal(roles))
             {
                 trabajadoresFinalesDisponibles.Add(empleado);
@@ -85,7 +86,7 @@ public sealed class KanbanService
             var listaSubtarea = new List<UsuarioObra>();
             foreach (var empleado in empleadosDisponibles)
             {
-                var rolesEmpleado = await _userManager.GetRolesAsync(empleado);
+                var rolesEmpleado = await GetUserManager().GetRolesAsync(empleado);
                 if (UsuarioEsAsignableEnSubtarea(rolesUsuarioActual, rolesEmpleado))
                 {
                     listaSubtarea.Add(empleado);
@@ -98,7 +99,7 @@ public sealed class KanbanService
         var responsablesPrincipales = new List<UsuarioObra>();
         foreach (var empleado in empleadosDisponibles)
         {
-            var rolesEmpleado = await _userManager.GetRolesAsync(empleado);
+            var rolesEmpleado = await GetUserManager().GetRolesAsync(empleado);
             if (rolesEmpleado.Contains("Administrador") ||
                 rolesEmpleado.Contains("JefeObra") ||
                 rolesEmpleado.Contains("OficinaTecnica"))
@@ -114,12 +115,18 @@ public sealed class KanbanService
     {
         var tarea = await _db.Tareas
             .Include(t => t.Bloqueo)
+            .Include(t => t.Predecesoras)
+            .Include(t => t.UsuariosAsignados)
+            .Include(t => t.Firmas)
+            .Include(t => t.TareaPadre)
             .FirstOrDefaultAsync(t => t.Id == tareaId);
 
         if (tarea == null)
         {
             throw new InvalidOperationException("La tarea indicada no existe.");
         }
+
+        await ValidarCambioEstadoAsync(tarea, nuevoEstado);
 
         if (tarea.Estado == EstadoTarea.Bloqueado && nuevoEstado != EstadoTarea.Bloqueado && tarea.Bloqueo != null)
         {
@@ -152,6 +159,8 @@ public sealed class KanbanService
             var existente = await _db.Tareas
                 .Include(t => t.UsuariosAsignados)
                 .Include(t => t.Predecesoras)
+                .Include(t => t.Firmas)
+                .Include(t => t.TareaPadre)
                 .FirstOrDefaultAsync(t => t.Id == tareaEditando.Id);
 
             if (existente == null)
@@ -182,10 +191,18 @@ public sealed class KanbanService
             {
                 existente.Predecesoras.Add(dependencia);
             }
+
+            await ValidarCambioEstadoAsync(existente, existente.Estado);
         }
         else
         {
             tareaEditando.Predecesoras = dependencias;
+            if (tareaEditando.TareaPadreId.HasValue)
+            {
+                tareaEditando.TareaPadre = await _db.Tareas.FirstOrDefaultAsync(t => t.Id == tareaEditando.TareaPadreId.Value);
+            }
+
+            await ValidarCambioEstadoAsync(tareaEditando, tareaEditando.Estado);
             _db.Tareas.Add(tareaEditando);
         }
 
@@ -283,6 +300,8 @@ public sealed class KanbanService
         var tarea = await _db.Tareas
             .Include(t => t.UsuariosAsignados)
             .Include(t => t.Firmas)
+            .Include(t => t.Predecesoras)
+            .Include(t => t.TareaPadre)
             .FirstOrDefaultAsync(t => t.Id == tareaId);
 
         if (tarea == null)
@@ -290,9 +309,11 @@ public sealed class KanbanService
             throw new InvalidOperationException("La tarea indicada no existe.");
         }
 
-        if (tarea.RequiereFirmaConjunta && !tarea.TodosHanFirmado())
+        await ValidarCambioEstadoAsync(tarea, EstadoTarea.Finalizado);
+
+        if (tarea.RequiereFirmaConjunta && !UsuarioEstaAsignadoATarea(tarea, usuarioActualId))
         {
-            throw new InvalidOperationException("La tarea requiere la firma de todos los usuarios asignados antes de finalizar.");
+            throw new InvalidOperationException("Solo un usuario asignado a la tarea puede completarla cuando requiere firma conjunta.");
         }
 
         tarea.Estado = EstadoTarea.Finalizado;
@@ -308,12 +329,15 @@ public sealed class KanbanService
         var tarea = await _db.Tareas
             .Include(t => t.UsuariosAsignados)
             .Include(t => t.Bloqueo)
+            .Include(t => t.Firmas)
             .FirstOrDefaultAsync(t => t.Id == tareaId);
 
         if (tarea == null)
         {
             throw new InvalidOperationException("La tarea indicada no existe.");
         }
+
+        ValidarFirma(tarea, usuarioActualId);
 
         var firmaExistente = await _db.FirmasTareas
             .AsNoTracking()
@@ -351,6 +375,77 @@ public sealed class KanbanService
         await _db.SaveChangesAsync();
 
         return new FirmaResultado(true);
+    }
+
+    private async Task ValidarCambioEstadoAsync(Tarea tarea, EstadoTarea nuevoEstado)
+    {
+        var quiereAvanzar = nuevoEstado == EstadoTarea.EnCurso || nuevoEstado == EstadoTarea.Finalizado;
+
+        if (quiereAvanzar)
+        {
+            var predecesorasPendientes = tarea.Predecesoras
+                .Where(p => p.Estado != EstadoTarea.Finalizado)
+                .Select(p => p.Nombre)
+                .ToList();
+
+            if (predecesorasPendientes.Any())
+            {
+                throw new InvalidOperationException("No puedes avanzar esta tarea porque tiene dependencias sin finalizar: " + string.Join(", ", predecesorasPendientes));
+            }
+        }
+
+        if (nuevoEstado == EstadoTarea.Finalizado)
+        {
+            var tieneSubtareasAbiertas = await _db.Tareas
+                .AnyAsync(t => t.TareaPadreId == tarea.Id && t.Estado != EstadoTarea.Finalizado);
+
+            if (tieneSubtareasAbiertas)
+            {
+                throw new InvalidOperationException("No puedes finalizar una tarea padre mientras tenga subtareas no finalizadas.");
+            }
+        }
+
+        var tareaPadre = tarea.TareaPadre;
+        if (tareaPadre == null && tarea.TareaPadreId.HasValue)
+        {
+            tareaPadre = await _db.Tareas.FirstOrDefaultAsync(t => t.Id == tarea.TareaPadreId.Value);
+        }
+
+        if (tareaPadre != null)
+        {
+            if (quiereAvanzar && (tareaPadre.Estado == EstadoTarea.Pendiente || tareaPadre.Estado == EstadoTarea.Bloqueado))
+            {
+                throw new InvalidOperationException("No puedes avanzar una subtarea si su tarea padre esta pendiente o bloqueada.");
+            }
+
+            if (tareaPadre.Estado == EstadoTarea.Finalizado && nuevoEstado != EstadoTarea.Finalizado)
+            {
+                throw new InvalidOperationException("No puedes reabrir una subtarea si su tarea padre ya esta finalizada.");
+            }
+        }
+
+        if (nuevoEstado == EstadoTarea.Finalizado && tarea.RequiereFirmaConjunta && !tarea.TodosHanFirmado())
+        {
+            throw new InvalidOperationException("La tarea requiere la firma de todos los usuarios asignados antes de finalizar.");
+        }
+    }
+
+    private static void ValidarFirma(Tarea tarea, string usuarioActualId)
+    {
+        if (!tarea.RequiereFirmaConjunta)
+        {
+            throw new InvalidOperationException("Esta tarea no requiere firma conjunta.");
+        }
+
+        if (tarea.Estado != EstadoTarea.EnCurso)
+        {
+            throw new InvalidOperationException("Solo se puede firmar una tarea que este en estado En Curso.");
+        }
+
+        if (!UsuarioEstaAsignadoATarea(tarea, usuarioActualId))
+        {
+            throw new InvalidOperationException("Solo los usuarios asignados a la tarea pueden firmarla.");
+        }
     }
 
     private async Task<List<Tarea>> ObtenerSubtareasDescendientesAsync(int tareaId)
@@ -419,6 +514,21 @@ public sealed class KanbanService
         }
 
         return true;
+    }
+
+    private UserManager<UsuarioObra> GetUserManager()
+    {
+        return _userManager ?? throw new InvalidOperationException("UserManager no disponible para esta operacion.");
+    }
+
+    private static bool UsuarioEstaAsignadoATarea(Tarea tarea, string? usuarioId)
+    {
+        if (string.IsNullOrWhiteSpace(usuarioId))
+        {
+            return false;
+        }
+
+        return tarea.UsuariosAsignados.Any(u => u.Id == usuarioId) || tarea.ResponsableFinalId == usuarioId;
     }
 }
 
