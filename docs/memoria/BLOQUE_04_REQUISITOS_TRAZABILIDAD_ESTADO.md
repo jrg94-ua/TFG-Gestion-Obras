@@ -44,6 +44,11 @@ Algunos requisitos cuentan con una base funcional o de modelado suficiente para 
 | RF-21 | Registro de jornada con geolocalizacion | Parcial | La entidad soporta coordenadas, pero la captura en interfaz no esta cerrada |
 | RF-22 | Carpeta documental del proyecto | Parcial | Existe modelado de `CarpetaLegal`, pero no un modulo completo de explotacion funcional |
 
+Ademas, existen dos lineas de alcance que deben formularse con honestidad tecnica:
+
+- la validacion PRL esta modelada en dominio, pero no integrada de forma cerrada y uniforme en todos los flujos operativos,
+- y la inteligencia normativa automatizada forma parte de la vision ampliada del TFG, no del nucleo funcional completamente implementado.
+
 ## 4. Requisitos no incluidos en el cierre principal
 
 Con el fin de no sobredimensionar el apartado de limitaciones, solo se recogen aqui aquellas lineas que realmente pertenecian a una vision mas amplia del proyecto y que quedaron fuera del cierre principal:
@@ -61,7 +66,7 @@ Ademas de los requisitos funcionales, el sistema responde a varios requisitos no
 
 ### 5.1 Seguridad
 
-La aplicacion incorpora autenticacion, autorizacion por roles y control de acceso segmentado segun perfil de usuario.
+La aplicacion incorpora autenticacion, autorizacion por roles y control de acceso segmentado segun perfil de usuario. No obstante, la defensa debe distinguir entre esta capa de seguridad ya operativa y las validaciones especificas de PRL, que todavia no condicionan todos los flujos de trabajo de extremo a extremo.
 
 ### 5.2 Integridad y consistencia
 
@@ -115,7 +120,7 @@ Desde una vision agregada, el proyecto presenta un grado alto de implementacion 
 - contratos, horarios y fichajes,
 - y seguridad por roles.
 
-Las lineas menos maduras quedan acotadas a un conjunto reducido de extensiones futuras y no deben desdibujar el peso de lo que si esta resuelto.
+Las lineas menos maduras quedan acotadas a un conjunto reducido de extensiones futuras, especialmente normativa automatizada, PRL operativa cerrada y geolocalizacion completa, y no deben desdibujar el peso de lo que si esta resuelto.
 
 ## 9. Valor academico de la trazabilidad
 

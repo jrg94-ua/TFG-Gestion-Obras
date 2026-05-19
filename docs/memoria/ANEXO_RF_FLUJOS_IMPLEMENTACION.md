@@ -135,7 +135,7 @@ tareaEditando.UsuariosAsignados = responsables;
 
 ### RF-07. Tablero personal del trabajador
 
-- Flujo: `MiTablero.razor -> AdministracionApiClient -> /api/administracion/mi-tablero/{usuarioId} -> SQL Server`
+- Flujo: `MiTablero.razor -> AdministracionApiClient -> /api/administracion/mi-tablero -> SQL Server`
 - Archivos clave:
   - `src/GestionObras.Web/Components/Pages/MiTablero.razor`
   - `src/GestionObras.Web/Services/AdministracionApiClient.cs`
@@ -143,9 +143,9 @@ tareaEditando.UsuariosAsignados = responsables;
 - Explicacion: el tablero personal se carga desde la API con un DTO ya filtrado por usuario y con operaciones concretas para cambiar estado, bloquear y finalizar.
 
 ```csharp
-public async Task<MiTableroResponse> ObtenerMiTableroAsync(string usuarioId, CancellationToken cancellationToken = default)
+public async Task<MiTableroResponse> ObtenerMiTableroAsync(CancellationToken cancellationToken = default)
 {
-    return await _httpClient.GetFromJsonAsync<MiTableroResponse>($"/api/administracion/mi-tablero/{Uri.EscapeDataString(usuarioId)}", cancellationToken)
+    return await _httpClient.GetFromJsonAsync<MiTableroResponse>("/api/administracion/mi-tablero", cancellationToken)
            ?? new MiTableroResponse();
 }
 ```
@@ -327,13 +327,13 @@ await CargarHorarios();
 
 ```csharp
 var tareasNoOperativas = tareasActivas
-    .Where(t => t.ResponsableFinal?.TipoUsuario != TipoUsuario.Operario)
+    .Where(t => !t.ResponsableFinal.EsPerfilOperativo())
     .ToList();
 ```
 
 ### RF-17. Registro de fichajes
 
-- Flujo: `Operario/Fichaje.razor -> OperarioApiClient -> /api/operario/{usuarioId}/fichaje/* -> SQL Server`
+- Flujo: `Operario/Fichaje.razor -> OperarioApiClient -> /api/operario/fichaje/* -> SQL Server`
 - Archivos clave:
   - `src/GestionObras.Web/Components/Pages/Operario/Fichaje.razor`
   - `src/GestionObras.Web/Services/OperarioApiClient.cs`
@@ -342,15 +342,15 @@ var tareasNoOperativas = tareasActivas
 
 ```csharp
 using var response = await _httpClient.PostAsJsonAsync(
-    $"/api/operario/{Uri.EscapeDataString(usuarioId)}/fichaje/entrada",
-    request,
+    "/api/operario/fichaje/entrada",
+    new CrearFichajeRequest { ProyectoId = proyectoId },
     cancellationToken);
 ```
 
 ```csharp
 var fichaje = new RegistroFichaje
 {
-    UsuarioId = usuarioId,
+    UsuarioId = usuario.Id,
     ProyectoId = request.ProyectoId,
     Fecha = DateOnly.FromDateTime(ahora),
     HoraEntrada = ahora,
@@ -424,6 +424,16 @@ if (result.Succeeded && !string.IsNullOrWhiteSpace(request.Rol))
 
 - Estado: parcial.
 - Explicacion: la entidad `RegistroFichaje` soporta latitud y longitud, pero la interfaz actual no captura esas coordenadas.
+
+### PRL. Validacion de formacion preventiva
+
+- Estado: parcial.
+- Explicacion: el dominio `Empleado` modela cursos PRL y su vigencia, pero la validacion no esta integrada de forma uniforme en todos los flujos operativos.
+
+### Normativa. Inteligencia documental y legal
+
+- Estado: parcial.
+- Explicacion: existen contratos de servicio y documentacion conceptual, pero no una integracion funcional cerrada con BOE, CTE o PGOU en la aplicacion ejecutable.
 
 ### RF-22. Carpeta documental del proyecto
 

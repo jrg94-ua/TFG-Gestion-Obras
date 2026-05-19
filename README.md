@@ -1,14 +1,14 @@
 # Sistema de Gestión de Obras para PYMEs Constructoras
 
 ![Estado](https://img.shields.io/badge/estado-en%20desarrollo-yellow)
-![.NET](https://img.shields.io/badge/.NET-8.0-purple)
+![.NET](https://img.shields.io/badge/.NET-10.0-purple)
 ![Licencia](https://img.shields.io/badge/licencia-MIT-blue)
 
 ## 📋 Descripción del Proyecto
 
 Sistema integral de gestión de obras desarrollado como Trabajo de Fin de Grado, diseñado específicamente para modernizar la operativa de pequeñas y medianas empresas (PYMEs) del sector de la construcción en España. 
 
-El aplicativo digitaliza los procesos clave de gestión de proyectos, desde la planificación y control de costes hasta el cumplimiento normativo automatizado, integrando el **Código Técnico de la Edificación (CTE)**, el **BOE** y normativas autonómicas como la **LOTUP**.
+El aplicativo digitaliza los procesos clave de gestión de proyectos, desde la planificación y control de costes hasta la gestión operativa de tareas, materiales, facturas y recursos humanos. El repositorio también recoge una línea de trabajo de inteligencia normativa basada en **CTE**, **BOE** y normativa autonómica como la **LOTUP**, pero esa parte debe considerarse actualmente **parcial y no cerrada end-to-end** en la aplicación ejecutable.
 
 ---
 
@@ -28,9 +28,9 @@ El aplicativo digitaliza los procesos clave de gestión de proyectos, desde la p
 
 ### Principales
 - **Digitalizar la gestión operativa** eliminando la dependencia del papel y hojas de cálculo desvinculadas
-- **Automatizar el cumplimiento normativo** mediante conexión directa con BOE, CTE y planes urbanísticos locales
+- **Centralizar proyectos, tareas, materiales, costes y personal** en una única aplicación
 - **Optimizar el ROI** a través del control en tiempo real de presupuestos, costes y recursos
-- **Centralizar la documentación técnica** garantizando una "versión única de la verdad" para todos los actores
+- **Dejar preparada una base arquitectónica** para futuras integraciones normativas y documentales
 
 ### Secundarios
 - Facilitar la adopción tecnológica en empresas acogidas al programa **Kit Digital**
@@ -59,14 +59,14 @@ El aplicativo digitaliza los procesos clave de gestión de proyectos, desde la p
 - Optimizado para tablets y móviles en obra
 
 #### Inteligencia Artificial y Servicios Externos
-- **OpenAI/Tavily API** - Capa de descubrimiento de normativa local (PGOU)
-- **Llama 3 + Ollama** - Procesamiento local mediante RAG (Retrieval-Augmented Generation)
-- **Azure Cognitive Services** - Análisis de documentos técnicos (alternativa)
+- **OpenAI/Tavily API** - Línea de exploración documental y normativa no cerrada en la app actual
+- **Llama 3 + Ollama** - Alternativa conceptual para RAG local, no integrada en el flujo operativo actual
+- **Azure Cognitive Services** - Opción de evolución para análisis documental
 
 #### Integración Normativa
-- **RSS BOE** - Vigilancia automática de cambios legislativos
-- **XML CTE** - Catálogo de Elementos Constructivos del Ministerio
-- **Scraping IA** - Extracción de parámetros urbanísticos de PGOU municipales
+- **RSS BOE** - Fuente prevista para vigilancia legislativa futura
+- **XML CTE** - Fuente técnica prevista para validaciones futuras
+- **PGOU/planeamiento local** - Línea de evolución documental y de consulta, no integrada end-to-end hoy
 
 #### Infraestructura
 - **Azure/AWS Cloud** - Hosting en la nube para disponibilidad 24/7
@@ -80,18 +80,19 @@ El aplicativo digitaliza los procesos clave de gestión de proyectos, desde la p
 | Perfil | Permisos | Casos de Uso |
 |--------|----------|--------------|
 | **Administrador/Gerente** | Acceso total: ROI, aprobación de pagos, configuración global | Supervisión estratégica y financiera |
-| **Jefe de Obra** | Gestión de tablero Kanban, mediciones, PRL, documentación | Control operativo a pie de obra |
-| **Oficina Técnica** | Vinculación de materiales con CTE, validación técnica | Cumplimiento normativo y certificaciones |
-| **Operario** | Fichaje geolocalizado, consulta de tareas, avisos de seguridad | Registro de jornada y consulta básica |
+| **Jefe de Obra** | Gestión de tablero Kanban, planificación y seguimiento de obra | Control operativo a pie de obra |
+| **Oficina Técnica** | Apoyo técnico, planificación y seguimiento documental | Coordinación técnica del proyecto |
+| **Operario** | Consulta de tareas, tablero personal y fichaje | Registro de jornada y ejecución operativa |
+| **RRHH** | Contratos, horarios, validación de fichajes y gestión de personal | Supervisión laboral y administrativa |
 
 ---
 
 ## ⚙️ Funcionalidades Principales
 
-### 🏛️ Inteligencia Normativa (Automatizada)
-- **Vigilancia BOE**: Notificaciones automáticas de cambios en el CTE
-- **Catálogo CTE**: Validación de materiales contra requisitos técnicos oficiales
-- **IA Urbanística**: Extracción de parámetros de Planes Generales (PGOU) mediante IA local
+### 🏛️ Inteligencia Normativa (Alcance parcial)
+- **Modelado documental**: base de dominio para carpeta legal y servicios normativos
+- **Documentación de arquitectura**: visión de integración con BOE, CTE y normativa autonómica
+- **Estado actual**: esta línea no está integrada de forma operativa completa en la aplicación ejecutable
 
 ### 📊 Gestión de Proyectos
 - **Tablero Kanban Visual**: Organización de fases de obra (Cimentación, Estructura, etc.)
@@ -105,14 +106,15 @@ El aplicativo digitaliza los procesos clave de gestión de proyectos, desde la p
 - **Control de Stock**: Descuento automático del inventario al ejecutar tareas
 
 ### 👷 Recursos Humanos y Seguridad
-- **Fichaje Geolocalizado**: Validación de jornada laboral con GPS
-- **Validación PRL**: Bloqueo de acceso sin formación de prevención vigente
-- **Gestión de Turnos**: Control de horas extra según convenio
+- **Fichaje y validación de jornada**: entrada, salida, histórico y revisión por RRHH
+- **Gestión de contratos y horarios**: planificación manual y automática por capacidad operativa
+- **PRL**: modelado de cursos y vigencia, pendiente de integración cerrada en todos los flujos operativos
+- **Geolocalización**: soporte en entidad de fichaje, con captura de coordenadas aún no cerrada en interfaz
 
 ### 📄 Documentación Técnica
-- **Carpeta Legal Automática**: Generación de repositorio con normativa vigente por proyecto
-- **Exportación a PDF**: Actas de obra y certificaciones con formato oficial
-- **Trazabilidad Total**: Auditoría completa de cambios y versiones de documentos
+- **Exportación a PDF/Excel**: informes y listados desde varios módulos
+- **Base para carpeta legal**: modelado parcial pendiente de explotación funcional completa
+- **Trazabilidad funcional**: seguimiento de proyectos, tareas, materiales, facturas y RRHH
 
 ---
 
@@ -203,18 +205,14 @@ Para instrucciones completas, ver la guía de instalación actualizada en `docs/
 ## 📊 Casos de Uso Principales
 
 ### Caso 1: Inicio de Nuevo Proyecto
-1. El **Jefe de Obra** crea un proyecto indicando ubicación (Provincia/Municipio) y tipo de suelo
-2. El sistema activa automáticamente los **Servicios de Inteligencia**:
-   - 🔍 Consulta el BOE para descargar el CTE vigente
-   - 🏛️ La IA localiza el PGOU del municipio
-   - 📋 Genera la "Carpeta Legal" con toda la normativa aplicable
-3. Se crea el **Tablero Kanban** con las fases estándar de obra
+1. El **Jefe de Obra** crea un proyecto indicando sus datos principales.
+2. El sistema registra la obra, la deja disponible para planificación y seguimiento, y permite asociar tareas, responsables, materiales y presupuestos.
+3. Se crea y gestiona el **Tablero Kanban** con las fases y tareas de la obra.
 
-### Caso 2: Control de Cumplimiento de Materiales
-1. La **Oficina Técnica** añade un material (ej: aislante térmico) al presupuesto
-2. El sistema consulta el **Catálogo del CTE** (archivo XML del Ministerio)
-3. Valida que el material cumple con la **transmitancia térmica** exigida por el DB-HE
-4. Si hay cambios normativos, notifica automáticamente al equipo
+### Caso 2: Gestión de Materiales y Aprovisionamiento
+1. La **Oficina Técnica** o el equipo responsable registra materiales y proveedores.
+2. El sistema permite crear solicitudes, revisarlas y aprobarlas.
+3. La aprobación actualiza stock y deja trazabilidad del aprovisionamiento.
 
 ### Caso 3: Monitorización de ROI
 1. El **Gerente** accede al dashboard financiero
@@ -228,35 +226,24 @@ Para instrucciones completas, ver la guía de instalación actualizada en `docs/
 
 ## 📝 Requisitos Funcionales Clave
 
-### Bloque 1: Inteligencia Normativa
-- **RF-01**: Alta de obra con ubicación y tipo de suelo
-- **RF-02**: Sincronización automática con BOE (RSS)
-- **RF-03**: Integración con Catálogo del CTE (XML)
-- **RF-04**: Agente de IA para localización de PGOU
-- **RF-05**: Extracción de parámetros urbanísticos (altura, retranqueos, etc.)
+La versión entregable del TFG implementa de forma defendible:
 
-### Bloque 2: Operaciones
-- **RF-06**: Tablero Kanban de obra con estados (Pendiente, En curso, Bloqueado, Finalizado)
-- **RF-07**: Gestión de bloqueos con justificación técnica
-- **RF-08**: Registro de mediciones reales vs. presupuestadas
-- **RF-09**: Diario de obra digital con fotos y geolocalización
+- gestión de proyectos,
+- kanban de tareas con dependencias, bloqueos y jerarquía,
+- tablero personal por usuario,
+- materiales, proveedores y solicitudes,
+- presupuestos y facturas,
+- contratos, horarios y fichajes,
+- exportación documental,
+- y autenticación/autorización por roles.
 
-### Bloque 3: Recursos Humanos
-- **RF-10**: Asignación de personal a proyectos
-- **RF-11**: Fichaje geolocalizado
-- **RF-12**: Control de horarios y turnos
-- **RF-13**: Validación de formación en PRL
+Quedan como líneas parciales o futuras:
 
-### Bloque 4: Economía
-- **RF-14**: Gestión de facturas vinculadas a partidas
-- **RF-15**: Control de estados de pago
-- **RF-16**: Contabilidad de materiales (descuento automático de stock)
-- **RF-17**: Comparativa de presupuestos de proveedores
-- **RF-18**: Cálculo de ROI en tiempo real
-
-### Bloque 5: Comunicación
-- **RF-19**: Centro de notificaciones push
-- **RF-20**: Carpeta documental inteligente por obra
+- inteligencia normativa automatizada,
+- carpeta legal operativa,
+- geolocalización completa en fichaje,
+- PRL integrada end-to-end en los flujos,
+- y notificaciones push.
 
 ---
 
@@ -283,7 +270,7 @@ Para instrucciones completas, ver la guía de instalación actualizada en `docs/
 
 - [Análisis de Requisitos Completo](docs/requisitos/README.md)
 - [Diagramas de Arquitectura](docs/arquitectura/README.md)
-- [Integración Normativa](docs/normativa/README.md)
+- [Integración Normativa y Alcance Real](docs/normativa/README.md)
 - [Manual de Usuario por Perfiles](docs/manual-usuario/README.md)
 - [Guía de Despliegue](scripts/deployment/README.md)
 
@@ -325,7 +312,7 @@ Para consultas sobre el proyecto:
 
 ---
 
-**Nota**: Este proyecto está en fase de desarrollo activo como parte de un TFG. La documentación y funcionalidades se actualizan regularmente.
+**Nota**: Este proyecto combina un núcleo funcional ya implementado con varias líneas de evolución documentadas. Para la entrega académica conviene defender como implementado el núcleo operativo y presentar la inteligencia normativa, la geolocalización completa y la PRL cerrada como alcance parcial o trabajo futuro.
 ### Contexto de codigo
 
 - [Rastreo Integral de la Aplicacion](docs/arquitectura/RASTREO_APLICACION.md)

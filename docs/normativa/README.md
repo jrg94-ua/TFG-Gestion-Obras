@@ -1,8 +1,14 @@
-# Integración Normativa
+# Integracion Normativa
 
-## Introducción
+## Introduccion
 
-Este documento detalla cómo el sistema integra la normativa técnica española de edificación de forma **automatizada**, garantizando el cumplimiento legal en todos los proyectos.
+Este documento describe la **vision funcional y tecnica** de la capa normativa del TFG. Debe leerse como una linea de arquitectura y evolucion del sistema, no como una afirmacion de que toda esta integracion este ya cerrada de extremo a extremo en la aplicacion ejecutable actual.
+
+Estado real recomendado para la defensa:
+
+- existe documentacion detallada del enfoque normativo,
+- existen contratos e interfaces de servicio para esa linea,
+- pero la integracion operativa completa con BOE, CTE, LOTUP o PGOU no forma parte del nucleo funcional actualmente implementado.
 
 ---
 

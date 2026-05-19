@@ -43,7 +43,14 @@ Estados utilizados:
 | RF-21 | Fichaje geolocalizado | Parcial | La entidad soporta coordenadas, pero la UI no captura aun la geolocalizacion |
 | RF-22 | Carpeta documental del proyecto | Parcial | Existe modelado de `CarpetaLegal`, pero no un modulo completo de explotacion |
 
-## 3. Funcionalidades emergentes con valor real
+## 3. Alcances parciales sin cierre end-to-end
+
+Ademas de los requisitos anteriores, hay dos lineas que conviene presentar con precision en la memoria y en la defensa:
+
+- `PRL`: existe modelado de cursos y vigencia en `Empleado`, pero no un flujo operativo completamente cerrado donde esa validacion bloquee de forma uniforme asignaciones, arranques y acceso a tareas.
+- `Inteligencia normativa`: existe documentacion conceptual y contratos de servicio, pero no una integracion funcional completa con BOE, CTE, LOTUP o PGOU dentro de la aplicacion ejecutable.
+
+## 4. Funcionalidades emergentes con valor real
 
 Durante el desarrollo aparecieron funcionalidades que incrementaron el valor final del sistema y que deben destacarse en la memoria:
 
@@ -54,7 +61,7 @@ Durante el desarrollo aparecieron funcionalidades que incrementaron el valor fin
 - modulo completo de RRHH con contratos, horarios y fichajes,
 - y planificacion automatica de horarios con restricciones contractuales.
 
-## 4. Interpretacion academica
+## 5. Interpretacion academica
 
 La mejor forma de defender esta trazabilidad no es insistir en un listado extenso de requisitos no completados, sino mostrar que:
 
@@ -63,6 +70,6 @@ La mejor forma de defender esta trazabilidad no es insistir en un listado extens
 - las extensiones parciales estan claramente delimitadas,
 - y el alcance final ha sido gestionado con criterio de priorizacion.
 
-## 5. Conclusion
+## 6. Conclusion
 
 El proyecto implementa con un grado alto de madurez el nucleo de gestion de proyectos, produccion por tareas, materiales, gestion economica y recursos humanos. Las lineas menos maduras quedan acotadas a un conjunto reducido de extensiones, por lo que no desvirtuan el valor global del sistema ni su defensa como TFG.
