@@ -93,9 +93,9 @@ public sealed class RRHHHorariosService
 
         var capacidadSemanalPorUsuario = await _db.Contratos
             .Include(c => c.Usuario)
-            .Where(c => c.Activo &&
+                .Where(c => c.Activo &&
                         c.Usuario.Activo &&
-                        c.Usuario.TipoUsuario == TipoUsuario.Operario &&
+                        UsuarioPerfilRules.TiposOperativos.Contains(c.Usuario.TipoUsuario) &&
                         c.FechaInicio <= referencia &&
                         (c.FechaFin == null || c.FechaFin >= referencia))
             .GroupBy(c => c.UsuarioId)
@@ -185,7 +185,7 @@ public sealed class RRHHHorariosService
             return OperacionHorarioResultado.Error("El trabajador seleccionado no existe o esta inactivo.");
         }
 
-        if (proyectoId.HasValue && trabajador.TipoUsuario != TipoUsuario.Operario)
+        if (proyectoId.HasValue && !trabajador.TipoUsuario.EsPerfilOperativo())
         {
             return OperacionHorarioResultado.Error("Solo los perfiles operativos pueden recibir horarios de obra por proyecto.");
         }

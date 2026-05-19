@@ -105,7 +105,9 @@
                         <option value="@TipoUsuario.Administrador">Administrador</option>
                         <option value="@TipoUsuario.JefeObra">Jefe de Obra</option>
                         <option value="@TipoUsuario.OficinaTecnica">Oficina Técnica</option>
-                        <option value="@TipoUsuario.Operario">Operario</option>
+                        <option value="@TipoUsuario.OperarioObra">Operario de Obra</option>
+                        <option value="@TipoUsuario.OperarioOficinaT">Operario de Oficina Tecnica</option>
+                        <option value="@TipoUsuario.Operario">Operario (legado)</option>
                     </InputSelect>
                     <ValidationMessage For="@(() => registerModel.TipoUsuario)" />
                 </div>
@@ -147,7 +149,7 @@
         var user = authState.User;
         isAdmin = user.IsInRole("Administrador");
 
-        registerModel.TipoUsuario = TipoUsuario.Operario;
+        registerModel.TipoUsuario = TipoUsuario.OperarioObra;
     }
 
     private async Task HandleRegister()
@@ -191,7 +193,10 @@
                     TipoUsuario.Administrador => "Administrador",
                     TipoUsuario.JefeObra => "JefeObra",
                     TipoUsuario.OficinaTecnica => "OficinaTecnica",
+                    TipoUsuario.OperarioObra => "OperarioObra",
+                    TipoUsuario.OperarioOficinaT => "OperarioOficinaT",
                     TipoUsuario.Operario => "Operario",
+                    TipoUsuario.RecursosHumanos => "RecursosHumanos",
                     _ => "Operario"
                 };
 
@@ -258,6 +263,6 @@
         [Compare("Password", ErrorMessage = "Las contraseñas no coinciden")]
         public string ConfirmPassword { get; set; } = string.Empty;
 
-        public TipoUsuario TipoUsuario { get; set; } = TipoUsuario.Operario;
+        public TipoUsuario TipoUsuario { get; set; } = TipoUsuario.OperarioObra;
     }
 }

@@ -32,30 +32,30 @@ public static class DemoDataSeeder
             "oficina.planificacion@gestionobras.com", "Daniel Cervera Pons", "82000002K", TipoUsuario.OficinaTecnica, "Demo123!", "OficinaTecnica");
 
         var operarioObra1 = await EnsureUserAsync(userManager, roleManager,
-            "obra.01@gestionobras.com", "Iván Quintana Beltrán", "83000001L", TipoUsuario.Operario, "Demo123!", "OperarioObra");
+            "obra.01@gestionobras.com", "Iván Quintana Beltrán", "83000001L", TipoUsuario.OperarioObra, "Demo123!", "OperarioObra");
         var operarioObra2 = await EnsureUserAsync(userManager, roleManager,
-            "obra.02@gestionobras.com", "Sergio Vidal Moreno", "83000002L", TipoUsuario.Operario, "Demo123!", "OperarioObra");
+            "obra.02@gestionobras.com", "Sergio Vidal Moreno", "83000002L", TipoUsuario.OperarioObra, "Demo123!", "OperarioObra");
         var operarioObra3 = await EnsureUserAsync(userManager, roleManager,
-            "obra.03@gestionobras.com", "Nuria Pastor Simó", "83000003L", TipoUsuario.Operario, "Demo123!", "OperarioObra");
+            "obra.03@gestionobras.com", "Nuria Pastor Simó", "83000003L", TipoUsuario.OperarioObra, "Demo123!", "OperarioObra");
         var operarioObra4 = await EnsureUserAsync(userManager, roleManager,
-            "obra.04@gestionobras.com", "Mario Crespo Tomás", "83000004L", TipoUsuario.Operario, "Demo123!", "OperarioObra");
+            "obra.04@gestionobras.com", "Mario Crespo Tomás", "83000004L", TipoUsuario.OperarioObra, "Demo123!", "OperarioObra");
         var operarioObra5 = await EnsureUserAsync(userManager, roleManager,
-            "obra.05@gestionobras.com", "Raúl Beltrán Izquierdo", "83000005L", TipoUsuario.Operario, "Demo123!", "OperarioObra");
+            "obra.05@gestionobras.com", "Raúl Beltrán Izquierdo", "83000005L", TipoUsuario.OperarioObra, "Demo123!", "OperarioObra");
         var operarioObra6 = await EnsureUserAsync(userManager, roleManager,
-            "obra.06@gestionobras.com", "Eva Robles Calvo", "83000006L", TipoUsuario.Operario, "Demo123!", "OperarioObra");
+            "obra.06@gestionobras.com", "Eva Robles Calvo", "83000006L", TipoUsuario.OperarioObra, "Demo123!", "OperarioObra");
         var operarioObra7 = await EnsureUserAsync(userManager, roleManager,
-            "obra.07@gestionobras.com", "Hugo Ferrer Mora", "83000007L", TipoUsuario.Operario, "Demo123!", "OperarioObra");
+            "obra.07@gestionobras.com", "Hugo Ferrer Mora", "83000007L", TipoUsuario.OperarioObra, "Demo123!", "OperarioObra");
         var operarioObra8 = await EnsureUserAsync(userManager, roleManager,
-            "obra.08@gestionobras.com", "Claudia Solé Pastor", "83000008L", TipoUsuario.Operario, "Demo123!", "OperarioObra");
+            "obra.08@gestionobras.com", "Claudia Solé Pastor", "83000008L", TipoUsuario.OperarioObra, "Demo123!", "OperarioObra");
 
         var operarioTec1 = await EnsureUserAsync(userManager, roleManager,
-            "ot.01@gestionobras.com", "Paula Cuesta León", "84000001M", TipoUsuario.Operario, "Demo123!", "OperarioOficinaT");
+            "ot.01@gestionobras.com", "Paula Cuesta León", "84000001M", TipoUsuario.OperarioOficinaT, "Demo123!", "OperarioOficinaT");
         var operarioTec2 = await EnsureUserAsync(userManager, roleManager,
-            "ot.02@gestionobras.com", "Javier Soler Prats", "84000002M", TipoUsuario.Operario, "Demo123!", "OperarioOficinaT");
+            "ot.02@gestionobras.com", "Javier Soler Prats", "84000002M", TipoUsuario.OperarioOficinaT, "Demo123!", "OperarioOficinaT");
         var operarioTec3 = await EnsureUserAsync(userManager, roleManager,
-            "ot.03@gestionobras.com", "Marina Valiente Sáez", "84000003M", TipoUsuario.Operario, "Demo123!", "OperarioOficinaT");
+            "ot.03@gestionobras.com", "Marina Valiente Sáez", "84000003M", TipoUsuario.OperarioOficinaT, "Demo123!", "OperarioOficinaT");
         var operarioTec4 = await EnsureUserAsync(userManager, roleManager,
-            "ot.04@gestionobras.com", "Óscar Climent Vives", "84000004M", TipoUsuario.Operario, "Demo123!", "OperarioOficinaT");
+            "ot.04@gestionobras.com", "Óscar Climent Vives", "84000004M", TipoUsuario.OperarioOficinaT, "Demo123!", "OperarioOficinaT");
 
         // Recursos Humanos
         var rrhh = await EnsureUserAsync(userManager, roleManager,

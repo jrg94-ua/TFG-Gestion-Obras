@@ -52,7 +52,7 @@ public class PlanificacionHorarioService
         };
 
         var tareasNoOperativas = tareasActivas
-            .Where(t => t.ResponsableFinal?.TipoUsuario != TipoUsuario.Operario)
+            .Where(t => !t.ResponsableFinal.EsPerfilOperativo())
             .ToList();
 
         if (tareasNoOperativas.Any())
@@ -69,7 +69,7 @@ public class PlanificacionHorarioService
         }
 
         var tareasOperativas = tareasActivas
-            .Where(t => t.ResponsableFinal?.TipoUsuario == TipoUsuario.Operario)
+            .Where(t => t.ResponsableFinal.EsPerfilOperativo())
             .ToList();
 
         if (!tareasOperativas.Any())
@@ -100,7 +100,7 @@ public class PlanificacionHorarioService
         }
 
         contratosActivos = contratosActivos
-            .Where(c => c.Usuario?.TipoUsuario == TipoUsuario.Operario)
+            .Where(c => c.Usuario.EsPerfilOperativo())
             .ToList();
 
         if (!contratosActivos.Any())

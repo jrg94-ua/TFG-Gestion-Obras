@@ -29,7 +29,7 @@ public class PlanificacionHorarioServiceTests
             UserName = "op1",
             NormalizedUserName = "OP1",
             NombreCompleto = "Operario Uno",
-            TipoUsuario = TipoUsuario.Operario,
+            TipoUsuario = TipoUsuario.OperarioOficinaT,
             Email = "op1@test.local",
             NormalizedEmail = "OP1@TEST.LOCAL"
         };

@@ -129,7 +129,7 @@ app.MapGet("/api/jefe-obra/horarios", async (
     }
 
     var operarios = await db.Users
-        .Where(u => u.Activo && u.TipoUsuario == TipoUsuario.Operario)
+        .Where(u => u.Activo && UsuarioPerfilRules.TiposOperativos.Contains(u.TipoUsuario))
         .OrderBy(u => u.NombreCompleto)
         .Select(u => new UsuarioResumenDto(u.Id, u.NombreCompleto, u.Cargo))
         .ToListAsync();
@@ -1561,6 +1561,7 @@ app.MapPost("/api/administracion/usuarios", async (
             Email = request.Email,
             NombreCompleto = request.NombreCompleto,
             DNI = request.DNI,
+            TipoUsuario = UsuarioPerfilRules.MapRolPrincipalATipoUsuario(request.Rol),
             EmailConfirmed = true,
             Activo = true,
             FechaCreacion = DateTime.Now
@@ -1585,6 +1586,7 @@ app.MapPost("/api/administracion/usuarios", async (
     usuarioExistente.NombreCompleto = request.NombreCompleto;
     usuarioExistente.DNI = request.DNI;
     usuarioExistente.Email = request.Email;
+    usuarioExistente.TipoUsuario = UsuarioPerfilRules.MapRolPrincipalATipoUsuario(request.Rol);
 
     var updateResult = await userManager.UpdateAsync(usuarioExistente);
     if (!updateResult.Succeeded)

@@ -32,5 +32,7 @@ public enum TipoUsuario
     JefeObra = 2,
     OficinaTecnica = 3,
     Operario = 4,
-    RecursosHumanos = 5
+    RecursosHumanos = 5,
+    OperarioObra = 6,
+    OperarioOficinaT = 7
 }

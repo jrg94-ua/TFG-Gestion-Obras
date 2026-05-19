@@ -27,6 +27,9 @@
                     <option value="JefeObra">Jefe de Obra</option>
                     <option value="OficinaTecnica">Oficina Tecnica</option>
                     <option value="Operario">Operario</option>
+                    <option value="OperarioObra">Operario de Obra</option>
+                    <option value="OperarioOficinaT">Operario de Oficina Tecnica</option>
+                    <option value="RecursosHumanos">Recursos Humanos</option>
                 </select>
             </div>
             <div class="col-md-4">
@@ -160,6 +163,9 @@
                                     <option value="JefeObra">Jefe de Obra</option>
                                     <option value="OficinaTecnica">Oficina Tecnica</option>
                                     <option value="Operario">Operario</option>
+                                    <option value="OperarioObra">Operario de Obra</option>
+                                    <option value="OperarioOficinaT">Operario de Oficina Tecnica</option>
+                                    <option value="RecursosHumanos">Recursos Humanos</option>
                                 </InputSelect>
                                 <ValidationMessage For="@(() => usuarioForm.Rol)" />
                             </div>
@@ -317,6 +323,9 @@
             "JefeObra" => "bg-primary",
             "OficinaTecnica" => "bg-info",
             "Operario" => "bg-secondary",
+            "OperarioObra" => "bg-secondary",
+            "OperarioOficinaT" => "bg-dark",
+            "RecursosHumanos" => "bg-success",
             _ => "bg-secondary"
         };
     }
