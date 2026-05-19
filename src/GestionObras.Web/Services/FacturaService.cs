@@ -50,7 +50,21 @@ public class FacturaService
             var existente = await _db.Facturas.FindAsync(factura.Id);
             if (existente != null)
             {
+                existente.NumeroFactura = factura.NumeroFactura;
+                existente.FechaEmision = factura.FechaEmision;
+                existente.FechaVencimiento = factura.FechaVencimiento;
+                existente.FechaPago = factura.FechaPago;
+                existente.Estado = factura.Estado;
+                existente.Concepto = factura.Concepto;
+                existente.BaseImponible = factura.BaseImponible;
+                existente.PorcentajeIVA = factura.PorcentajeIVA;
                 existente.DescuentoPorcentaje = factura.DescuentoPorcentaje;
+                existente.NombreProyecto = factura.NombreProyecto;
+                existente.MetodoPago = factura.MetodoPago;
+                existente.Observaciones = factura.Observaciones;
+                existente.ProyectoId = factura.ProyectoId;
+                existente.TareaId = factura.TareaId;
+                existente.ProveedorId = factura.ProveedorId;
                 RecalcularImportes(existente);
             }
         }
