@@ -1,0 +1,102 @@
+services:
+  # SQL Server Database
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: gestion-obras-db
+    environment:
+      ACCEPT_EULA: Y
+      SA_PASSWORD: GestionObras2026!
+      MSSQL_PID: Developer
+    ports:
+      - "14330:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+    networks:
+      - gestion-obras-network
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P GestionObras2026! -Q 'SELECT 1'"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # API Backend
+  api:
+    build:
+      context: ./src
+      dockerfile: GestionObras.API/Dockerfile
+    container_name: gestion-obras-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=GestionObrasDB;User Id=sa;Password=GestionObras2026!;TrustServerCertificate=true;
+    ports:
+      - "5000:8080"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+    networks:
+      - gestion-obras-network
+    volumes:
+      - ./src/GestionObras.API/appsettings.json:/app/appsettings.json:ro
+      - shared_keys:/shared-keys
+
+  # Web Frontend (Blazor)
+  web:
+    build:
+      context: ./src
+      dockerfile: GestionObras.Web/Dockerfile
+    container_name: gestion-obras-web
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - SeedDemoOnStartup=true
+      - ApiSettings__BaseUrl=http://api:8080
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=GestionObrasDB;User Id=sa;Password=GestionObras2026!;TrustServerCertificate=true;MultipleActiveResultSets=true
+    ports:
+      - "5001:8080"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+    networks:
+      - gestion-obras-network
+    volumes:
+      - ./src/GestionObras.Web/appsettings.json:/app/appsettings.json:ro
+      - shared_keys:/shared-keys
+
+  db-init:
+    image: mcr.microsoft.com/dotnet/sdk:10.0
+    container_name: gestion-obras-db-init
+    working_dir: /workspace/src
+    entrypoint:
+      - /bin/sh
+      - -lc
+      - |
+        /usr/bin/dotnet tool install --global dotnet-ef --version 10.0.0
+        export PATH="/root/.dotnet/tools:/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/bin"
+        /root/.dotnet/tools/dotnet-ef database update --project GestionObras.Infrastructure/GestionObras.Infrastructure.csproj
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=GestionObrasDB;User Id=sa;Password=GestionObras2026!;TrustServerCertificate=true;MultipleActiveResultSets=true
+      - ApiSettings__BaseUrl=http://api:8080
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    networks:
+      - gestion-obras-network
+    volumes:
+      - ./src:/workspace/src
+
+volumes:
+  sqlserver_data:
+    driver: local
+  shared_keys:
+    driver: local
+
+networks:
+  gestion-obras-network:
+    driver: bridge
