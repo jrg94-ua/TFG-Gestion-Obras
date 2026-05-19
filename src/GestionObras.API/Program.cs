@@ -17,11 +17,15 @@ using System.Security.Claims;
 var builder = WebApplication.CreateBuilder(args);
 var dataProtectionPath = Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "..", "shared-keys"));
 Directory.CreateDirectory(dataProtectionPath);
+var defaultConnectionString =
+    builder.Configuration.GetConnectionString("DefaultConnection") ??
+    builder.Configuration["ConnectionStrings:DefaultConnection"] ??
+    throw new InvalidOperationException("No se ha configurado la cadena de conexion 'DefaultConnection'.");
 
 builder.Services.AddOpenApi();
 builder.Services.AddDbContext<GestionObrasDbContext>(options =>
     options.UseSqlServer(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
+        defaultConnectionString,
         sqlServerOptions => sqlServerOptions.EnableRetryOnFailure(
             maxRetryCount: 5,
         maxRetryDelay: TimeSpan.FromSeconds(30),
@@ -60,7 +64,6 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("RecursosHumanosPolicy", policy => policy.RequireRole("RecursosHumanos", "Administrador"));
     options.AddPolicy("OperarioPolicy", policy => policy.RequireRole("Operario", "OperarioObra", "OperarioOficinaT", "JefeObra", "OficinaTecnica", "RecursosHumanos", "Administrador"));
 });
-builder.Services.AddScoped<DatabaseMigrationService>();
 builder.Services.AddScoped<TareaWorkflowService>();
 
 var app = builder.Build();
@@ -72,8 +75,8 @@ if (app.Environment.IsDevelopment())
 
 using (var scope = app.Services.CreateScope())
 {
-    var migrationService = scope.ServiceProvider.GetRequiredService<DatabaseMigrationService>();
-    await migrationService.ApplyAsync();
+    var dbContext = scope.ServiceProvider.GetRequiredService<GestionObrasDbContext>();
+    dbContext.Database.SetConnectionString(defaultConnectionString);
 }
 
 app.UseHttpsRedirection();

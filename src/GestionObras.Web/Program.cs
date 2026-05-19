@@ -12,6 +12,10 @@ using System.Globalization;
 var builder = WebApplication.CreateBuilder(args);
 var dataProtectionPath = Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "..", "shared-keys"));
 Directory.CreateDirectory(dataProtectionPath);
+var defaultConnectionString =
+    builder.Configuration.GetConnectionString("DefaultConnection") ??
+    builder.Configuration["ConnectionStrings:DefaultConnection"] ??
+    throw new InvalidOperationException("No se ha configurado la cadena de conexion 'DefaultConnection'.");
 
 // Configurar cultura espanola para formateo de moneda y fechas
 var cultureInfo = new CultureInfo("es-ES");
@@ -25,7 +29,7 @@ builder.Services.AddDataProtection()
 // Configurar DbContext con SQL Server
 builder.Services.AddDbContext<GestionObrasDbContext>(options =>
     options.UseSqlServer(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
+        defaultConnectionString,
         sqlServerOptions => sqlServerOptions.EnableRetryOnFailure(
             maxRetryCount: 5,
             maxRetryDelay: TimeSpan.FromSeconds(30),
@@ -116,7 +120,6 @@ builder.Services.AddScoped<DocumentoService>();
 builder.Services.AddScoped<ExportPdfService>();
 builder.Services.AddScoped<ExportExcelService>();
 builder.Services.AddScoped<FacturaService>();
-builder.Services.AddScoped<DatabaseMigrationService>();
 builder.Services.AddScoped<TareaWorkflowService>();
 builder.Services.AddScoped<KanbanService>();
 builder.Services.AddScoped<PresupuestoService>();
@@ -146,8 +149,7 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var dbContext = services.GetRequiredService<GestionObrasDbContext>();
-        var migrationService = services.GetRequiredService<DatabaseMigrationService>();
-        await migrationService.ApplyAsync();
+        dbContext.Database.SetConnectionString(defaultConnectionString);
 
         var userManager = services.GetRequiredService<UserManager<UsuarioObra>>();
         var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
