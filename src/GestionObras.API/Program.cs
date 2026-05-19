@@ -60,6 +60,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("RecursosHumanosPolicy", policy => policy.RequireRole("RecursosHumanos", "Administrador"));
     options.AddPolicy("OperarioPolicy", policy => policy.RequireRole("Operario", "OperarioObra", "OperarioOficinaT", "JefeObra", "OficinaTecnica", "RecursosHumanos", "Administrador"));
 });
+builder.Services.AddScoped<DatabaseMigrationService>();
 builder.Services.AddScoped<TareaWorkflowService>();
 
 var app = builder.Build();
@@ -71,8 +72,8 @@ if (app.Environment.IsDevelopment())
 
 using (var scope = app.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<GestionObrasDbContext>();
-    await db.Database.EnsureCreatedAsync();
+    var migrationService = scope.ServiceProvider.GetRequiredService<DatabaseMigrationService>();
+    await migrationService.ApplyAsync();
 }
 
 app.UseHttpsRedirection();

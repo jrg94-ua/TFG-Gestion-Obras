@@ -221,7 +221,8 @@ public class GestionObrasDbContext : IdentityDbContext<UsuarioObra>
             entity.Property(m => m.Codigo).HasMaxLength(50);
             entity.Property(m => m.Descripcion).HasMaxLength(1000);
             entity.Property(m => m.PrecioUnitario).HasColumnType("decimal(18,2)");
-                  entity.Property(m => m.Activo).HasDefaultValue(true);
+            entity.Property(m => m.StockMinimo).HasColumnType("decimal(18,2)");
+            entity.Property(m => m.Activo).HasDefaultValue(true);
             
             // Propiedades técnicas CTE
             entity.Property(m => m.TransmitanciaTermica).HasColumnType("decimal(18,4)");
@@ -252,22 +253,33 @@ public class GestionObrasDbContext : IdentityDbContext<UsuarioObra>
                       }
                   );
         });
-
-            builder.Entity<CategoriaMaterial>(entity =>
-            {
-                  entity.HasKey(c => c.Id);
-                  entity.Property(c => c.Nombre).HasMaxLength(100).IsRequired();
-                  entity.Property(c => c.Descripcion).HasMaxLength(300);
-                  entity.HasIndex(c => c.Nombre).IsUnique();
-            });
+        builder.Entity<CategoriaMaterial>(entity =>
+        {
+            entity.HasKey(c => c.Id);
+            entity.Property(c => c.Nombre).HasMaxLength(100).IsRequired();
+            entity.Property(c => c.Descripcion).HasMaxLength(300);
+            entity.Property(c => c.Activa).HasDefaultValue(true);
+            entity.HasIndex(c => c.Nombre).IsUnique();
+            entity.HasData(
+                new CategoriaMaterial { Id = 1, Nombre = "Estructura", Descripcion = "Materiales estructurales y portantes", Activa = true },
+                new CategoriaMaterial { Id = 2, Nombre = "Albanileria", Descripcion = "Ladrillos, bloques y fabrica", Activa = true },
+                new CategoriaMaterial { Id = 3, Nombre = "Instalaciones", Descripcion = "Fontaneria, electricidad y climatizacion", Activa = true },
+                new CategoriaMaterial { Id = 4, Nombre = "Aislamientos", Descripcion = "Elementos aislantes termicos y acusticos", Activa = true },
+                new CategoriaMaterial { Id = 5, Nombre = "Acabados", Descripcion = "Revestimientos y terminaciones", Activa = true },
+                new CategoriaMaterial { Id = 6, Nombre = "Prefabricados", Descripcion = "Elementos fabricados fuera de obra", Activa = true });
+        });
 
         // Factura
         builder.Entity<Factura>(entity =>
         {
             entity.HasKey(f => f.Id);
             entity.Property(f => f.Importe).HasColumnType("decimal(18,2)");
+            entity.Property(f => f.BaseImponible).HasColumnType("decimal(18,2)");
+            entity.Property(f => f.PorcentajeIVA).HasColumnType("decimal(18,2)");
+            entity.Property(f => f.IVA).HasColumnType("decimal(18,2)");
+            entity.Property(f => f.ImporteTotal).HasColumnType("decimal(18,2)");
             entity.Property(f => f.Concepto).HasMaxLength(500);
-                  entity.Property(f => f.DescuentoPorcentaje).HasColumnType("decimal(5,2)");
+            entity.Property(f => f.DescuentoPorcentaje).HasColumnType("decimal(5,2)");
             
             entity.HasOne(f => f.Proveedor)
                   .WithMany()
